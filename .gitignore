@@ -1,0 +1,14 @@
+
+.vscode/launch.json
+
+*.csproj
+
+Library/*
+
+*.sln
+
+server.log
+
+Temp/*
+
+Server/log/*

@@ -1,0 +1,63 @@
+<html>
+    <head>
+        <script>
+            var ws = null;
+            function connect() {
+                if (ws !== null) return log('already connected');
+                ws = new WebSocket('ws://127.0.0.1:80/client');
+                ws.onopen = function () {
+                    log('connected');
+                    var data = {
+                        "command": "setId",
+                        "playerId": "100"
+                    };
+                    
+                    send(JSON.stringify(data));
+                };
+                ws.onerror = function (error) {
+                    log(error);
+                };
+                ws.onmessage = function (e) {
+                    log('recv: ' + e.data);
+                };
+                ws.onclose = function () {
+                    log('disconnected');
+                    ws = null;
+                };
+                return false;
+            }
+            function disconnect() {
+                if (ws === null) return log('already disconnected');
+                ws.close();
+                return false;
+            }
+            function send(text) {
+                if (ws === null) return log('please connect first');
+                log('send: ' + text);
+                ws.send(text);
+
+                return false;
+            }
+            function log(text) {
+                var li = document.createElement('li');
+                li.appendChild(document.createTextNode(text));
+                document.getElementById('log').appendChild(li);
+                return false;
+            }
+            window.addEventListener('load', connect, false);
+        </script>
+    </head>
+    <body>
+        <form onsubmit="return send();">
+            <button type="button" onclick="return connect();">
+                Connect
+            </button>
+            <button type="button" onclick="return disconnect();">
+                Disconnect
+            </button>
+            <!-- <input id="text" type="text">
+            <button type="submit">Send</button> -->
+        </form>
+        <ol id="log"></ol>
+    </body>
+</html>
