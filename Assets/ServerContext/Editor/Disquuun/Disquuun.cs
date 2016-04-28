@@ -8,11 +8,12 @@ using System.Security.Cryptography;
 using System.Text;
 using XrossPeerUtility;
 
-public class DisqueSharp {
+public class Disquuun {
 	public readonly string connectionId;
 	
 	private readonly Action<string> Connected;
-	private readonly Action<DisqueCommand, byte[]> Received;
+	private readonly Action<DisqueCommand, byte[], byte[]> Received;
+	private readonly Action<DisqueCommand, byte[]> Failed;
 	private readonly Action<Exception> Error;
 	private readonly Action<string> Closed;
 	
@@ -74,13 +75,14 @@ public class DisqueSharp {
 	}
 	
 	
-	public DisqueSharp (
+	public Disquuun (
 		string connectionId,
 		string host,
 		int port,
 		long bufferSize,
 		Action<string> Connected=null,
-		Action<DisqueCommand, byte[]> Received=null,
+		Action<DisqueCommand, byte[], byte[]> Received=null,
+		Action<DisqueCommand, byte[]> Failed=null,
 		Action<Exception> Error=null,
 		Action<string> Closed=null
 	) {
@@ -88,6 +90,7 @@ public class DisqueSharp {
 		
 		this.Connected = Connected;
 		this.Received = Received;
+		this.Failed = Failed;
 		this.Error = Error;
 		this.Closed = Closed;
 		
@@ -217,7 +220,7 @@ public class DisqueSharp {
 			XrossPeer.TimeAssert(Develop.TIME_ASSERT, "データのもち越しどうなるんだろう");
 			XrossPeer.TimeAssert(Develop.TIME_ASSERT, "ジョブの種類についてはDequeueで対応できるはず");
 			
-			var cursor = DisqueFilter.Evaluate(command, token.stack, args.BytesTransferred, args.Buffer, Received);
+			var cursor = DisqueFilter.Evaluate(command, token.stack, args.BytesTransferred, args.Buffer, Received, Failed);
 			
 			XrossPeer.Log("args.BytesTransferred:" + args.BytesTransferred + " vs cursor:" + cursor);
 		}
@@ -273,7 +276,7 @@ public class DisqueSharp {
 	/*
 		bytes
 	*/
-	public const byte ByteError		= 44;
+	public const byte ByteError		= 45;
 	public const byte ByteStatus	= 43;
 	public const byte ByteBulk		= 36;
 	public const byte ByteMultiBulk	= 42;
@@ -309,7 +312,7 @@ public class DisqueSharp {
 		*/
 		
 		
-		public static int Evaluate(DisqueCommand currentCommand, Queue<DisqueCommand> commands, int bytesTransferred, byte[] sourceBuffer, Action<DisqueCommand, byte[]> Received) {
+		public static int Evaluate(DisqueCommand currentCommand, Queue<DisqueCommand> commands, int bytesTransferred, byte[] sourceBuffer, Action<DisqueCommand, byte[], byte[]> Received, Action<DisqueCommand, byte[]> Failed) {
 			int cursor = 0;
 			
 			while (cursor < bytesTransferred) {
@@ -321,29 +324,36 @@ public class DisqueSharp {
 				
 				switch (currentCommand) {
 					case DisqueCommand.ADDJOB: {
-						XrossPeer.LogError("not yet applied:" + currentCommand);
-						
 						switch (sourceBuffer[cursor]) {
 							case ByteStatus: {
-								XrossPeer.Log("success!");
-								{
-									// +
-									var lineEndCursor = ReadLine(sourceBuffer, cursor);
-									cursor = cursor + 1;// add header byte size = 1.
-									
+								// +
+								var lineEndCursor = ReadLine(sourceBuffer, cursor);
+								cursor = cursor + 1;// add header byte size = 1.
+								
+								if (Received != null) {
 									var idStr = enc.GetString(sourceBuffer, cursor, lineEndCursor - cursor);
-									XrossPeer.Log("idStr:" + idStr);
-									
-									// cursor = cursor + strNum + 2;// CR + LF
+									// XrossPeer.Log("idStr:" + idStr);
+									Received(currentCommand, enc.GetBytes(idStr), null);
 								}
+								
+								cursor = lineEndCursor + 2;// CR + LF
 								break;
 							}
 							case ByteError: {
+								// -
+								var lineEndCursor = ReadLine(sourceBuffer, cursor);
+								cursor = cursor + 1;// add header byte size = 1.
+								
+								if (Received != null) {
+									var errorStr = enc.GetString(sourceBuffer, cursor, lineEndCursor - cursor);
+									// XrossPeer.Log("errorStr:" + errorStr);
+									Failed(currentCommand, enc.GetBytes(errorStr));
+								}
+								
+								cursor = lineEndCursor + 2;// CR + LF
 								break;
 							}
 							default: {
-								var baseStr = Encoding.UTF8.GetString(sourceBuffer, cursor, bytesTransferred - cursor);
-								XrossPeer.LogError("error:" + baseStr);
 								break;
 							}
 						}
@@ -352,18 +362,115 @@ public class DisqueSharp {
 						break;
 					}
 					case DisqueCommand.GETJOB: {
-						XrossPeer.LogError("not yet applied:" + currentCommand);
-						cursor = bytesTransferred;
+						{
+							// *
+							var lineEndCursor = ReadLine(sourceBuffer, cursor);
+							cursor = cursor + 1;// add header byte size = 1.
+							
+							var bulkCountStr = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor - cursor);
+							var bulkCountNum = Convert.ToInt32(bulkCountStr);
+							// XrossPeer.Log("bulkCountNum:" + bulkCountNum);
+							cursor = lineEndCursor + 2;// CR + LF
+							
+							for (var i = 0; i < bulkCountNum; i++) {
+								{
+									// *
+									var lineEndCursor2 = ReadLine(sourceBuffer, cursor);
+									cursor = cursor + 1;// add header byte size = 1.
+									
+									var bulkCountStr2 = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor2 - cursor);
+									var bulkCountNum2 = Convert.ToInt32(bulkCountStr2);
+									// XrossPeer.Log("bulkCountNum2:" + bulkCountNum2);
+									cursor = lineEndCursor2 + 2;// CR + LF
+								}
+								
+								// queueName
+								{
+									// $
+									var lineEndCursor3 = ReadLine(sourceBuffer, cursor);
+									cursor = cursor + 1;// add header byte size = 1.
+									
+									var countStr = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor3 - cursor);
+									var strNum = Convert.ToInt32(countStr);
+									// XrossPeer.Log("id strNum:" + strNum);
+									
+									cursor = lineEndCursor3 + 2;// CR + LF
+									
+									var nameStr = Encoding.UTF8.GetString(sourceBuffer, cursor, strNum);
+									// XrossPeer.Log("nameStr:" + nameStr);
+									
+									cursor = cursor + strNum + 2;// CR + LF
+								}
+								
+								var jobIdIndex = 0;
+								var jobIdLength = 0;
+								
+								// jobId
+								{
+									// $
+									var lineEndCursor3 = ReadLine(sourceBuffer, cursor);
+									cursor = cursor + 1;// add header byte size = 1.
+									
+									var countStr = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor3 - cursor);
+									var strNum = Convert.ToInt32(countStr);
+									// XrossPeer.Log("id strNum:" + strNum);
+									
+									cursor = lineEndCursor3 + 2;// CR + LF
+									
+									jobIdIndex = cursor;
+									jobIdLength = strNum;
+									// var jobIdSrt = Encoding.UTF8.GetString(sourceBuffer, cursor, strNum);
+									// XrossPeer.Log("jobIdSrt:" + jobIdSrt);
+									
+									cursor = cursor + strNum + 2;// CR + LF
+								}
+								
+								// jobData
+								{
+									// $
+									var lineEndCursor3 = ReadLine(sourceBuffer, cursor);
+									cursor = cursor + 1;// add header byte size = 1.
+									
+									var countStr = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor3 - cursor);
+									var strNum = Convert.ToInt32(countStr);
+									// XrossPeer.Log("data strNum:" + strNum);
+									
+									cursor = lineEndCursor3 + 2;// CR + LF
+									
+									if (Received != null) {
+										var jobIdBytes = new byte[jobIdLength];
+										Array.Copy(sourceBuffer, jobIdIndex, jobIdBytes, 0, jobIdLength);
+										
+										var dataBytes = new byte[strNum];
+										Array.Copy(sourceBuffer, cursor, dataBytes, 0, strNum);
+										
+										Received(currentCommand, jobIdBytes, dataBytes);
+									}
+									
+									cursor = cursor + strNum + 2;// CR + LF
+								}
+							} 
+						}
 						break;
 					}
-					case DisqueCommand.ACKJOB: {
-						XrossPeer.LogError("not yet applied:" + currentCommand);
-						cursor = bytesTransferred;
-						break;
-					}
+					case DisqueCommand.ACKJOB:
 					case DisqueCommand.FASTACK: {
-						XrossPeer.LogError("not yet applied:" + currentCommand);
-						cursor = bytesTransferred;
+						{
+							// :Identity count
+							var lineEndCursor = ReadLine(sourceBuffer, cursor);
+							cursor = cursor + 1;// add header byte size = 1.
+							
+							if (Received != null) { 	
+								// var countStr = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor - cursor);
+								// var countNum = Convert.ToInt32(countStr);
+								var countBuffer = new byte[lineEndCursor - cursor];
+								Array.Copy(sourceBuffer, cursor, countBuffer, 0, countBuffer.Length);
+								Received(currentCommand, countBuffer, null);	
+							}
+							
+							// XrossPeer.Log(":countNum:" + countNum);
+							cursor = lineEndCursor + 2;// CR + LF
+						}
 						break;
 					}
 					case DisqueCommand.WORKING: {
@@ -390,14 +497,14 @@ public class DisqueSharp {
 							var newBuffer = new byte[countNum];
 							// var dataStr = Encoding.UTF8.GetString(args.Buffer, cursor, countNum);	
 							Array.Copy(sourceBuffer, cursor, newBuffer, 0, countNum);
-							Received(currentCommand, newBuffer);
+							Received(currentCommand, newBuffer, null);
 						}
 						
 						cursor = cursor + countNum + 2;// CR + LF
 						break;
 					}
 					case DisqueCommand.HELLO: {
-						XrossPeer.LogError("not yet applied value function.:" + currentCommand);
+						var strBuilder = new StringBuilder();
 						{
 							// *
 							var lineEndCursor = ReadLine(sourceBuffer, cursor);
@@ -432,6 +539,7 @@ public class DisqueSharp {
 							cursor = lineEndCursor + 2;// CR + LF
 							
 							var idStr = Encoding.UTF8.GetString(sourceBuffer, cursor, strNum);
+							strBuilder.Append(idStr + "\n");
 							// XrossPeer.Log("idStr:" + idStr);
 							
 							cursor = cursor + strNum + 2;// CR + LF
@@ -460,11 +568,16 @@ public class DisqueSharp {
 								cursor = lineEndCursor2 + 2;// CR + LF
 								
 								var idStr = Encoding.UTF8.GetString(sourceBuffer, cursor, strNum);
+								strBuilder.Append(idStr + "\n");
 								// XrossPeer.Log("idStr:" + idStr);
 								
 								cursor = cursor + strNum + 2;// CR + LF
 							}
 						}
+						if (Received != null) {
+							var newBuffer = enc.GetBytes(strBuilder.ToString());
+							Received(currentCommand, newBuffer, null);
+						} 
 						break;
 					}
 					case DisqueCommand.QLEN: {
@@ -535,22 +648,37 @@ public class DisqueSharp {
 	public void AddJob (string queueName, byte[] data, int timeout=0, params object[] args) {
 		// ADDJOB queue_name job <ms-timeout> 
 		// [REPLICATE <count>] [DELAY <sec>] [RETRY <sec>] [TTL <sec>] [MAXLEN <count>] [ASYNC]
-		XrossPeer.Log("byteをそのまま送りたいんだが、っていうやつ。");
+		XrossPeer.Log("byteをそのまま送りたいんだが、っていうやつ。byteArrayをそのままではうまく変形できない。");
 		var dataStr = enc.GetString(data);
-		SendBytes(DisqueCommand.ADDJOB, "ADDJOB", queueName, dataStr, timeout);
+		SendBytes(DisqueCommand.ADDJOB, queueName, dataStr, timeout);
 	}
 	
 	public void GetJob (string[] queueIds, params object[] args) {
 		// [NOHANG] [TIMEOUT <ms-timeout>] [COUNT <count>] [WITHCOUNTERS] 
 		// FROM queue1 queue2 ... queueN
+		var parameters = new object[args.Length + 1 + queueIds.Length];
+		for (var i = 0; i < parameters.Length; i++) {
+			if (i < args.Length) {
+				parameters[i] = args[i];
+				continue;
+			}
+			if (i == args.Length) {
+				parameters[i] = "FROM";
+				continue;
+			}
+			parameters[i] = queueIds[i - (args.Length + 1)];
+		}
+		SendBytes(DisqueCommand.GETJOB, parameters);
 	}
-
+	
 	public void AckJob (string[] jobIds) {
 		// jobid1 jobid2 ... jobidN
+		SendBytes(DisqueCommand.ACKJOB, jobIds);
 	}
 
 	public void FastAck (string[] jobIds) {
 		// jobid1 jobid2 ... jobidN
+		SendBytes(DisqueCommand.FASTACK, jobIds);
 	}
 
 	public void Working (string jobId) {
@@ -563,19 +691,20 @@ public class DisqueSharp {
 	
 	public void Info () {
 		XrossPeer.TimeAssert(Develop.TIME_ASSERT, "stringはあとでなんとかするとして");
-		SendBytes(DisqueCommand.INFO, "INFO");
+		SendBytes(DisqueCommand.INFO);
 	}
 	
 	public void Hello () {
-		SendBytes(DisqueCommand.HELLO, "HELLO");
+		SendBytes(DisqueCommand.HELLO);
 	}
 	
 	
 	
 	
-	private void SendBytes (DisqueCommand commandEnum, string command, params object[] args) {
+	private void SendBytes (DisqueCommand commandEnum, params object[] args) {
 		int length = 1 + args.Length;
 		
+		var command = commandEnum.ToString();
 		string strCommand;
 		
 		XrossPeer.TimeAssert(Develop.TIME_ASSERT, "自前のbyte memory streamを使うかな。stringBuffer重たいんで使いたくない。あとでベンチ。");
