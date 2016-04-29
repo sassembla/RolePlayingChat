@@ -3,6 +3,7 @@ using XrossPeerUtility;
 using System;
 using System.Text;
 using DisquuunCore;
+using System.Collections.Generic;
 
 public class ServerContext {
 	
@@ -17,8 +18,8 @@ public class ServerContext {
 		XrossPeer.Log("server generated! serverContextId:" + serverContextId + " serverQueueId:" + serverQueueId);
 		
 		
-		DisquuunTests.RunDisquuunTests();
-		if (true) return; 
+		// DisquuunTests.RunDisquuunTests();
+		// if (true) return; 
 		
 		var disqueId = Guid.NewGuid().ToString();
 		disquuun = new Disquuun(
@@ -38,27 +39,33 @@ public class ServerContext {
 				disquuun.Info();
 				disquuun.GetJob(new string[]{serverQueueId}, "COUNT", 1000);// これで過去のやつを拾ってきちゃうのか。
 			},
-			(command, bytes0, bytes1) => {
+			(command, bytes0) => {
 				switch (command) {
 					case Disquuun.DisqueCommand.INFO: {
-						var info = Encoding.UTF8.GetString(bytes0, 0, bytes0.Length);
+						var info = Encoding.UTF8.GetString((byte[])bytes0[0], 0, bytes0.Length);
 						XrossPeer.Log("info:" + info);
 						break;
 					}
 					case Disquuun.DisqueCommand.GETJOB: {
-						var jobId = Encoding.UTF8.GetString(bytes0, 0, bytes0.Length);
-						// あーーー。ここですべてのデータについてfastackできるようにしないといけないんだ。
-						// 柔軟な受け口が必要。関数渡すのはやだなあ、、スタックが大変そうなんで。
+						var jobIds = new List<string>();
+						foreach (var bytes in bytes0) {
+							var data = (Disquuun.ByteDatas)bytes;
+							var jobId = Encoding.UTF8.GetString(data.b[0], 0, data.b[0].Length);
+							jobIds.Add(jobId);
+							
+							var bytes1 = data.b[1];
+							ParseData(bytes1);
+						}
 						
-						
-						disquuun.FastAck(new string[]{jobId});
-						ParseData(bytes0, bytes1);
+						disquuun.FastAck(jobIds.ToArray());
 						break;
 					}
 					case Disquuun.DisqueCommand.FASTACK: {
-						var countStr = Encoding.UTF8.GetString(bytes0, 0, bytes0.Length);
-						var countNum = Convert.ToInt32(countStr);
-						XrossPeer.Log("fastack:" + countNum);
+						XrossPeer.Log("fastack1");
+						// var countStr = Encoding.UTF8.GetString(bytes0, 0, bytes0.Length);
+						// var countNum = Convert.ToInt32(countStr);
+						// XrossPeer.Log("fastack:" + countNum);
+						// disquuun.Info();
 						disquuun.GetJob(new string[]{serverQueueId}, "COUNT", 1000);// N回走っちゃう。
 						break;
 					}
@@ -96,7 +103,7 @@ public class ServerContext {
 
 	private const int CONNECTION_ID_LEN = 36;// 65D76DEE-0E68-424E-A18F-6D2CC9656FB3
 	
-	private void ParseData (byte[] queueId, byte[] dataArray) {
+	private void ParseData (byte[] dataArray) {
 		var len = dataArray.Length;
 		if (len < 1/*s or b or c*/ + 1/*state param*/ + CONNECTION_ID_LEN/*connectionId*/) {
 			var invalidMessage = Encoding.ASCII.GetString(dataArray);
@@ -210,7 +217,10 @@ public class ServerContext {
 		ServerContextの終了手続き
 	*/
 	public void Teardown () {
-		if (disquuun != null) disquuun.Disconnect();
+		if (disquuun != null) {
+			XrossPeer.Log("disconnect disquuun.");
+			disquuun.Disconnect();
+		}
 		XrossPeer.TimeAssert(Develop.TIME_ASSERT, "ContextのTeardown処理、なんか必要かな、、");
 	}
 	
@@ -245,6 +255,7 @@ public class ServerContext {
 	}
 
 	public void OnDisconnected (string connectionId, byte[] data, string reason) {
+		XrossPeer.Log("切断しにきてる:" + connectionId);
 		var playerIdString = Encoding.UTF8.GetString(data);
 		reservationLayer.EnqueueOnDisconnect(connectionId, playerIdString, reason);
 	}

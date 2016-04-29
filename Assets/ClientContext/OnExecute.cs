@@ -1,8 +1,8 @@
 ﻿using UnityEngine;
 using System.Collections;
-using XrossPeerUtility;
 using WebSocketControl;
 using System.Collections.Generic;
+using System;
 
 public class OnExecute : MonoBehaviour {
 	
@@ -18,30 +18,29 @@ public class OnExecute : MonoBehaviour {
 			yield return null;
 		}
 		
-		XrossPeer.SetupLog(string.Empty, Debug.Log);
-		
 		// クライアント接続を開始して、接続できたら云々。
 		WebSocketConnectionController.InitWebSocketConnection(
 			new Dictionary<string, string>{
-				{"playerId", "100"}
+				{"playerId", Guid.NewGuid().ToString()}
 			},//Dictionary<string, string> customHeaderKeyValues, 
 			"rolePlayAgent", // string agent,
 			() => {
-				XrossPeer.Log("connected!");
+				Debug.LogError("connected!");
 			},// Action connected, 
 			(List<byte[]> datas) => {
-				XrossPeer.Log("data incomming!");
+				Debug.LogError("data incomming!");
 			},// Action<List<byte[]>> onBinaryMessage,
 			(connectionFailedReason) => {
-				XrossPeer.Log("connection failed, connectionFailedReason:" + connectionFailedReason);
+				Debug.LogError("connection failed, connectionFailedReason:" + connectionFailedReason);
 			},// Action<string> connectionFailed, 
 			(disconnectedReason) => {
-				XrossPeer.Log("disconnected, reason:" + disconnectedReason);
+				Debug.LogError("disconnected, reason:" + disconnectedReason);
 			},// Action<string> disconnected,
 			false,// bool autoReconnect,
 			() => {}// Action reconnected
 		);
 	}
+	
 	
 	// Update is called once per frame
 	void Update () {

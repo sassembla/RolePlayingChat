@@ -6,13 +6,14 @@ using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
+using XrossPeerUtility;
 
 namespace DisquuunCore {
 	public class Disquuun {
 		public readonly string connectionId;
 		
 		private readonly Action<string> Connected;
-		private readonly Action<DisqueCommand, byte[], byte[]> Received;
+		private readonly Action<DisqueCommand, object[]> Received;
 		private readonly Action<DisqueCommand, byte[]> Failed;
 		private readonly Action<Exception> Error;
 		private readonly Action<string> Closed;
@@ -81,7 +82,7 @@ namespace DisquuunCore {
 			int port,
 			long bufferSize,
 			Action<string> Connected=null,
-			Action<DisqueCommand, byte[], byte[]> Received=null,
+			Action<DisqueCommand, object[]> Received=null,
 			Action<DisqueCommand, byte[]> Failed=null,
 			Action<Exception> Error=null,
 			Action<string> Closed=null
@@ -222,7 +223,7 @@ namespace DisquuunCore {
 				
 				var cursor = DisqueFilter.Evaluate(command, token.stack, args.BytesTransferred, args.Buffer, Received, Failed);
 				
-				TestLogger.Log("args.BytesTransferred:" + args.BytesTransferred + " vs cursor:" + cursor);
+				// TestLogger.Log("args.BytesTransferred:" + args.BytesTransferred + " vs cursor:" + cursor);
 			}
 			
 			// 同じデータが出るようになれば、末尾にデータが追加されたのが見れるんだと思うんだけど。
@@ -312,7 +313,7 @@ namespace DisquuunCore {
 			*/
 			
 			
-			public static int Evaluate(DisqueCommand currentCommand, Queue<DisqueCommand> commands, int bytesTransferred, byte[] sourceBuffer, Action<DisqueCommand, byte[], byte[]> Received, Action<DisqueCommand, byte[]> Failed) {
+			public static int Evaluate(DisqueCommand currentCommand, Queue<DisqueCommand> commands, int bytesTransferred, byte[] sourceBuffer, Action<DisqueCommand, object[]> Received, Action<DisqueCommand, byte[]> Failed) {
 				int cursor = 0;
 				
 				while (cursor < bytesTransferred) {
@@ -333,7 +334,7 @@ namespace DisquuunCore {
 									if (Received != null) {
 										var idStr = enc.GetString(sourceBuffer, cursor, lineEndCursor - cursor);
 										// TestLogger.Log("idStr:" + idStr);
-										Received(currentCommand, enc.GetBytes(idStr), null);
+										// Received(currentCommand, new object[][]{enc.GetBytes(idStr)});
 									}
 									
 									cursor = lineEndCursor + 2;// CR + LF
@@ -362,6 +363,7 @@ namespace DisquuunCore {
 							break;
 						}
 						case DisqueCommand.GETJOB: {
+							var jobDatas = new List<ByteDatas>();
 							{
 								// *
 								var lineEndCursor = ReadLine(sourceBuffer, cursor);
@@ -437,20 +439,28 @@ namespace DisquuunCore {
 										
 										cursor = lineEndCursor3 + 2;// CR + LF
 										
-										if (Received != null) {
-											var jobIdBytes = new byte[jobIdLength];
-											Array.Copy(sourceBuffer, jobIdIndex, jobIdBytes, 0, jobIdLength);
-											
-											var dataBytes = new byte[strNum];
-											Array.Copy(sourceBuffer, cursor, dataBytes, 0, strNum);
-											
-											Received(currentCommand, jobIdBytes, dataBytes);
-										}
+										var jobIdBytes = new byte[jobIdLength];
+										Array.Copy(sourceBuffer, jobIdIndex, jobIdBytes, 0, jobIdLength);
+										
+										var dataBytes = new byte[strNum];
+										Array.Copy(sourceBuffer, cursor, dataBytes, 0, strNum);
+										
+										jobDatas.Add(new ByteDatas(jobIdBytes, dataBytes));
 										
 										cursor = cursor + strNum + 2;// CR + LF
 									}
-								} 
+									
+								}
 							}
+							if (0 < jobDatas.Count) {
+								if (Received != null) {
+									var objects = new object[jobDatas.Count];
+									for (var i = 0; i < objects.Length; i++) {
+										objects[i] = jobDatas[i];
+									}
+									Received(currentCommand, objects);
+								} 	
+							} 
 							break;
 						}
 						case DisqueCommand.ACKJOB:
@@ -463,9 +473,9 @@ namespace DisquuunCore {
 								if (Received != null) { 	
 									// var countStr = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor - cursor);
 									// var countNum = Convert.ToInt32(countStr);
-									var countBuffer = new byte[lineEndCursor - cursor];
+									var countBuffer = new object[lineEndCursor - cursor];
 									Array.Copy(sourceBuffer, cursor, countBuffer, 0, countBuffer.Length);
-									Received(currentCommand, countBuffer, null);	
+									Received(currentCommand, countBuffer);
 								}
 								
 								// TestLogger.Log(":countNum:" + countNum);
@@ -494,10 +504,14 @@ namespace DisquuunCore {
 							cursor = lineEndCursor + 2;// CR + LF
 							
 							if (Received != null) {
-								var newBuffer = new byte[countNum];
-								// var dataStr = Encoding.UTF8.GetString(args.Buffer, cursor, countNum);	
-								Array.Copy(sourceBuffer, cursor, newBuffer, 0, countNum);
-								Received(currentCommand, newBuffer, null);
+								var dataStr = Encoding.UTF8.GetString(sourceBuffer, cursor, countNum);
+								TestLogger.Log("dataStr:" + dataStr);
+								
+								
+								// var newBuffer = new byte[countNum];
+								// Array.Copy(sourceBuffer, cursor, newBuffer, 0, countNum);
+								
+								// Received(currentCommand, new object[]{newBuffer});
 							}
 							
 							cursor = cursor + countNum + 2;// CR + LF
@@ -576,7 +590,7 @@ namespace DisquuunCore {
 							}
 							if (Received != null) {
 								var newBuffer = enc.GetBytes(strBuilder.ToString());
-								Received(currentCommand, newBuffer, null);
+								// Received(currentCommand, newBuffer, null);
 							} 
 							break;
 						}
@@ -640,6 +654,14 @@ namespace DisquuunCore {
 			}
 		}
 		
+		public struct ByteDatas {
+			public byte[][] b;
+			
+			public ByteDatas (params byte[][] b) {
+				this.b = b;
+			}
+		}
+		
 		
 		/*
 			Disque commands.
@@ -655,6 +677,7 @@ namespace DisquuunCore {
 		}
 		
 		public void GetJob (string[] queueIds, params object[] args) {
+			XrossPeer.Log("get job ready,,");
 			// [NOHANG] [TIMEOUT <ms-timeout>] [COUNT <count>] [WITHCOUNTERS] 
 			// FROM queue1 queue2 ... queueN
 			var parameters = new object[args.Length + 1 + queueIds.Length];

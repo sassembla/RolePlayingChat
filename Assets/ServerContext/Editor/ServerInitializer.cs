@@ -11,6 +11,11 @@ using System.IO;
 	このクラス自体がUnityに依存しているので、なんかうまい抽象化を考えないとな
 */
 [InitializeOnLoad] public class ServerInitializer {
+	[MenuItem ("ServerInitializer/Regenerate Private Client Key", false, 1)] public static void RegenerateClientRandomKey () {
+  		var settings = (StandardAssetsConnectorSettings)ScriptableObject.CreateInstance("StandardAssetsConnectorSettings");
+		settings.GeneratePrivateClientKey();
+  	}
+  
 	static ServerContext sContext;
 	
 	static ServerInitializer () {
@@ -26,16 +31,24 @@ using System.IO;
 		
 		var settings = (StandardAssetsConnectorSettings)ScriptableObject.CreateInstance("StandardAssetsConnectorSettings");
 		
+		
 		sContext = new ServerContext(settings.ClientToContextKey());
 		
 		EditorApplication.update += DetectCompileStart;
+		EditorApplication.playmodeStateChanged += DetectPlayStart;
 	}
 	
 	
 	private static void DetectCompileStart () {
 		if (EditorApplication.isCompiling) {
 			EditorApplication.update -= DetectCompileStart;
-			sContext.Teardown();
+			if (sContext != null) sContext.Teardown();
+		}
+	}
+	
+	private static void DetectPlayStart () {
+		if (!EditorApplication.isPlaying && EditorApplication.isPlayingOrWillChangePlaymode) {
+			if (sContext != null) sContext.Teardown();
 		}
 	}
 

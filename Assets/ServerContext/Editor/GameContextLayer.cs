@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-
+using System.Text;
 using XrossPeerUtility;
 
 /**
@@ -148,7 +148,7 @@ public class GameContextLayer {
 		
 		var playerId = PlayerIdFromConnectionId(connectionId);
 		if (string.IsNullOrEmpty(playerId)) {
-			XrossPeer.Log("不明なconnectionIdからのデータ:" + connectionId + " 直前に切断している可能性があるのか。面倒だな、、切断自体は伝えたいけど、誰からかを保持してるからここで引っかかる。");
+			XrossPeer.Log("不明なconnectionIdからのデータ:" + connectionId + " 内容は、:" + Encoding.UTF8.GetString(data));
 			return;
 		}
 		
@@ -169,6 +169,7 @@ public class GameContextLayer {
 				break;
 			}
 			
+			
 			/*
 				ゲームが稼働しているステート
 			*/
@@ -182,7 +183,8 @@ public class GameContextLayer {
 				UpdateXrossPeer(gameFrame);
 				
 				// XrossPeer.Log("仮でメッセージを送っていた。");
-				StackPublish(new Commands.Message("aaa", "message from server."), AllConnectedIds());
+				// StackPublish(new Commands.Message("aaa", "message from server."), AllConnectedIds());
+				
 				gameFrame++;
 				break;
 			}
@@ -267,7 +269,7 @@ public class GameContextLayer {
 				
 				// xrossPeerContext.DeployNewAuto(onConnectedPlayerId, gameFrame);
 				
-				StackPublish(new Commands.EntriedId(onConnectedPlayerId, side), AllConnectedIds());
+				// StackPublish(new Commands.EntriedId(onConnectedPlayerId, side), AllConnectedIds());
 				return;
 			}
 			case Commands.CommandEnum.OnDisconnected: {
@@ -278,7 +280,7 @@ public class GameContextLayer {
 				var reasonCode = 0;
 				
 				XrossPeer.Log("disconnected この時点で通信対象リストからは外されている。 disconnectedPlayerId:" + disconnectedPlayerId + " reason:" + reason);
-				StackPublish(new Commands.PlayerLeft(disconnectedPlayerId, reasonCode), AllConnectedIds());
+				// StackPublish(new Commands.PlayerLeft(disconnectedPlayerId, reasonCode), AllConnectedIds());
 				return;
 			}
 		}

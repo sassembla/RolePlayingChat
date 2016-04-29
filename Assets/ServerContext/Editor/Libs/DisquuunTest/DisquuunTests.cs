@@ -18,27 +18,29 @@ public class DisquuunTests {
 			connectedConId => {
 				RunTests(connectedConId);
 			},
-			(command, bytes0, bytes1) => {
-				if (bytes1 != null) TestLogger.Log("data received:" + command + " bytes0:" + bytes0.Length + " bytes1:" + bytes1.Length);
-				else TestLogger.Log("data received:" + command + " bytes0:" + bytes0.Length);
+			(command, bytes0) => {
+				TestLogger.Log("data received:" + command + " bytes0:" + bytes0.Length);
 				
 				switch (command) {
 					case Disquuun.DisqueCommand.GETJOB: {
-						var jobIdStr = Encoding.UTF8.GetString(bytes0, 0, bytes0.Length);
-						// TestLogger.Log("jobIdStr:" + jobIdStr);
-						
-						gotJobId = jobIdStr;
+						for (var i = 0; i < bytes0.Length; i++) {
+							var data = (Disquuun.ByteDatas)bytes0[i];
+							var jobIdStr = Encoding.UTF8.GetString(data.b[i], 0, data.b[i].Length);
+							// TestLogger.Log("jobIdStr:" + jobIdStr);
+							
+							gotJobId = jobIdStr;
+						}
 						break;
 					}
 					case Disquuun.DisqueCommand.INFO: {
-						var info = Encoding.UTF8.GetString(bytes0, 0, bytes0.Length);
-						TestLogger.Log("info:" + info);
+						// var info = Encoding.UTF8.GetString(bytes0, 0, bytes0.Length);
+						// TestLogger.Log("info:" + info);
 						
 						break;
 					}
 					case Disquuun.DisqueCommand.HELLO: {
-						var hello = Encoding.UTF8.GetString(bytes0, 0, bytes0.Length);
-						TestLogger.Log("hello:" + hello);
+						// var hello = Encoding.UTF8.GetString(bytes0, 0, bytes0.Length);
+						// TestLogger.Log("hello:" + hello);
 						break;
 					}
 					default: {
@@ -81,10 +83,10 @@ public class DisquuunTests {
 			// add -> get -> fastack
 			{
 				if (counter == 30) {
-					disquuun.AddJob("testV", new byte[10]{0,1,2,3,4,5,6,7,8,9}, 0);
+					disquuun.AddJob("testQ", new byte[10]{0,1,2,3,4,5,6,7,8,9}, 0);
 				}
 				if (counter == 40) {
-					disquuun.GetJob(new string[]{"testV"});
+					disquuun.GetJob(new string[]{"testQ"});
 				}
 				if (counter == 50) {
 					disquuun.FastAck(new string[]{gotJobId});
