@@ -11,7 +11,7 @@ public class ReservationLayer {
 	
 	private GameContextLayer gameLayer;
 	
-	public ReservationLayer (Action<object, string> publish) {
+	public ReservationLayer (Action<string, byte[]> publish) {
 		XrossPeer.TimeAssert(Develop.TIME_ASSERT, "とりあえず通過できるtokenとして特定のplayerIdを直書きしてある。");
 		
 		var reservedPlayerIds = new List<string>{
@@ -45,7 +45,6 @@ public class ReservationLayer {
 		XrossPeer.TimeAssert(Develop.TIME_ASSERT, "とりあえずすべてのconnectionIdに対して、このreserveレイヤに登録があった、みたいなみなしをしてうけいれる。実際にはReservationLayerが複数のGameLayerをもっていて、特定の情報を元にGameContextLayerへとメッセージをふり分ける。");
 		if (true) gameLayer.EnqueOnReceive(connectionId, data);
 	}
-	
 	public void EnqueueOnDisconnect (string connectionId, string token, string reason) {
 		var playerId = token;
 		var data = new Commands.OnDisconnected(playerId, reason).ToData();

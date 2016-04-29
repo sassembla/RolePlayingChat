@@ -1,40 +1,218 @@
 using XrossPeerUtility;
 
 using System;
-using System.Linq;
-using System.Collections.Generic;
-
-using System.IO;
 using System.Text;
+using DisquuunCore;
 
 public class ServerContext {
 	
 	private readonly string serverContextId;
 
 	private ReservationLayer reservationLayer;
+	
+	private Disquuun disquuun;
 
-	public ServerContext () {
+	public ServerContext (string serverQueueId) {
 		serverContextId = Guid.NewGuid().ToString();
-		XrossPeer.Log("server generated! serverContextId:" + serverContextId);
+		XrossPeer.Log("server generated! serverContextId:" + serverContextId + " serverQueueId:" + serverQueueId);
 		
-		// Updater(OnUpdate);//このレイヤで何か欲しいものってあるかな、、
+		
+		DisquuunTests.RunDisquuunTests();
+		if (true) return; 
+		
+		var disqueId = Guid.NewGuid().ToString();
+		disquuun = new Disquuun(
+			disqueId,
+			"127.0.0.1", 
+			7711,
+			102400,
+			connectedConId => {
+				Action<string, byte[]> Send = (string connectionId, byte[] data) => {
+					disquuun.AddJob(connectionId, data);
+				};
+				
+				Setup(Send);
+				
+				// ここでsetupが同期的に終わったとして、最初のgetを行う。
+				XrossPeer.Log("get start");
+				disquuun.Info();
+				disquuun.GetJob(new string[]{serverQueueId}, "COUNT", 1000);// これで過去のやつを拾ってきちゃうのか。
+			},
+			(command, bytes0, bytes1) => {
+				switch (command) {
+					case Disquuun.DisqueCommand.INFO: {
+						var info = Encoding.UTF8.GetString(bytes0, 0, bytes0.Length);
+						XrossPeer.Log("info:" + info);
+						break;
+					}
+					case Disquuun.DisqueCommand.GETJOB: {
+						var jobId = Encoding.UTF8.GetString(bytes0, 0, bytes0.Length);
+						// あーーー。ここですべてのデータについてfastackできるようにしないといけないんだ。
+						// 柔軟な受け口が必要。関数渡すのはやだなあ、、スタックが大変そうなんで。
+						
+						
+						disquuun.FastAck(new string[]{jobId});
+						ParseData(bytes0, bytes1);
+						break;
+					}
+					case Disquuun.DisqueCommand.FASTACK: {
+						var countStr = Encoding.UTF8.GetString(bytes0, 0, bytes0.Length);
+						var countNum = Convert.ToInt32(countStr);
+						XrossPeer.Log("fastack:" + countNum);
+						disquuun.GetJob(new string[]{serverQueueId}, "COUNT", 1000);// N回走っちゃう。
+						break;
+					}
+					default: {
+						break;
+					}
+				}
+			},
+			(failedCommand, bytes) => {
+				var errorMessage = Encoding.UTF8.GetString(bytes, 0, bytes.Length);
+				XrossPeer.LogError("failedCommand:" + failedCommand + " error:" + errorMessage);
+			},
+			e => {
+				XrossPeer.LogError("Disque error:" + e);
+			},
+			disconnectedConId => {
+				XrossPeer.Log("Disque disconnected:" + disqueId);
+			}
+		);
 	}
 	
-	public void Setup () {
+	private const char HEADER_STRING	= 's';
+	private const char HEADER_BINARY	= 'b';
+	private const char HEADER_CONTROL	= 'c';
+
+	// webSocket server state for each connection. syncronized to nginx-lua client.lua code.
+	private const char STATE_CONNECT			= '1';
+	private const char STATE_STRING_MESSAGE		= '2';
+	private const char STATE_BINARY_MESSAGE		= '3';
+	private const char STATE_DISCONNECT_INTENT	= '4';
+	private const char STATE_DISCONNECT_ACCIDT	= '5';
+	private const char STATE_DISCONNECT_DISQUE_ACKFAILED = '6';
+	private const char STATE_DISCONNECT_DISQUE_ACCIDT_SENDFAILED = '7';
+
+
+	private const int CONNECTION_ID_LEN = 36;// 65D76DEE-0E68-424E-A18F-6D2CC9656FB3
+	
+	private void ParseData (byte[] queueId, byte[] dataArray) {
+		var len = dataArray.Length;
+		if (len < 1/*s or b or c*/ + 1/*state param*/ + CONNECTION_ID_LEN/*connectionId*/) {
+			var invalidMessage = Encoding.ASCII.GetString(dataArray);
+			XrossPeer.Log("illigal format invalidMessage1:" + invalidMessage);
+			return;
+		}
+
+		var header = (char)dataArray[0];
+		switch (header) {
+			case HEADER_CONTROL:
+			case HEADER_STRING:
+			case HEADER_BINARY: {
+				break;
+			}
+			default: {
+				var invalidMessage = Encoding.ASCII.GetString(dataArray);
+				XrossPeer.Log("illigal format invalidMessage2:" + invalidMessage);
+				return;
+			}
+		}
+		
+		var state = (char)dataArray[1];
+
+		// dataArray[2-38] is connectionId, length = definitely CONNECTION_ID_LEN.
+		var connectionId = Encoding.ASCII.GetString(dataArray, 2, CONNECTION_ID_LEN);
+		
+		switch (state) {
+			case STATE_CONNECT: {
+				if (2 + CONNECTION_ID_LEN < len) {
+					var dataLen = len - (2 + CONNECTION_ID_LEN);
+					var data = new byte[dataLen];
+					Buffer.BlockCopy(dataArray, (2 + CONNECTION_ID_LEN), data, 0, dataLen);
+					OnConnected(connectionId, data);	
+				}
+				break;
+			}
+
+			case STATE_STRING_MESSAGE: {
+				// ignored.
+				break;
+			}
+
+			case STATE_BINARY_MESSAGE: {
+				if (2 + CONNECTION_ID_LEN < len) {
+					var dataLen = len - (2 + CONNECTION_ID_LEN);
+					var data = new byte[dataLen];
+					Buffer.BlockCopy(dataArray, (2 + CONNECTION_ID_LEN), data, 0, dataLen);
+					OnMessage(connectionId, data);
+				}
+				break;
+			}
+
+			case STATE_DISCONNECT_INTENT: {
+				if (2 + CONNECTION_ID_LEN < len) {
+					var dataLen = len - (2 + CONNECTION_ID_LEN);
+					var data = new byte[dataLen];
+					Buffer.BlockCopy(dataArray, (2 + CONNECTION_ID_LEN), data, 0, dataLen);
+					
+					OnDisconnected(connectionId, data, "intentional disconnect.");
+				}
+				break;
+			}
+
+			case STATE_DISCONNECT_ACCIDT: {
+				if (2 + CONNECTION_ID_LEN < len) {
+					var dataLen = len - (2 + CONNECTION_ID_LEN);
+					var data = new byte[dataLen];
+					Buffer.BlockCopy(dataArray, (2 + CONNECTION_ID_LEN), data, 0, dataLen);
+					
+					OnDisconnected(connectionId, data, "accidential disconnect.");
+				}
+				break;
+			}
+			case STATE_DISCONNECT_DISQUE_ACKFAILED: {
+				if (2 + CONNECTION_ID_LEN < len) {
+					var dataLen = len - (2 + CONNECTION_ID_LEN);
+					var data = new byte[dataLen];
+					Buffer.BlockCopy(dataArray, (2 + CONNECTION_ID_LEN), data, 0, dataLen);
+					
+					OnDisconnected(connectionId, data, "accidential disconnect.");
+				}
+				break;
+			}
+			case STATE_DISCONNECT_DISQUE_ACCIDT_SENDFAILED: {
+				if (2 + CONNECTION_ID_LEN < len) {
+					var dataLen = len - (2 + CONNECTION_ID_LEN);
+					var data = new byte[dataLen];
+					Buffer.BlockCopy(dataArray, (2 + CONNECTION_ID_LEN), data, 0, dataLen);
+					
+					OnDisconnected(connectionId, data, "send failed to client. disconnect.");
+				}
+				break;
+			}
+
+			default: {
+				XrossPeer.Log("undefined websocket state:" + state);
+				break;
+			}
+		}
+	}
+	
+	public void Setup (Action<string, byte[]> Send) {
 		XrossPeer.Log("server ready:" + serverContextId);
 		XrossPeer.TimeAssert(Develop.TIME_ASSERT, "リセットを兼ねることはしない方が良いんだろうか。");
 		
 		// 仮の、ゲームに参加するconnectionIdを保持しておくレイヤ
-		reservationLayer = new ReservationLayer(PublishTo);
+		reservationLayer = new ReservationLayer(Send);
 	}
 	
 	/**
 		ServerContextの終了手続き
 	*/
 	public void Teardown () {
+		if (disquuun != null) disquuun.Disconnect();
 		XrossPeer.TimeAssert(Develop.TIME_ASSERT, "ContextのTeardown処理、なんか必要かな、、");
 	}
-	
 	
 	
 	public void OnConnected (string connectionId, byte[] data) {
@@ -60,8 +238,6 @@ public class ServerContext {
 		// 	PublishTo(data, new string[]{connectionId});
 		// }
 	}
-
-	public void OnMessage (string connectionId, string data) {}
 	
 	public void OnMessage (string connectionId, byte[] data) {
 		var playerIdString = Encoding.UTF8.GetString(data);
@@ -71,18 +247,5 @@ public class ServerContext {
 	public void OnDisconnected (string connectionId, byte[] data, string reason) {
 		var playerIdString = Encoding.UTF8.GetString(data);
 		reservationLayer.EnqueueOnDisconnect(connectionId, playerIdString, reason);
-	}
-	
-	/**
-		publisher methods
-	*/
-	private Action<object, string> PublishTo = NotYetReady;
-	public void SetPublisher (Action<object, string> publisher) {
-		PublishTo = publisher;
-		Setup();
-	}
-
-	private static void NotYetReady (object obj, string connectionId) {
-		XrossPeer.Log("not yet publishable.");
 	}
 }

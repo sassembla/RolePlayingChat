@@ -51,7 +51,7 @@ public class GameContextLayer {
 	/*
 		publish data to specific connection.
 	*/
-	Action<object, string> Publish;
+	Action<string, byte[]> Publish;
 	
 	/*
 		stack data for publish for each connection.
@@ -74,7 +74,7 @@ public class GameContextLayer {
 			var datas = stackedData[connectionId];
 			
 			if (datas.Count == 1) {
-				Publish(datas[0].ToData(), connectionId);
+				Publish(connectionId, datas[0].ToData());
 				continue;
 			}
 			
@@ -82,7 +82,7 @@ public class GameContextLayer {
 			var commands = stackedData[connectionId].Select(command => command.command).ToArray();
 			var byteDatas = stackedData[connectionId].Select(command => command.ToData()).ToArray();
 			var combinedData = new Commands.Datas(playerId, commands, byteDatas).ToData();
-			Publish(combinedData, connectionId);
+			Publish(connectionId, combinedData);
 		}
 		
 		// clear list.
@@ -91,7 +91,7 @@ public class GameContextLayer {
 	
 	
 	
-	public GameContextLayer (List<string> reservedPlayerIds, Action<Object, string> publish) {
+	public GameContextLayer (List<string> reservedPlayerIds, Action<string, byte[]> publish) {
 		gameLayerId = Guid.NewGuid().ToString();
 		
 		/*
@@ -108,8 +108,8 @@ public class GameContextLayer {
 		/*
 			この送信メソッドはフレーム末尾でまとめて行うのに使用する。
 		*/
-		Publish = (Object data, string connectionId) => {
-			publish(data, connectionId);
+		Publish = (string connectionId, byte[] data) => {
+			publish(connectionId, data);
 		};
 		
 		// start dequeOnFrame to loop.

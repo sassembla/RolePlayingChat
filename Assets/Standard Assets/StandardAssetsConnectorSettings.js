@@ -4,13 +4,11 @@ import System.IO;
 
 class StandardAssetsConnectorSettings extends ScriptableObject {
 	private var domainKey = "ws://127.0.0.1:80/";
-	private var gameKey = "calivers_" + "disque" + "_client";
+	private var gameKey = "roleplayingchat_" + "disque" + "_client";
 
 	// true | false
 	private var use_private = true;
 
-	// ["redis", "disque"]
-	private var queue_type = "disque";
 
 	// ["binary, string"]
 	public var data_mode = "binary";
@@ -21,8 +19,6 @@ class StandardAssetsConnectorSettings extends ScriptableObject {
 	/*
 		constants
 	*/
-	private var REDIS_PUBLISHKEY_FOOTER = "_pub";
-	private var REDIS_SUBSCRIBEKEY_FOOTER = "_sub";
 	private var DISQUE_QUEUE_FOOTER = "_context";
 
 
@@ -32,45 +28,14 @@ class StandardAssetsConnectorSettings extends ScriptableObject {
 	public function GetAssetPath () {
 		return Application.dataPath;
 	}
-	
-	public function ContextToClientKey () {
-		switch (queue_type) {
-			case "disque": 
-				return "nothing.";
-			case "redis": 
-				if (use_private) return gameKey + GetPrivateClientKey() + REDIS_PUBLISHKEY_FOOTER;
-				
-				return gameKey + REDIS_PUBLISHKEY_FOOTER;
-		}
-		return "no queue_type found:" + queue_type;
-	}
 
 	public function ClientToContextKey () {
-		switch (queue_type) {
-			case "disque": 
-				if (use_private) return gameKey + GetPrivateClientKey() + DISQUE_QUEUE_FOOTER;
-
-				return gameKey + DISQUE_QUEUE_FOOTER;
-			case "redis":
-				if (use_private) return gameKey + GetPrivateClientKey() + REDIS_SUBSCRIBEKEY_FOOTER;
-
-				return gameKey + REDIS_SUBSCRIBEKEY_FOOTER;
-		}
-		return "no queue_type found:" + queue_type;
+		if (use_private) return gameKey + GetPrivateClientKey() + DISQUE_QUEUE_FOOTER;
+		return gameKey + DISQUE_QUEUE_FOOTER;
 	}
 
 	public function DataMode () {
-		switch (queue_type) {
-			case "disque": 
-				return queue_type + "_" + data_mode;
-			case "redis": 
-				return queue_type + "_" + data_mode;
-		}
-		return "no queue_type found:" + queue_type;
-	}
-
-	public function QueueType () {
-		return queue_type;
+		return "disque" + "_" + data_mode;
 	}
 
 	public function DomainKey () {

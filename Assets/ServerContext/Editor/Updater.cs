@@ -17,7 +17,7 @@ public class Updater {
 		あとはCoreCLRにするとか。
 	*/
 	public Updater (string loopId, Func<bool> OnUpdate) {
-		var framePerSecond = CaliversDefinitions.FRAMERATE;
+		var framePerSecond = RolePlayingChatDefinitions.FRAMERATE;
 		var mainThreadInterval = 1000f / framePerSecond;
 		
 		Action loopMethod = () => {
