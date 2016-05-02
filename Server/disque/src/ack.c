@@ -70,11 +70,7 @@ void tryJobGC(job *job) {
     if (job->state != JOB_STATE_ACKED) return;
 
     int dummy_ack = dictSize(job->nodes_delivered) == 0;
-<<<<<<< HEAD
     serverLog(LL_VERBOSE,"GC %.*s",JOB_ID_LEN,job->id);
-=======
-    serverLog(LL_VERBOSE,"GC %.48s", job->id);
->>>>>>> origin/master
 
     /* Don't overflow the count, it's only useful for the exponential delay.
      * Actually we'll keep trying forever. */
@@ -231,7 +227,6 @@ void ackjobCommand(client *c) {
          * if the cluster is composed by a single node we are sure the job
          * does not exist in the whole cluster, so do this only if the
          * cluster size is greater than one. */
-<<<<<<< HEAD
         if (job == NULL && server.cluster->size > 1 && !myselfLeaving()) {
             char *id = c->argv[j]->ptr;
             int ttl = getRawTTLFromJobID(id);
@@ -243,12 +238,6 @@ void ackjobCommand(client *c) {
                 setJobTTLFromID(job);
                 serverAssert(registerJob(job) == C_OK);
             }
-=======
-        if (job == NULL && server.cluster->size > 1) {
-            job = createJob(c->argv[j]->ptr,JOB_STATE_ACKED,0);
-            setJobTtlFromId(job);
-            serverAssert(registerJob(job) == C_OK);
->>>>>>> origin/master
         }
         /* Case 2: Job exists and is not acknowledged. Change state. */
         else if (job && job->state != JOB_STATE_ACKED) {

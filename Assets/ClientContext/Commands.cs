@@ -11,6 +11,7 @@ using System.Text;
 */
 public static class Commands {
 	
+	
 	public enum CommandEnum : int {
 		None,
 		

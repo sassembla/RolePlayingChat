@@ -88,10 +88,7 @@ struct clusterNode;
 #define NEEDJOBS_CLIENTS_WAITING 0 /* Called because clients are waiting. */
 #define NEEDJOBS_REACHED_ZERO 1    /* Called since we just ran out of jobs. */
 
-<<<<<<< HEAD
 queue *lookupQueue(robj *name);
-=======
->>>>>>> origin/master
 int destroyQueue(robj *name);
 int enqueueJob(job *job, int nack);
 int dequeueJob(job *job);

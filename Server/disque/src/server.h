@@ -190,14 +190,11 @@ typedef long long mstime_t; /* millisecond time type. */
 #define CLIENT_CLOSE_ASAP (1<<4)  /* Close this client ASAP */
 #define CLIENT_UNIX_SOCKET (1<<5) /* Client connected via Unix domain socket */
 #define CLIENT_AOF_CLIENT (1<<6)  /* AOF loading client. */
-<<<<<<< HEAD:Server/disque/src/server.h
 #define CLIENT_PENDING_WRITE (1<<7) /* Client has output to send but a write
                                        handler is yet not installed. */
 #define CLIENT_REPLY_OFF (1<<8)   /* Don't send replies to client. */
 #define CLIENT_REPLY_SKIP_NEXT (1<<9)  /* Set CLIENT_REPLY_SKIP for next cmd */
 #define CLIENT_REPLY_SKIP (1<<10)  /* Don't send just this reply. */
-=======
->>>>>>> origin/master:Server/disque/src/server.h
 
 /* Client block type (btype field in client structure)
  * if CLIENT_BLOCKED flag is set. */
@@ -345,22 +342,14 @@ typedef struct client {
     sds peerid;             /* Cached peer ID. */
 
     /* Response buffer */
-<<<<<<< HEAD:Server/disque/src/server.h
     size_t bufpos;
-=======
-    int bufpos;
->>>>>>> origin/master:Server/disque/src/server.h
     char buf[PROTO_REPLY_CHUNK_BYTES];
 } client;
 
 struct sharedObjectsStruct {
     robj *crlf, *ok, *err, *emptybulk, *czero, *cone, *cnegone, *pong, *space,
     *colon, *nullbulk, *nullmultibulk, *queued,
-<<<<<<< HEAD:Server/disque/src/server.h
     *emptymultibulk, *wrongtypeerr, *nokeyerr, *syntaxerr, *leavingerr,
-=======
-    *emptymultibulk, *wrongtypeerr, *nokeyerr, *syntaxerr, *sameobjecterr,
->>>>>>> origin/master:Server/disque/src/server.h
     *outofrangeerr, *noscripterr, *loadingerr, *slowscripterr,
     *masterdownerr, *roslaveerr, *execaborterr, *noautherr, *noreplicaserr,
     *busykeyerr, *oomerr, *plus, *messagebulk, *pmessagebulk, *subscribebulk,

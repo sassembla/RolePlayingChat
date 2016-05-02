@@ -18,8 +18,8 @@ public class ServerContext {
 		XrossPeer.Log("server generated! serverContextId:" + serverContextId + " serverQueueId:" + serverQueueId);
 		
 		
-		// DisquuunTests.RunDisquuunTests();
-		// if (true) return; 
+		DisquuunTests.RunDisquuunTests();
+		if (true) return; 
 		
 		var disqueId = Guid.NewGuid().ToString();
 		disquuun = new Disquuun(
@@ -34,15 +34,15 @@ public class ServerContext {
 				
 				Setup(Send);
 				
-				// ここでsetupが同期的に終わったとして、最初のgetを行う。
-				XrossPeer.Log("get start");
+				XrossPeer.Log("同期的にコンテキストの用意が終わったつもり。 ほんとはいろんな接続があるはず。");
 				disquuun.Info();
 				disquuun.GetJob(new string[]{serverQueueId}, "COUNT", 1000);// これで過去のやつを拾ってきちゃうのか。
 			},
 			(command, bytes0) => {
 				switch (command) {
 					case Disquuun.DisqueCommand.INFO: {
-						var info = Encoding.UTF8.GetString((byte[])bytes0[0], 0, bytes0.Length);
+						var stringData = bytes0[0];
+						var info = Encoding.UTF8.GetString(stringData.bytesArray[0], 0, stringData.bytesArray[0].Length);
 						XrossPeer.Log("info:" + info);
 						break;
 					}
@@ -50,10 +50,10 @@ public class ServerContext {
 						var jobIds = new List<string>();
 						foreach (var bytes in bytes0) {
 							var data = (Disquuun.ByteDatas)bytes;
-							var jobId = Encoding.UTF8.GetString(data.b[0], 0, data.b[0].Length);
+							var jobId = Encoding.UTF8.GetString(data.bytesArray[0], 0, data.bytesArray[0].Length);
 							jobIds.Add(jobId);
 							
-							var bytes1 = data.b[1];
+							var bytes1 = data.bytesArray[1];
 							ParseData(bytes1);
 						}
 						
@@ -74,9 +74,8 @@ public class ServerContext {
 					}
 				}
 			},
-			(failedCommand, bytes) => {
-				var errorMessage = Encoding.UTF8.GetString(bytes, 0, bytes.Length);
-				XrossPeer.LogError("failedCommand:" + failedCommand + " error:" + errorMessage);
+			(failedCommand, reason) => {
+				XrossPeer.LogError("failedCommand:" + failedCommand + " reason:" + reason);
 			},
 			e => {
 				XrossPeer.LogError("Disque error:" + e);

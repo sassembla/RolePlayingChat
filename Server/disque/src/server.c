@@ -672,11 +672,7 @@ void clientsCron(void) {
      * second. */
     int numclients = listLength(server.clients);
     int iterations = numclients/server.hz;
-<<<<<<< HEAD:Server/disque/src/server.c
     server.mstime = mstime(); /* Refresh the global time. */
-=======
-    mstime_t now = mstime();
->>>>>>> origin/master:Server/disque/src/server.c
 
     /* Process at least a few clients while we are at it, even if we need
      * to process less than CLIENTS_CRON_MIN_ITERATIONS to meet our contract
@@ -698,11 +694,7 @@ void clientsCron(void) {
         /* The following functions do different service checks on the client.
          * The protocol is that they return non-zero if the client was
          * terminated. */
-<<<<<<< HEAD:Server/disque/src/server.c
         if (clientsCronHandleTimeout(c,server.mstime)) continue;
-=======
-        if (clientsCronHandleTimeout(c,now)) continue;
->>>>>>> origin/master:Server/disque/src/server.c
         if (clientsCronResizeQueryBuffer(c)) continue;
         if (clientsCronHandleDelayedJobReplication(c)) continue;
         if (clientsCronSendNeedJobs(c)) continue;
@@ -789,17 +781,6 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
         server.shutdown_asap = 0;
     }
 
-<<<<<<< HEAD:Server/disque/src/server.c
-=======
-    /* Show information about connected clients */
-    run_with_period(5000) {
-        serverLog(LL_VERBOSE,
-            "%lu clients connected, %zu bytes in use",
-            listLength(server.clients),
-            zmalloc_used_memory());
-    }
-
->>>>>>> origin/master:Server/disque/src/server.c
     /* We need to do a few operations on clients asynchronously. */
     clientsCron();
 
@@ -904,12 +885,9 @@ void beforeSleep(struct aeEventLoop *eventLoop) {
 
     /* Write the AOF buffer on disk */
     flushAppendOnlyFile(0);
-<<<<<<< HEAD:Server/disque/src/server.c
 
     /* Handle writes with pending output buffers. */
     handleClientsWithPendingWrites();
-=======
->>>>>>> origin/master:Server/disque/src/server.c
 }
 
 /* =========================== Server initialization ======================== */
@@ -935,14 +913,9 @@ void createSharedObjects(void) {
         "-ERR no such key\r\n"));
     shared.syntaxerr = createObject(OBJ_STRING,sdsnew(
         "-ERR syntax error\r\n"));
-<<<<<<< HEAD:Server/disque/src/server.c
     shared.leavingerr = createObject(OBJ_STRING,sdsnew(
         "-LEAVING This node is leaving the cluster, "
         "please connect to a different one\r\n"));
-=======
-    shared.sameobjecterr = createObject(OBJ_STRING,sdsnew(
-        "-ERR source and destination objects are the same\r\n"));
->>>>>>> origin/master:Server/disque/src/server.c
     shared.outofrangeerr = createObject(OBJ_STRING,sdsnew(
         "-ERR index out of range\r\n"));
     shared.noscripterr = createObject(OBJ_STRING,sdsnew(
@@ -1000,10 +973,7 @@ void initServerConfig(void) {
     getRandomHexChars(server.runid,CONFIG_RUN_ID_SIZE);
     getRandomHexChars(server.jobid_seed,CONFIG_RUN_ID_SIZE);
     server.configfile = NULL;
-<<<<<<< HEAD:Server/disque/src/server.c
     server.executable = NULL;
-=======
->>>>>>> origin/master:Server/disque/src/server.c
     server.hz = CONFIG_DEFAULT_HZ;
     server.runid[CONFIG_RUN_ID_SIZE] = '\0';
     server.arch_bits = (sizeof(long) == 8) ? 64 : 32;
@@ -2357,7 +2327,7 @@ int linuxOvercommitMemoryValue(void) {
 
 void linuxOvercommitMemoryWarning(void) {
     if (linuxOvercommitMemoryValue() == 0) {
-        serverLog(LL_WARNING,"WARNING overcommit_memory is set to 0! Background save may fail under low memory condition. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.");
+        serverLog(LL_WARNING,"WARNING: overcommit_memory is set to 0! Background save may fail under low memory condition. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.");
     }
 }
 #endif /* __linux__ */
@@ -2609,7 +2579,7 @@ int main(int argc, char **argv) {
         loadServerConfig(configfile,options);
         sdsfree(options);
     } else {
-        serverLog(LL_WARNING, "Warning: no config file specified, using the default config. In order to specify a config file use %s /path/to/disque.conf", argv[0]);
+        serverLog(LL_WARNING, "WARNING: No config file specified, using the default config. In order to specify a config file use %s /path/to/disque.conf", argv[0]);
     }
     if (server.daemonize) daemonize();
     initServer();

@@ -124,21 +124,14 @@ client *createClient(int fd) {
  * returns C_OK, and make sure to install the write handler in our event
  * loop so that when the socket is writable new data gets written.
  *
-<<<<<<< HEAD
  * If the client should not receive new data, because it is a fake client
  * (used to load AOF in memory) or because the setup of the write
  * handler failed, the function returns C_ERR.
-=======
- * If the client should not receive new data, because it is a fake client,
- * a master, a slave not yet online, or because the setup of the write handler
- * failed, the function returns C_ERR.
->>>>>>> origin/master
  *
  * Typically gets called every time a reply is built, before adding more
  * data to the clients output buffers. If the function returns C_ERR no
  * data should be appended to the output buffers. */
 int prepareClientToWrite(client *c) {
-<<<<<<< HEAD
     /* CLIENT REPLY OFF / SKIP handling: don't send replies. */
     if (c->flags & (CLIENT_REPLY_OFF|CLIENT_REPLY_SKIP)) return C_ERR;
     if (c->flags & CLIENT_AOF_CLIENT) return C_ERR;
@@ -159,28 +152,6 @@ int prepareClientToWrite(client *c) {
          * we'll not be able to write the whole reply at once. */
         c->flags |= CLIENT_PENDING_WRITE;
         listAddNodeHead(server.clients_pending_write,c);
-=======
-    if (c->flags & CLIENT_AOF_CLIENT) return C_ERR;
-    if (c->fd <= 0) return C_ERR; /* Fake client */
-    if (c->bufpos == 0 && listLength(c->reply) == 0 &&
-        aeCreateFileEvent(server.el, c->fd, AE_WRITABLE,
-        sendReplyToClient, c) == AE_ERR) return C_ERR;
-    return C_OK;
-}
-
-/* Create a duplicate of the last object in the reply list when
- * it is not exclusively owned by the reply list. */
-robj *dupLastObjectIfNeeded(list *reply) {
-    robj *new, *cur;
-    listNode *ln;
-    serverAssert(listLength(reply) > 0);
-    ln = listLast(reply);
-    cur = listNodeValue(ln);
-    if (cur->refcount > 1) {
-        new = dupStringObject(cur);
-        decrRefCount(cur);
-        listNodeValue(ln) = new;
->>>>>>> origin/master
     }
 
     /* Authorize the caller to queue in the output buffer of this client. */
@@ -209,11 +180,6 @@ int _addReplyToBuffer(client *c, const char *s, size_t len) {
 }
 
 void _addReplyObjectToList(client *c, robj *o) {
-<<<<<<< HEAD
-=======
-    robj *tail;
-
->>>>>>> origin/master
     if (c->flags & CLIENT_CLOSE_AFTER_REPLY) return;
 
     if (listLength(c->reply) == 0) {
@@ -221,7 +187,6 @@ void _addReplyObjectToList(client *c, robj *o) {
         listAddNodeTail(c->reply,s);
         c->reply_bytes += sdslen(s);
     } else {
-<<<<<<< HEAD
         listNode *ln = listLast(c->reply);
         sds tail = listNodeValue(ln);
 
@@ -231,19 +196,6 @@ void _addReplyObjectToList(client *c, robj *o) {
             tail = sdscatsds(tail,o->ptr);
             listNodeValue(ln) = tail;
             c->reply_bytes += sdslen(o->ptr);
-=======
-        tail = listNodeValue(listLast(c->reply));
-
-        /* Append to this object when possible. */
-        if (tail->ptr != NULL &&
-            tail->encoding == OBJ_ENCODING_RAW &&
-            sdslen(tail->ptr)+sdslen(o->ptr) <= PROTO_REPLY_CHUNK_BYTES)
-        {
-            c->reply_bytes -= sdsZmallocSize(tail->ptr);
-            tail = dupLastObjectIfNeeded(c->reply);
-            tail->ptr = sdscatlen(tail->ptr,o->ptr,sdslen(o->ptr));
-            c->reply_bytes += sdsZmallocSize(tail->ptr);
->>>>>>> origin/master
         } else {
             sds s = sdsdup(o->ptr);
             listAddNodeTail(c->reply,s);
@@ -256,18 +208,12 @@ void _addReplyObjectToList(client *c, robj *o) {
 /* This method takes responsibility over the sds. When it is no longer
  * needed it will be free'd, otherwise it ends up in a robj. */
 void _addReplySdsToList(client *c, sds s) {
-<<<<<<< HEAD
-=======
-    robj *tail;
-
->>>>>>> origin/master
     if (c->flags & CLIENT_CLOSE_AFTER_REPLY) {
         sdsfree(s);
         return;
     }
 
     if (listLength(c->reply) == 0) {
-<<<<<<< HEAD
         listAddNodeTail(c->reply,s);
         c->reply_bytes += sdslen(s);
     } else {
@@ -284,36 +230,12 @@ void _addReplySdsToList(client *c, sds s) {
         } else {
             listAddNodeTail(c->reply,s);
             c->reply_bytes += sdslen(s);
-=======
-        listAddNodeTail(c->reply,createObject(OBJ_STRING,s));
-        c->reply_bytes += sdsZmallocSize(s);
-    } else {
-        tail = listNodeValue(listLast(c->reply));
-
-        /* Append to this object when possible. */
-        if (tail->ptr != NULL && tail->encoding == OBJ_ENCODING_RAW &&
-            sdslen(tail->ptr)+sdslen(s) <= PROTO_REPLY_CHUNK_BYTES)
-        {
-            c->reply_bytes -= sdsZmallocSize(tail->ptr);
-            tail = dupLastObjectIfNeeded(c->reply);
-            tail->ptr = sdscatlen(tail->ptr,s,sdslen(s));
-            c->reply_bytes += sdsZmallocSize(tail->ptr);
-            sdsfree(s);
-        } else {
-            listAddNodeTail(c->reply,createObject(OBJ_STRING,s));
-            c->reply_bytes += sdsZmallocSize(s);
->>>>>>> origin/master
         }
     }
     asyncCloseClientOnOutputBufferLimitReached(c);
 }
 
 void _addReplyStringToList(client *c, const char *s, size_t len) {
-<<<<<<< HEAD
-=======
-    robj *tail;
-
->>>>>>> origin/master
     if (c->flags & CLIENT_CLOSE_AFTER_REPLY) return;
 
     if (listLength(c->reply) == 0) {
@@ -321,7 +243,6 @@ void _addReplyStringToList(client *c, const char *s, size_t len) {
         listAddNodeTail(c->reply,node);
         c->reply_bytes += len;
     } else {
-<<<<<<< HEAD
         listNode *ln = listLast(c->reply);
         sds tail = listNodeValue(ln);
 
@@ -331,18 +252,6 @@ void _addReplyStringToList(client *c, const char *s, size_t len) {
             tail = sdscatlen(tail,s,len);
             listNodeValue(ln) = tail;
             c->reply_bytes += len;
-=======
-        tail = listNodeValue(listLast(c->reply));
-
-        /* Append to this object when possible. */
-        if (tail->ptr != NULL && tail->encoding == OBJ_ENCODING_RAW &&
-            sdslen(tail->ptr)+len <= PROTO_REPLY_CHUNK_BYTES)
-        {
-            c->reply_bytes -= sdsZmallocSize(tail->ptr);
-            tail = dupLastObjectIfNeeded(c->reply);
-            tail->ptr = sdscatlen(tail->ptr,s,len);
-            c->reply_bytes += sdsZmallocSize(tail->ptr);
->>>>>>> origin/master
         } else {
             sds node = sdsnewlen(s,len);
             listAddNodeTail(c->reply,node);
@@ -465,11 +374,7 @@ void *addDeferredMultiBulkLength(client *c) {
      * ready to be sent, since we are sure that before returning to the
      * event loop setDeferredMultiBulkLength() will be called. */
     if (prepareClientToWrite(c) != C_OK) return NULL;
-<<<<<<< HEAD
     listAddNodeTail(c->reply,NULL); /* NULL is our placeholder. */
-=======
-    listAddNodeTail(c->reply,createObject(OBJ_STRING,NULL));
->>>>>>> origin/master
     return listLast(c->reply);
 }
 
@@ -482,30 +387,15 @@ void setDeferredMultiBulkLength(client *c, void *node, long length) {
      * we return NULL in addDeferredMultiBulkLength() */
     if (node == NULL) return;
 
-<<<<<<< HEAD
     len = sdscatprintf(sdsnewlen("*",1),"%ld\r\n",length);
     listNodeValue(ln) = len;
     c->reply_bytes += sdslen(len);
-=======
-    len = listNodeValue(ln);
-    len->ptr = sdscatprintf(sdsempty(),"*%ld\r\n",length);
-    len->encoding = OBJ_ENCODING_RAW; /* in case it was an EMBSTR. */
-    c->reply_bytes += sdsZmallocSize(len->ptr);
->>>>>>> origin/master
     if (ln->next != NULL) {
         next = listNodeValue(ln->next);
 
         /* Only glue when the next node is non-NULL (an sds in this case) */
-<<<<<<< HEAD
         if (next != NULL) {
             len = sdscatsds(len,next);
-=======
-        if (next->ptr != NULL) {
-            c->reply_bytes -= sdsZmallocSize(len->ptr);
-            c->reply_bytes -= getStringObjectSdsUsedMemory(next);
-            len->ptr = sdscatlen(len->ptr,next->ptr,sdslen(next->ptr));
-            c->reply_bytes += sdsZmallocSize(len->ptr);
->>>>>>> origin/master
             listDelNode(c->reply,ln->next);
             listNodeValue(ln) = len;
             /* No need to update c->reply_bytes: we are just moving the same
@@ -738,22 +628,9 @@ void unlinkClient(client *c) {
     /* If this is marked as current client unset it. */
     if (server.current_client == c) server.current_client = NULL;
 
-<<<<<<< HEAD
     /* Certain operations must be done only if the client has an active socket.
      * If the client was already unlinked or if it's a "fake client" the
      * fd is already set to -1. */
-=======
-    /* Free the query buffer */
-    sdsfree(c->querybuf);
-    c->querybuf = NULL;
-
-    /* Deallocate structures used to block on blocking ops. */
-    if (c->flags & CLIENT_BLOCKED) unblockClient(c);
-    dictRelease(c->bpop.queues);
-
-    /* Close socket, unregister events, and remove list of replies and
-     * accumulated arguments. */
->>>>>>> origin/master
     if (c->fd != -1) {
         /* Remove from the list of active clients. */
         ln = listSearchKey(server.clients,c);
@@ -847,7 +724,6 @@ void freeClientsInAsyncFreeQueue(void) {
     }
 }
 
-<<<<<<< HEAD
 /* Write data in output buffers to client. Return C_OK if the client
  * is still valid after the call, C_ERR if it was freed. */
 int writeToClient(int fd, client *c, int handler_installed) {
@@ -856,17 +732,6 @@ int writeToClient(int fd, client *c, int handler_installed) {
     sds o;
 
     while(clientHasPendingReplies(c)) {
-=======
-void sendReplyToClient(aeEventLoop *el, int fd, void *privdata, int mask) {
-    client *c = privdata;
-    int nwritten = 0, totwritten = 0, objlen;
-    size_t objmem;
-    robj *o;
-    UNUSED(el);
-    UNUSED(mask);
-
-    while(c->bufpos > 0 || listLength(c->reply)) {
->>>>>>> origin/master
         if (c->bufpos > 0) {
             nwritten = write(fd,c->buf+c->sentlen,c->bufpos-c->sentlen);
             if (nwritten <= 0) break;
@@ -929,14 +794,10 @@ void sendReplyToClient(aeEventLoop *el, int fd, void *privdata, int mask) {
         if (handler_installed) aeDeleteFileEvent(server.el,c->fd,AE_WRITABLE);
 
         /* Close connection after entire reply has been sent. */
-<<<<<<< HEAD
         if (c->flags & CLIENT_CLOSE_AFTER_REPLY) {
             freeClient(c);
             return C_ERR;
         }
-=======
-        if (c->flags & CLIENT_CLOSE_AFTER_REPLY) freeClient(c);
->>>>>>> origin/master
     }
     return C_OK;
 }
@@ -1051,7 +912,7 @@ int processInlineBuffer(client *c) {
 /* Helper function. Trims query buffer to make the function that processes
  * multi bulk requests idempotent. */
 static void setProtocolError(client *c, int pos) {
-    if (server.verbosity >= LL_VERBOSE) {
+    if (server.verbosity <= LL_VERBOSE) {
         sds client = catClientInfoString(sdsempty(),c);
         serverLog(LL_VERBOSE,
             "Protocol error from client: %s", client);
@@ -1341,11 +1202,7 @@ void formatPeerID(char *peerid, size_t peerid_len, char *ip, int port) {
  * On failure the function still populates 'peerid' with the "?:0" string
  * in case you want to relax error checking or need to display something
  * anyway (see anetPeerToString implementation for more info). */
-<<<<<<< HEAD
 int genClientPeerID(client *client, char *peerid, size_t peerid_len) {
-=======
-int genClientPeerId(client *client, char *peerid, size_t peerid_len) {
->>>>>>> origin/master
     char ip[NET_IP_STR_LEN];
     int port;
 
@@ -1356,11 +1213,7 @@ int genClientPeerId(client *client, char *peerid, size_t peerid_len) {
     } else {
         /* TCP client. */
         int retval = anetPeerToString(client->fd,ip,sizeof(ip),&port);
-<<<<<<< HEAD
         formatPeerID(peerid,peerid_len,ip,port);
-=======
-        formatPeerId(peerid,peerid_len,ip,port);
->>>>>>> origin/master
         return (retval == -1) ? C_ERR : C_OK;
     }
 }
@@ -1730,11 +1583,7 @@ int checkClientOutputBufferLimits(client *c) {
  * called from contexts where the client can't be freed safely, i.e. from the
  * lower level functions pushing data inside the client output buffers. */
 void asyncCloseClientOnOutputBufferLimitReached(client *c) {
-<<<<<<< HEAD
     serverAssert(c->reply_bytes < SIZE_MAX-(1024*64));
-=======
-    serverAssert(c->reply_bytes < ULONG_MAX-(1024*64));
->>>>>>> origin/master
     if (c->reply_bytes == 0 || c->flags & CLIENT_CLOSE_ASAP) return;
     if (checkClientOutputBufferLimits(c)) {
         sds client = catClientInfoString(sdsempty(),c);

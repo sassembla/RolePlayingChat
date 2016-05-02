@@ -200,32 +200,19 @@ void setJobTTLFromID(job *job) {
  * string is composed of. The function just checks length and prefix/suffix.
  * It's pretty pointless to use more CPU to validate it better since anyway
  * the lookup will fail. */
-<<<<<<< HEAD
 int validateJobID(char *id, size_t len) {
     if (len != JOB_ID_LEN) return C_ERR;
     if (id[0] != 'D' ||
         id[1] != '-' ||
         id[10] != '-' ||
         id[35] != '-') return C_ERR;
-=======
-int validateJobId(char *id, size_t len) {
-    if (len != JOB_ID_LEN) return C_ERR;
-    if (id[0] != 'D' ||
-        id[1] != 'I' ||
-        id[JOB_ID_LEN-2] != 'S' ||
-        id[JOB_ID_LEN-1] != 'Q') return C_ERR;
->>>>>>> origin/master
     return C_OK;
 }
 
 /* Like validateJobID() but if the ID is invalid an error message is sent
  * to the client 'c' if not NULL. */
 int validateJobIdOrReply(client *c, char *id, size_t len) {
-<<<<<<< HEAD
     int retval = validateJobID(id,len);
-=======
-    int retval = validateJobId(id,len);
->>>>>>> origin/master
     if (retval == C_ERR && c)
         addReplySds(c,sdsnew("-BADID Invalid Job ID format.\r\n"));
     return retval;
@@ -450,23 +437,12 @@ int skiplistCompareJobsToAwake(const void *a, const void *b) {
     return memcmp(ja->id,jb->id,JOB_ID_LEN);
 }
 
-<<<<<<< HEAD
 /* Used to show jobs info for debugging or under unexpected conditions. */
 void logJobsDebugInfo(int level, char *msg, job *j) {
     serverLog(level,
         "%s %.*s: state=%d retry=%d delay=%d replicate=%d flags=%d now=%lld cached_now=%lld awake=%lld (%lld) qtime=%lld etime=%lld",
         msg,
         JOB_ID_LEN, j->id,
-=======
-/* Process the specified job to perform asynchronous operations on it.
- * Check processJobs() for more info. */
-void processJob(job *j) {
-    mstime_t old_awakeme = j->awakeme;
-
-    serverLog(LL_VERBOSE,
-        "PROCESS %.48s: state=%d now=%lld awake=%lld (%lld) qtime=%lld etime=%lld delay=%d",
-        j->id,
->>>>>>> origin/master
         (int)j->state,
         (int)j->retry,
         (int)j->delay,
@@ -490,11 +466,7 @@ void processJob(job *j) {
 
     /* Remove expired jobs. */
     if (j->etime <= server.unixtime) {
-<<<<<<< HEAD
         serverLog(LL_VERBOSE,"EVICT %.*s", JOB_ID_LEN, j->id);
-=======
-        serverLog(LL_VERBOSE,"EVICT %.48s", j->id);
->>>>>>> origin/master
         unregisterJob(j);
         freeJob(j);
         return;
@@ -519,7 +491,6 @@ void processJob(job *j) {
      * into the queue for the first time for delayed jobs, including the
      * ones with retry=0. */
     if (j->state == JOB_STATE_ACTIVE && j->qtime <= server.mstime) {
-<<<<<<< HEAD
         queue *q;
 
         /* We need to check if the queue is paused in input. If that's
@@ -540,9 +511,6 @@ void processJob(job *j) {
         } else {
             enqueueJob(j,0);
         }
-=======
-        enqueueJob(j,0);
->>>>>>> origin/master
     }
 
     /* Update job re-queue time if job is already queued. */
@@ -563,11 +531,7 @@ void processJob(job *j) {
     }
 
     if (old_awakeme == j->awakeme)
-<<<<<<< HEAD
         logJobsDebugInfo(LL_WARNING, "~~~WARNING~~~ NOT PROCESSABLE JOB", j);
-=======
-        serverLog(LL_WARNING,"Warning: not processed job %.48s", j->id);
->>>>>>> origin/master
 }
 
 int processJobs(struct aeEventLoop *eventLoop, long long id, void *clientData) {
@@ -1078,11 +1042,7 @@ void addReplyJobID(client *c, job *j) {
  * replicated, C_ERR is returned, in order to signal the client further
  * accesses to the job are not allowed. */
 int jobReplicationAchieved(job *j) {
-<<<<<<< HEAD
     serverLog(LL_VERBOSE,"Replication ACHIEVED %.*s",JOB_ID_LEN,j->id);
-=======
-    serverLog(LL_VERBOSE,"Replication ACHIEVED %.48s",j->id);
->>>>>>> origin/master
 
     /* Change the job state to active. This is critical to avoid the job
      * will be freed by unblockClient() if found still in the old state. */
@@ -1105,7 +1065,6 @@ int jobReplicationAchieved(job *j) {
         unregisterJob(j);
         freeJob(j);
         return C_ERR;
-<<<<<<< HEAD
     }
 
     /* If set, cleanup nodes_confirmed to free memory. We'll reuse this
@@ -1114,8 +1073,6 @@ int jobReplicationAchieved(job *j) {
     if (j->nodes_confirmed) {
         dictRelease(j->nodes_confirmed);
         j->nodes_confirmed = NULL;
-=======
->>>>>>> origin/master
     }
 
     /* Queue the job locally. */
@@ -1297,18 +1254,13 @@ void addjobCommand(client *c) {
 
     /* If maxlen was specified, check that the local queue len is
      * within the requested limits. */
-<<<<<<< HEAD
     if (maxlen && q && queueLength(q) >= (unsigned long) maxlen) {
-=======
-    if (maxlen && queueNameLength(c->argv[1]) >= (unsigned long) maxlen) {
->>>>>>> origin/master
         addReplySds(c,
             sdsnew("-MAXLEN Queue is already longer than "
                    "the specified MAXLEN count\r\n"));
         return;
     }
 
-<<<<<<< HEAD
     /* If the queue is paused in input, refuse the job. */
     if (q && q->flags & QUEUE_FLAG_PAUSED_IN) {
         addReplySds(c,
@@ -1316,8 +1268,6 @@ void addjobCommand(client *c) {
         return;
     }
 
-=======
->>>>>>> origin/master
     /* Are we going to discard the local copy before to return to the caller?
      * This happens when the job is at the same type asynchronously
      * replicated AND because of memory warning level we are going to
@@ -1379,11 +1329,7 @@ void addjobCommand(client *c) {
     if ((replicate > 1 || extrepl) && !async) {
         c->bpop.timeout = timeout;
         c->bpop.job = job;
-<<<<<<< HEAD
         c->bpop.added_node_time = mstime();
-=======
-        c->bpop.added_node_time = server.mstime;
->>>>>>> origin/master
         blockClient(c,BLOCKED_JOB_REPL);
         setJobAssociatedValue(job,c);
         /* Create the nodes_confirmed dictionary only if we actually need

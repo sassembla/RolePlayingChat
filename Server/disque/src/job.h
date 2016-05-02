@@ -143,11 +143,7 @@ typedef struct job {
 } job;
 
 /* Number of bytes of directly serializable fields in the job structure. */
-<<<<<<< HEAD
 #define JOB_STRUCT_SER_LEN (JOB_ID_LEN+1+1+2+4+8+4+4+2+2)
-=======
-#define JOB_STRUCT_SER_LEN (JOB_ID_LEN+1+1+2+4+8+4+4+4)
->>>>>>> origin/master
 
 /* Serialization types for serializeJob() deserializejob(). */
 #define SER_MESSAGE 0

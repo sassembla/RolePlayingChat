@@ -42,31 +42,6 @@ that messages are eventually delivered even in the face of failures. So even
 if in theory implementing a message queue is very easy, to write a very
 robust and scalable one is harder than it may appear.
 
-What is a message queue?
----
-
-*Hint: skip this section if you are familiar with message queues.*
-
-Do you know how humans use text messages to communicate right? I could write
-my wife "please get the milk at the store", and she maybe will reply "Ok message
-received, I'll get two bottles on my way home".
-
-A message queue is the same as human text messages, but for computer programs.
-For example a web application, when an user subscribes, may send another
-process that handles sending emails "please send the confirmation email
-to tom@example.net".
-
-Message systems like Disque allow communication between processes using
-different queues. So a process can send a message into a queue with a given
-name, and only processes fetching messages from this queue will return those
-messages. Moreover multiple processes can listen for messages in a given
-queue, and multiple processes can send messages to the same queue.
-
-The important part of a message queue is to be able to provide guarantees so
-that messages are eventually delivered even in the face of failures. So even
-if in theory implementing a message queue is very easy, to write a very
-robust and scalable one is harder than it may appear.
-
 Give me the details!
 ---
 
@@ -99,7 +74,7 @@ Disque **automatically re-queues messages that are not acknowledged** as already
 
 Disque uses **explicit acknowledges** in order for a consumer to signal a message as delivered (or, using a different terminology, to signal a job as already processed).
 
-Disque queues only provides **best effort ordering**. Each queue sorts messages based on the job creation time, which is obtained using the *wall clock* of the local node where the message was created (plus an incremental counter for messages created in the same millisecond), so messages created in the same node are normally delivered in the same order they were created. This is not causal ordering since correct ordering is violated in different cases: when messages are re-issued because not they are acknowledged, because of nodes local clock drifts, and when messages are moved to other nodes for load balancing and federation (in this case you end with queues having jobs originated in different nodes with different wall clocks). However all this also means that normally messages are not delivered in random order and usually messages created first are delivered first.
+Disque queues only provides **best effort ordering**. Each queue sorts messages based on the job creation time, which is obtained using the *wall clock* of the local node where the message was created (plus an incremental counter for messages created in the same millisecond), so messages created in the same node are normally delivered in the same order they were created. This is not causal ordering since correct ordering is violated in different cases: when messages are re-issued because they are not acknowledged, because of nodes local clock drifts, and when messages are moved to other nodes for load balancing and federation (in this case you end with queues having jobs originated in different nodes with different wall clocks). However all this also means that normally messages are not delivered in random order and usually messages created first are delivered first.
 
 Note that since Disque does not provide strict FIFO semantics, technically speaking it should not be called a *message queue*, and it could better identified as a message broker. However I believe that at this point in the IT industry a *message queue* is often more lightly used to identify a generic broker that may or may not be able to guarantee order in all cases. Given that we document the semantics very clearly, I grant myself the right to call Disque a message queue anyway.
 
@@ -117,7 +92,7 @@ Other minor features are:
 * Ability to block queues.
 * A few statistics about queue activity.
 * Stateless iterators for queues and jobs.
-* Commands to control the visiblity of single jobs.
+* Commands to control the visibility of single jobs.
 * Easy resize of the cluster (adding nodes is trivial).
 * Graceful removal of nodes without losing job replicas.
 
@@ -189,17 +164,12 @@ a special queue used in order to accumulate messages that cannot be processed
 for some reason. Common causes could be:
 
 1. The message was delivered too many times but never correctly processed.
-<<<<<<< HEAD
 2. The message time-to-live reached zero before it was processed.
-=======
-2. The message time to live reached zero before it was processed.
->>>>>>> origin/master
 3. Some worker explicitly asked the system to flag the message as having issues.
 
 The idea is that the administrator of the system checks (usually via automatic
 systems) if there is something in the dead letter queue in order to understand
 if there is some software error or other kind of error preventing messages
-<<<<<<< HEAD
 from being processed as expected.
 
 Since Disque is an in-memory system, the message time-to-live is an important
@@ -209,17 +179,6 @@ the message. In such a system, to use memory and create a queue in response
 to an error or to messages timing out looks like a non optimal idea. Moreover,
 due to the distributed nature of Disque, dead letters could end up spawning
 multiple nodes and having duplicated entries in them.
-=======
-to be processed as expected.
-
-Since Disque is an in memory system the message time to live is an important
-property. When it is reached, we want messages to go away, since the TTL should
-be choosen so that after such a time it is no longer meaningful to process
-the message. In such a system, to use memory and create a queue in response
-to an error or to messages timing out looks like a non optimal idea. Moreover
-for the distributed nature of Disque dead letters could end spawning multiple
-nodes and having duplicated entries inside.
->>>>>>> origin/master
 
 So Disque uses a different approach. Each node message representation has
 two counters: a **nacks counter** and an **additional deliveries** counter.
@@ -229,7 +188,6 @@ network partitions.
 
 The idea of these two counters is that one is incremented every time a worker
 uses the `NACK` command to tell the queue the message was not processed correctly
-<<<<<<< HEAD
 and should be put back on the queue ASAP. The other is incremented for every other condition (different than the `NACK` call) that requires a message to be put back
 on the queue again. This includes messages that get lost and are enqueued again
 or messages that are enqueued on one side of the partition since the message
@@ -240,18 +198,6 @@ Using the `GETJOB` command with the `WITHCOUNTERS` option, or using the
 together with the other job information, so if a worker, before processing
 a message, sees the counters have values over some application-defined limit, it
 can notify operations people in multiple ways:
-=======
-and should be put back on the queue ASAP. The other is incremented for every other condition (different than `NACK` call) that requires a message to be put back
-on the queue again. This includes messages that get lost and are enqueued again
-or messages that are enqueued in one side of the partition since the message
-was processed in the other side and so forth.
-
-Using the `GETJOB` command with the `WITHCOUNTERS` option, or using the
-`SHOW` command to inspect a job, it is possible to retrieve these two counters
-together with the other jobs information, so if a worker, before processing
-a message, sees the counters having too high values, it can notify operations
-people in multiple ways:
->>>>>>> origin/master
 
 1. It may send an email.
 2. Set a flag in a monitoring system.
@@ -266,11 +212,7 @@ selected by the application as a warning threshold.
 
 The reason for having two distinct counters is that applications may want
 to handle the case of explicit negative acknowledges via `NACK` differently
-<<<<<<< HEAD
 than multiple deliveries because of timeouts or messages getting lost.
-=======
-than multiple deliveries because of timeouts or messages lost.
->>>>>>> origin/master
 
 Disque and disk persistence
 ---
@@ -410,11 +352,7 @@ Main API
 The Disque API is composed of a small set of commands, since the system solves a
 single very specific problem. The three main commands are:
 
-<<<<<<< HEAD
 #### `ADDJOB queue_name job <ms-timeout> [REPLICATE <count>] [DELAY <sec>] [RETRY <sec>] [TTL <sec>] [MAXLEN <count>] [ASYNC]`
-=======
-## `ADDJOB queue_name job <ms-timeout> [REPLICATE <count>] [DELAY <sec>] [RETRY <sec>] [TTL <sec>] [MAXLEN <count>] [ASYNC]`
->>>>>>> origin/master
 
 Adds a job to the specified queue. Arguments are as follows:
 
@@ -430,11 +368,7 @@ Adds a job to the specified queue. Arguments are as follows:
 
 The command returns the Job ID of the added job, assuming ASYNC is specified, or if the job was replicated correctly to the specified number of nodes. Otherwise an error is returned.
 
-<<<<<<< HEAD
 #### `GETJOB [NOHANG] [TIMEOUT <ms-timeout>] [COUNT <count>] [WITHCOUNTERS] FROM queue1 queue2 ... queueN`
-=======
-## `GETJOB [NOHANG] [TIMEOUT <ms-timeout>] [COUNT <count>] [WITHCOUNTERS] FROM queue1 queue2 ... queueN`
->>>>>>> origin/master
 
 Return jobs available in one of the specified queues, or return NULL
 if the timeout is reached. A single job per call is returned unless a count greater than 1 is specified. Jobs are returned as a three-element array containing the queue name, the Job ID, and the job body itself. If jobs are available in multiple queues, queues are processed left to right.
@@ -443,7 +377,6 @@ If there are no jobs for the specified queues, the command blocks, and messages 
 
 Options:
 
-<<<<<<< HEAD
 * **NOHANG**: Ask the command to not block even if there are no jobs in all the specified queues. This way the caller can just check if there are available jobs without blocking at all.
 * **WITHCOUNTERS**: Return the best-effort count of NACKs (negative acknowledges) received by this job, and the number of additional deliveries performed for this job. See the *Dead Letters* section for more information.
 
@@ -462,16 +395,6 @@ once" or an "at-least-once" job, the dummy ACK is only created for at-least-
 once jobs.
 
 #### `FASTACK jobid1 jobid2 ... jobidN`
-=======
-* **NOHANG**: Ask the command to don't block even if there are no jobs in all the specified queues. This way the caller can just check if there are available jobs without blocking at all.
-* **WITHCOUNTERS**: Return the best-effort count of NACKs (negative acknowledges) received by this job, and the number of additional deliveries performed for this ob. See the *Dead Letters* section for more information.
-
-## `ACKJOB jobid1 jobid2 ... jobidN`
-
-Acknowledges the execution of one or more jobs via job IDs. The node receiving the ACK will replicate it to multiple nodes and will try to garbage collect both the job and the ACKs from the cluster so that memory can be freed.
-
-## `FASTACK jobid1 jobid2 ... jobidN`
->>>>>>> origin/master
 
 Performs a best-effort cluster-wide deletion of the specified job IDs. When the
 network is well connected and there are no node failures, this is equivalent to
@@ -479,11 +402,7 @@ network is well connected and there are no node failures, this is equivalent to
 failures it is more likely that fast acknowledges will result in multiple
 deliveries of the same messages.
 
-<<<<<<< HEAD
 #### `WORKING jobid`
-=======
-## `WORKING jobid`
->>>>>>> origin/master
 
 Claims to be still working with the specified job, and asks Disque to postpone
 the next time it will deliver the job again. The next delivery is postponed
@@ -504,7 +423,7 @@ and never process it. After 50% of the TTL has elapsed, the job will be delivere
 to other workers anyway.
 
 Note that `WORKING` returns the number of seconds you (likely) postponed the
-message visiblity for other workers (the command basically returns the
+message visibility for other workers (the command basically returns the
 *retry* time of the job), so the worker should make sure to send the next
 `WORKING` command before this time elapses. Moreover, a worker that may want
 to use this interface may fetch the retry value with the `SHOW` command
@@ -520,15 +439,9 @@ ASAP, like in the following example (in pseudo code):
         END
     END
 
-<<<<<<< HEAD
 #### `NACK <job-id> ... <job-id>`
 
 The `NACK` command tells Disque to put the job back in the queue ASAP. It
-=======
-## `NACK <job-id> ... <job-id>`
-
-The `NACK` command tells Disque to put back the job in the queue ASAP. It
->>>>>>> origin/master
 is very similar to `ENQUEUE` but it increments the job `nacks` counter
 instead of the `additional-deliveries` counter. The command should be used
 when the worker was not able to process a message and wants the message to
@@ -537,26 +450,17 @@ be put back into the queue in order to be processed again.
 Other commands
 ===
 
-<<<<<<< HEAD
 #### `INFO`
 
 Generic server information / stats.
 
 #### `HELLO`
-=======
-## `INFO`
-
-Generic server information / stats.
-
-## `HELLO`
->>>>>>> origin/master
 
 Returns hello format version, this node ID, all the nodes IDs, IP addresses,
 ports, and priority (lower is better, means a node is more available).
 Clients should use this as a handshake command when connecting with a
 Disque node.
 
-<<<<<<< HEAD
 #### `QLEN <queue-name>`
 
 Return the length of the queue.
@@ -614,25 +518,11 @@ incremented every time a job is enqueued or dequeued for any reason.
 #### `QPEEK <queue-name> <count>`
 
 Return, without consuming from the queue, *count* jobs. If *count* is positive
-=======
-## `QLEN <qname>`
-
-Return the length of the queue.
-
-## `QSTAT <qname> (TODO)`
-
-Return produced ... consumed ... idle ... sources [...] ctime ...
-
-## `QPEEK <qname> <count>`
-
-Return, without consuming from queue, *count* jobs. If *count* is positive
->>>>>>> origin/master
 the specified number of jobs are returned from the oldest to the newest
 (in the same best-effort FIFO order as GETJOB). If *count* is negative the
 commands changes behavior and shows the *count* newest jobs, from the newest
 from the oldest.
 
-<<<<<<< HEAD
 #### `ENQUEUE <job-id> ... <job-id>`
 
 Queue jobs if not already queued.
@@ -642,35 +532,16 @@ Queue jobs if not already queued.
 Remove the job from the queue.
 
 #### `DELJOB <job-id> ... <job-id>`
-=======
-## `ENQUEUE <job-id> ... <job-id>`
-
-Queue jobs if not already queued.
-
-## `DEQUEUE <job-id> ... <job-id>`
-
-Remove the job from the queue.
-
-## `DELJOB <job-id> ... <job-id>`
->>>>>>> origin/master
 
 Completely delete a job from a node.
 Note that this is similar to `FASTACK`, but limited to a single node since
 no `DELJOB` cluster bus message is sent to other nodes.
 
-<<<<<<< HEAD
 #### `SHOW <job-id>`
 
 Describe the job.
 
 #### `QSCAN [COUNT <count>] [BUSYLOOP] [MINLEN <len>] [MAXLEN <len>] [IMPORTRATE <rate>]`
-=======
-## `SHOW <job-id>`
-
-Describe the job.
-
-## `QSCAN [COUNT <count>] [BUSYLOOP] [MINLEN <len>] [MAXLEN <len>] [IMPORTRATE <rate>]`
->>>>>>> origin/master
 
 The command provides an interface to iterate all the existing queues in
 the local node, providing a cursor in the form of an integer that is passed
@@ -712,7 +583,6 @@ The cursor argument can be in any place, the first non matching option
 that has valid cursor form of an unsigned number will be sensed as a valid
 cursor.
 
-<<<<<<< HEAD
 #### `PAUSE <queue-name> option1 [option2 ... optionN]`
 
 Control the paused state of a queue, possibly broadcasting the command to
@@ -845,28 +715,6 @@ to create the number of replicas of the message in the cluster **without using i
 5. The node will no longer create *dummy acks* in response to an `ACKJOB` command about a job it does not know.
 
 All these behavior changes result in the node participating only as a source of messages, so eventually its message count will drop to zero (it is possible to check for this condition using `INFO jobs`). When this happens the node can be stopped and removed from the other nodes tables using `CLUSTER FORGET` as described in the section above.
-=======
-## `JSCAN [<cursor>] [COUNT <count>] [BUSYLOOP] [QUEUE <queue>] [STATE <state1> STATE <state2> ... STATE <stateN>] [REPLY all|id]`
-
-The command provides an interface to iterate all the existing jobs in
-the local node, providing a cursor in the form of an integer that is passed
-to the next command invocation. During the first call cursor must be 0,
-in the next calls the cursor returned in the previous call is used in the
-next. The iterator guarantees to return all the elements but may return
-duplicated elements.
-
-Options:
-
-* `COUNT <count>` An hit about how much work to do per iteration.
-* `BUSYLOOP` Block and return all the elements in a busy loop.
-* `QUEUE <queue>` Return only jobs in the specified queue.
-* `STATE <state>` Return jobs in the specified state. Can be used multiple times for a logic OR.
-* `REPLY <type>` Job reply type. Type can be `all` or `id`. Default is to report just the job ID. If `all` is specified the full job state is returned like for the SHOW command.
-
-The cursor argument can be in any place, the first non matching option
-that has valid cursor form of an usigned number will be sensed as a valid
-cursor.
->>>>>>> origin/master
 
 Client libraries
 ===
@@ -940,6 +788,7 @@ API on top of Disque:
 
 - [disque-rb](https://github.com/soveran/disque-rb)
 - [disque_jockey](https://github.com/DevinRiley/disque_jockey)
+- [Disc](https://github.com/pote/disc)
 
 *Rust*
 
@@ -1024,7 +873,7 @@ Note that: `job` is a job object with the following fields:
 1. `job.delivered`: A list of nodes that may have this message. This list does not need to be complete, is used for best-effort algorithms.
 2. `job.confirmed`: A list of nodes that confirmed reception of ACK by replying with a GOTJOB message.
 3. `job.id`: The job 48 chars ID.
-4. `job.state`: The job state among: `wait-repl`, `active`, `queued`, `acknowledged`.
+4. `job.state`: The job state among: `wait-repl`, `active`, `queued`, `acked`.
 5. `job.replicate`: Replication factor for this job.
 5. `job.qtime`: Time at which we need to re-queue the job.
 
@@ -1035,7 +884,7 @@ States are as follows:
 1. `wait-repl`: the job is waiting to be synchronously replicated.
 2. `active`: the job is active, either it reached the replication factor in the originating node, or it was created because the node received an `REPLJOB` message from another node.
 3. `queued`: the job is active and also is pending into a queue in this node.
-4. `acknowledged`: the job is no longer actived since a client confirmed the reception using the `ACKJOB` command or another Disque node sent a `SETACK` message for the job.
+4. `acked`: the job is no longer active since a client confirmed the reception using the `ACKJOB` command or another Disque node sent a `SETACK` message for the job.
 
 Generic functions
 ---
@@ -1146,7 +995,7 @@ ON RECV cluster message `QUEUED(string job-id)`:
 
 1. job = Call `LOOKUP-JOB(job-id)`.
 2. IF `job == NULL` THEN return ASAP.
-3. IF `job.state == acknowledged` THEN return ASAP.
+3. IF `job.state == acked` THEN return ASAP.
 4. IF `job.state == queued` THEN if sender node ID is greater than my node ID call DEQUEUE(job).
 5. Update `job.qtime` setting it to NOW + job.retry.
 
@@ -1162,8 +1011,8 @@ acknowledged jobs, when a job finally gets acknowledged by a client.
 
 PROCEDURE `ACK-JOB(job)`:
 
-1. If job state is already `acknowledged`, do nothing and return ASAP.
-2. Change job state to `acknowledged`, dequeue the job if queued, schedule first call to TIMER.
+1. If job state is already `acked`, do nothing and return ASAP.
+2. Change job state to `acked`, dequeue the job if queued, schedule first call to TIMER.
 
 PROCEDURE `START-GC(job)`:
 
@@ -1187,7 +1036,7 @@ ON RECV cluster message `SETACK(string job-id, integer may-have)`:
 4. IF `job != NULL` and `jobs.delivered.size > may-have` THEN call `START-GC(job)`.
 5. IF `may-have == 0 AND job  != NULL`, reply with `GOTACK(1)` and call `START-GC(job)`.
 
-Steps 3 and 4 makes sure that among the reachalbe nodes that may have a message, garbage collection will be performed by the node that is aware of more nodes that may have a copy.
+Steps 3 and 4 makes sure that among the reachable nodes that may have a message, garbage collection will be performed by the node that is aware of more nodes that may have a copy.
 
 Step 5 instead is used in order to start a GC attempt if we received a SETACK message from a node just hacking a dummy ACK (an acknowledge about a job it was not aware of).
 
@@ -1231,7 +1080,7 @@ FAQ
 Is Disque part of Redis?
 ---
 
-No, it is a standalone project, however a big part of the Redis networking source code, nodes message bus, libraries, and the client protocol, were reused in this new project. In theory it was possible to extract the common code and release it as a framework to write distributed systems in C. However this is not a perfect solution as well, since the projects are expected to diverge more and more in the future, and to rely on a common fundation was hard. Moreover the initial effort to turn Redis into two different layers: an abstract server, networking stack and cluster bus, and the actual Redis implementation, was a huge effort, ways bigger than writing Disque itself.
+No, it is a standalone project, however a big part of the Redis networking source code, nodes message bus, libraries, and the client protocol, were reused in this new project. In theory it was possible to extract the common code and release it as a framework to write distributed systems in C. However this is not a perfect solution as well, since the projects are expected to diverge more and more in the future, and to rely on a common foundation was hard. Moreover the initial effort to turn Redis into two different layers: an abstract server, networking stack and cluster bus, and the actual Redis implementation, was a huge effort, ways bigger than writing Disque itself.
 
 However while it is a separated project, conceptually Disque is related to Redis, since it tries to solve a Redis use case in a vertical, ad-hoc way.
 
@@ -1291,9 +1140,9 @@ For example imagine a setup with two nodes, A and B.
 
 During step `1` if there was no recent traffic of imported messages for this queue, node A has no idea about who may have messages for the queue `myqueue`. Every other node may have, or none may have. So it starts to broadcast `NEEDJOBS` messages to the whole cluster. However we can't spam the cluster with messages, so if no reply is received after the first broadcast, the next will be sent with a larger delay, and so foth. The delay is exponential, with a maximum value of 30 seconds (this parameters will be configurable in the future, likely).
 
-When there is some traffic instead, nodes send `NEEDJOBS` messages ASAP to other nodes that were recent sources of messages. Even when no reply is received, the next `NEEDJOBS` messages will be sent more aggressively to the subset of nodes that had messages in the mast, with a delay that starts at 25 milliseconds and has a maximum value of two seconds.
+When there is some traffic instead, nodes send `NEEDJOBS` messages ASAP to other nodes that were recent sources of messages. Even when no reply is received, the next `NEEDJOBS` messages will be sent more aggressively to the subset of nodes that had messages in the past, with a delay that starts at 25 milliseconds and has a maximum value of two seconds.
 
-In order to minimize the latency, `NEEDJOBS` messages are not trottled at all when:
+In order to minimize the latency, `NEEDJOBS` messages are not throttled at all when:
 
 1. A client consumed the last message from a given queue. Source nodes are informed immediately in order to receive messages before the node asks for more.
 2. Blocked clients are served the last message available in the queue.

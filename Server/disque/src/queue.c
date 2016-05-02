@@ -139,29 +139,17 @@ void addReplyJob(client *c, job *j, int flags) {
 /* ------------------------ Queue higher level API -------------------------- */
 
 /* Queue the job and change its state accordingly. If the job is already
-<<<<<<< HEAD
  * in QUEUED state, or the job has retry set to 0 and the JOB_FLAG_DELIVERED
  * flat set, C_ERR is returned, otherwise C_OK is returned and the operation
  * succeeds.
-=======
- * in QUEUED state, C_ERR is returned, otherwise C_OK is returned
- * and the operation succeeds.
->>>>>>> origin/master
  *
  * The nack argument is set to 1 if the enqueue is the result of a client
  * negative acknowledge. */
 int enqueueJob(job *job, int nack) {
-<<<<<<< HEAD
     if (job->state == JOB_STATE_QUEUED || job->qtime == 0) return C_ERR;
     if (job->retry == 0 && job->flags & JOB_FLAG_DELIVERED) return C_ERR;
 
     serverLog(LL_VERBOSE,"QUEUED %.*s", JOB_ID_LEN, job->id);
-=======
-    if (job->state == JOB_STATE_QUEUED || job->qtime == 0)
-        return C_ERR;
-
-    serverLog(LL_VERBOSE,"QUEUED %.48s", job->id);
->>>>>>> origin/master
 
     job->state = JOB_STATE_QUEUED;
 
@@ -179,21 +167,13 @@ int enqueueJob(job *job, int nack) {
      * message, to save bandwidth. But the next times, when the job is
      * re-queued for lack of acknowledge, this is useful to (best effort)
      * avoid multiple nodes to re-queue the same job. */
-<<<<<<< HEAD
     if (job->flags & JOB_FLAG_BCAST_QUEUED || nack) {
-=======
-    if (job->flags & JOB_FLAG_BCAST_QUEUED) {
->>>>>>> origin/master
         unsigned char flags = nack ? CLUSTERMSG_FLAG0_INCR_NACKS :
                                      CLUSTERMSG_FLAG0_INCR_DELIV;
         clusterBroadcastQueued(job, flags);
         /* Other nodes will increment their NACKs / additional deliveries
          * counters when they'll receive the QUEUED message. We need to
-<<<<<<< HEAD
          * do the same for the local copy of the job. */
-=======
-         * do teh same for the local copy of the job. */
->>>>>>> origin/master
         if (nack)
             job->num_nacks++;
         else
@@ -207,12 +187,8 @@ int enqueueJob(job *job, int nack) {
     if (!q) q = createQueue(job->queue);
     serverAssert(skiplistInsert(q->sl,job) != NULL);
     q->atime = server.unixtime;
-<<<<<<< HEAD
     q->jobs_in++;
     if (!(q->flags & QUEUE_FLAG_PAUSED_OUT)) signalQueueAsReady(q);
-=======
-    signalQueueAsReady(q);
->>>>>>> origin/master
     return C_OK;
 }
 
@@ -225,11 +201,7 @@ int dequeueJob(job *job) {
     if (!q) return C_ERR;
     serverAssert(skiplistDelete(q->sl,job));
     job->state = JOB_STATE_ACTIVE; /* Up to the caller to override this. */
-<<<<<<< HEAD
     serverLog(LL_VERBOSE,"DE-QUEUED %.*s", JOB_ID_LEN, job->id);
-=======
-    serverLog(LL_VERBOSE,"DE-QUEUED %.48s", job->id);
->>>>>>> origin/master
     return C_OK;
 }
 
@@ -275,20 +247,12 @@ unsigned long queueNameLength(robj *qname) {
  * blocked, has no jobs inside. If the queue is removed C_OK is
  * returned, otherwise C_ERR is returned. */
 #define QUEUE_MAX_IDLE_TIME (60*5)
-<<<<<<< HEAD
 int GCQueue(queue *q, time_t max_idle_time) {
     time_t idle = server.unixtime - q->atime;
     if (idle < max_idle_time) return C_ERR;
     if (q->clients && listLength(q->clients) != 0) return C_ERR;
     if (skiplistLength(q->sl)) return C_ERR;
     if (q->flags & QUEUE_FLAG_PAUSED_ALL) return C_ERR;
-=======
-int GCQueue(queue *q) {
-    time_t elapsed = server.unixtime - q->atime;
-    if (elapsed < QUEUE_MAX_IDLE_TIME) return C_ERR;
-    if (q->clients && listLength(q->clients) != 0) return C_ERR;
-    if (skiplistLength(q->sl)) return C_ERR;
->>>>>>> origin/master
     destroyQueue(q->name);
     return C_OK;
 }
@@ -307,11 +271,7 @@ int evictIdleQueues(void) {
         queue *q = dictGetVal(de);
 
         sampled++;
-<<<<<<< HEAD
         if (GCQueue(q,max_idle_time) == C_OK) evicted++;
-=======
-        if (GCQueue(q) == C_OK) evicted++;
->>>>>>> origin/master
 
         /* First exit condition: we are able to expire less than 10% of
          * entries. */

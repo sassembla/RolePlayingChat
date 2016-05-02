@@ -38,10 +38,7 @@ typedef struct clusterLink {
 #define CLUSTER_NODE_NOADDR    (1<<4) /* Node address unknown */
 #define CLUSTER_NODE_MEET      (1<<5) /* Send a MEET message to this node */
 #define CLUSTER_NODE_DELETED   (1<<6) /* Node no longer part of the cluster */
-<<<<<<< HEAD
 #define CLUSTER_NODE_LEAVING   (1<<7) /* Node is leaving the cluster. */
-=======
->>>>>>> origin/master
 #define CLUSTER_NODE_NULL_NAME "\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000"
 
 #define nodeInHandshake(n) ((n)->flags & CLUSTER_NODE_HANDSHAKE)
@@ -49,11 +46,8 @@ typedef struct clusterLink {
 #define nodeWithoutAddr(n) ((n)->flags & CLUSTER_NODE_NOADDR)
 #define nodeTimedOut(n) ((n)->flags & CLUSTER_NODE_PFAIL)
 #define nodeFailed(n) ((n)->flags & CLUSTER_NODE_FAIL)
-<<<<<<< HEAD
 #define nodeLeaving(n) ((n)->flags & CLUSTER_NODE_LEAVING)
 #define myselfLeaving() nodeLeaving(server.cluster->myself)
-=======
->>>>>>> origin/master
 
 /* This structure represent elements of node->fail_reports. */
 typedef struct clusterNodeFailReport {
@@ -210,12 +204,8 @@ typedef struct {
     uint16_t type;      /* Message type */
     uint16_t count;     /* Only used for some kind of messages. */
     char sender[CLUSTER_NAMELEN]; /* Name of the sender node */
-<<<<<<< HEAD
     char myip[NET_IP_STR_LEN];    /* My IP, if not all zeroed. */
     char notused1[34];  /* 34 bytes reserved for future usage. */
-=======
-    char notused1[32];  /* 32 bytes reserved for future usage. */
->>>>>>> origin/master
     uint16_t port;      /* Sender TCP base port */
     uint16_t flags;     /* Sender node flags */
     unsigned char state; /* Cluster state from the POV of the sender */
@@ -250,9 +240,6 @@ void clusterSendSetAck(clusterNode *node, job *j);
 void clusterSendNeedJobs(robj *qname, int numjobs, dict *nodes);
 void clusterSendYourJobs(clusterNode *node, job **jobs, uint32_t count);
 void clusterBroadcastJobIDMessage(dict *nodes, char *id, int type, uint32_t aux, unsigned char flags);
-<<<<<<< HEAD
 void clusterBroadcastPause(robj *qname, uint32_t flags);
-=======
->>>>>>> origin/master
 
 #endif /* __CLUSTER_H */

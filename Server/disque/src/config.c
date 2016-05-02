@@ -614,11 +614,8 @@ void configSetCommand(client *c) {
       "activerehashing",server.activerehashing) {
     } config_set_bool_field(
       "tcp-keepalive",server.tcpkeepalive) {
-<<<<<<< HEAD
     } config_set_bool_field(
       "aof-enqueue-jobs-once",server.aof_enqueue_jobs_once) {
-=======
->>>>>>> origin/master
 
     /* Numerical fields.
      * config_set_numerical_field(name,var,min,max) */
@@ -658,11 +655,7 @@ void configSetCommand(client *c) {
     } config_set_memory_field("maxmemory",server.maxmemory) {
         if (server.maxmemory) {
             if (server.maxmemory < zmalloc_used_memory()) {
-<<<<<<< HEAD
                 serverLog(LL_WARNING,"WARNING: the new maxmemory value set via CONFIG SET is smaller than the current memory usage. This will result in jobs eviction and/or inability to accept new jobs depending on the maxmemory-policy.");
-=======
-                serverLog(LL_WARNING,"WARNING: the new maxmemory value set via CONFIG SET is smaller than the current memory usage. This will result in keys eviction and/or inability to accept new write commands depending on the maxmemory-policy.");
->>>>>>> origin/master
             }
             freeMemoryIfNeeded();
         }
