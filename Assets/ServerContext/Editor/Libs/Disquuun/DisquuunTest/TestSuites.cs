@@ -120,29 +120,29 @@ public class Test2_Fast : TestBase {
 			() => testLogger.Log("test started. testSuiteId:" + testSuiteId),
 			
 			// info
-			() => disquuun.Info(),
-			() => AssertResult("INFO:", latestResult, "info"),
+			// () => disquuun.Info(),
+			// () => AssertResult("INFO:", latestResult, "info"),
 			
-			// hello
-			() => disquuun.Hello(),
-			() => AssertResult("HELLO:", latestResult, "hello"),
+			// // hello
+			// () => disquuun.Hello(),
+			// () => AssertResult("HELLO:", latestResult, "hello"),
 			
-			// () => 
-			// () => 
-			// () => 
-			// () => 
+			// // () => 
+			// // () => 
+			// // () => 
+			// // () => 
 			
-			// multiple data in same time.
-			// () => {
-			// 	disquuun.Info();
-			// 	disquuun.Info();
-			// 	disquuun.Info();
-			// 	disquuun.Info();
-			// 	disquuun.Info();
-			// 	disquuun.Info();
-			// },
+			// // multiple data in same time.
+			// // () => {
+			// // 	disquuun.Info();
+			// // 	disquuun.Info();
+			// // 	disquuun.Info();
+			// // 	disquuun.Info();
+			// // 	disquuun.Info();
+			// // 	disquuun.Info();
+			// // },
 			
-			// some job.
+			// // some job.
 			// () => {
 			// 	jobQueueId = Guid.NewGuid().ToString();
 			// },
@@ -161,17 +161,53 @@ public class Test2_Fast : TestBase {
 			},
 			() => {
 				for (var i = 0; i < 1000; i++) {
-					disquuun2.AddJob(jobQueueId, new byte[]{0});
+					disquuun.AddJob(jobQueueId, new byte[]{0});
 				}
 			},
 			() => disquuun.GetJob(new string[]{jobQueueId}, "COUNT", 1000),
-			() => disquuun.FastAck(latestWholeGotJobId),
+			() => {
+				if (latestWholeGotJobId != null) {
+					testLogger.Log("latestWholeGotJobId:" + latestWholeGotJobId.Length);
+					disquuun.FastAck(latestWholeGotJobId);
+				} else {
+					testLogger.Log("should wait... maybe getJob is not finished yet.");
+				}
+			},
 			() => AssertResult("FASTACK:1000", latestResult, "mass job."),
 			
 			() => {
 				testLogger.Log("---------------------------result info.---------------------------");
 				disquuun2.Info();
 			},
+			
+			() => {
+				disquuun.Disconnect();
+				disquuun2.Disconnect();
+			}
+		};
+	}
+}
+
+public class Test3_Size : TestBase {
+	
+	
+	public override Action[] Ready (string testSuiteId) {
+		return new Action[] {
+			() => testLogger.Log("test started. testSuiteId:" + testSuiteId),
+			
+			// size is over maximum.
+			() => {
+				jobQueueId = Guid.NewGuid().ToString();
+			},
+			() => {
+				disquuun.AddJob(jobQueueId, new byte[disquuun2.BufferSize-106]);
+			},
+			() => disquuun2.GetJob(new string[]{jobQueueId}),
+			
+			// () => {
+			// 	testLogger.Log("---------------------------result info.---------------------------");
+			// 	disquuun.Info();
+			// },
 			
 			() => {
 				disquuun.Disconnect();

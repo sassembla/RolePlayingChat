@@ -67,91 +67,100 @@ public class TestBase {
 				new TestUpdater("disquuunTestThread_" + connectionId, Run);
 			},
 			(command, byteDatas) => {
-				// testLogger.Log("// data received:" + command + " byteDatas:" + byteDatas.Length);
-				
-				switch (command) {
-					case Disquuun.DisqueCommand.ADDJOB: {
-						var addedJobId = DisquuunDeserializer.AddJob(byteDatas);
-						// testLogger.Log("addedJobId:" + addedJobId);
-						
-						latestAddedJobId = addedJobId;
-						latestResult = "ADDJOB:";
-						break;
-					}
-					case Disquuun.DisqueCommand.GETJOB: {
-						var jobDatas = DisquuunDeserializer.GetJob(byteDatas);
-						foreach (var jobData in jobDatas) {
-							var gotJobIdStr = jobData.jobId;
-							// testLogger.Log("gotJobIdStr:" + gotJobIdStr);
-							
-							latestGotJobId = gotJobIdStr;
-						}
-						latestWholeGotJobId = jobDatas.Select(j => j.jobId).ToArray();
-						latestResult = "GETJOB:" + jobDatas.Length;
-						break;
-					}
-					case Disquuun.DisqueCommand.ACKJOB: {
-						var result = DisquuunDeserializer.AckJob(byteDatas);
-						// testLogger.Log("ackjob result:" + result);
-						latestResult = "ACKJOB:" + result;
-						break;
-					}
-					case Disquuun.DisqueCommand.FASTACK: {
-						var result = DisquuunDeserializer.FastAck(byteDatas);
-						// testLogger.Log("fastack result:" + result);
-						latestResult = "FASTACK:" + result;
-						break;
-					}
-					case Disquuun.DisqueCommand.WORKING: {
-						var postponeSec = DisquuunDeserializer.Working(byteDatas);
-						// testLogger.Log("working postponeSec:" + postponeSec);
-						latestResult = "WORKING:" + postponeSec;
-						break;
-					}
-					case Disquuun.DisqueCommand.NACK: {
-						var result = DisquuunDeserializer.Nack(byteDatas);
-						// testLogger.Log("nack result:" + result);
-						latestResult = "NACK:" + result;
-						break;
-					}			
-					case Disquuun.DisqueCommand.INFO: {
-						var infoStr = DisquuunDeserializer.Info(byteDatas);
-						testLogger.Log("infoStr:" + infoStr);
-						latestResult = "INFO:";
-						break;
-					}
-					case Disquuun.DisqueCommand.HELLO: {
-						var helloData = DisquuunDeserializer.Hello(byteDatas);
-						// testLogger.Log("helloData	vr:" + helloData.version);
-						// testLogger.Log("helloData	id:" + helloData.sourceNodeId);
-						
-						// testLogger.Log("helloData	node Id:" + helloData.nodeDatas[0].nodeId);
-						// testLogger.Log("helloData	node ip:" + helloData.nodeDatas[0].ip);
-						// testLogger.Log("helloData	node pt:" + helloData.nodeDatas[0].port);
-						// testLogger.Log("helloData	node pr:" + helloData.nodeDatas[0].priority);
-						latestResult = "HELLO:";
-						break;
-					}
-					case Disquuun.DisqueCommand.QLEN: {
-						var qLengthInt = DisquuunDeserializer.Qlen(byteDatas);
-						// testLogger.Log("qLengthInt:" + qLengthInt);
-						latestResult = "QLEN:" + qLengthInt;
-						break;
-					}
+				try {
+					testLogger.Log("// data received:" + command + " byteDatas:" + byteDatas.Length);
 					
-					// QSTAT,// <queue-name>
-					// QPEEK,// <queue-name> <count>
-					// ENQUEUE,// <job-id> ... <job-id>
-					// DEQUEUE,// <job-id> ... <job-id>
-					// DELJOB,// <job-id> ... <job-id>
-					// SHOW,// <job-id>
-					// QSCAN,// [COUNT <count>] [BUSYLOOP] [MINLEN <len>] [MAXLEN <len>] [IMPORTRATE <rate>]
-					// JSCAN,// [<cursor>] [COUNT <count>] [BUSYLOOP] [QUEUE <queue>] [STATE <state1> STATE <state2> ... STATE <stateN>] [REPLY all|id]
-					// PAUSE,
-					default: {
-						// ignored
-						break;
+					switch (command) {
+						case Disquuun.DisqueCommand.ADDJOB: {
+							var addedJobId = DisquuunDeserializer.AddJob(byteDatas);
+							// testLogger.Log("addedJobId:" + addedJobId);
+							
+							latestAddedJobId = addedJobId;
+							latestResult = "ADDJOB:OK";
+							break;
+						}
+						case Disquuun.DisqueCommand.GETJOB: {
+							var jobDatas = DisquuunDeserializer.GetJob(byteDatas);
+							foreach (var jobData in jobDatas) {
+								var gotJobIdStr = jobData.jobId;
+								// testLogger.Log("gotJobIdStr:" + gotJobIdStr);
+								
+								latestGotJobId = gotJobIdStr;
+							}
+							testLogger.Log("job received:" + jobDatas.Length);
+							
+							latestWholeGotJobId = new string[jobDatas.Length];
+							for (var i = 0; i < jobDatas.Length; i++) {
+								latestWholeGotJobId[i] = jobDatas[i].jobId;
+							}
+							latestResult = "GETJOB:" + jobDatas.Length;
+							break;
+						}
+						case Disquuun.DisqueCommand.ACKJOB: {
+							var result = DisquuunDeserializer.AckJob(byteDatas);
+							// testLogger.Log("ackjob result:" + result);
+							latestResult = "ACKJOB:" + result;
+							break;
+						}
+						case Disquuun.DisqueCommand.FASTACK: {
+							var result = DisquuunDeserializer.FastAck(byteDatas);
+							// testLogger.Log("fastack result:" + result);
+							latestResult = "FASTACK:" + result;
+							break;
+						}
+						case Disquuun.DisqueCommand.WORKING: {
+							var postponeSec = DisquuunDeserializer.Working(byteDatas);
+							// testLogger.Log("working postponeSec:" + postponeSec);
+							latestResult = "WORKING:" + postponeSec;
+							break;
+						}
+						case Disquuun.DisqueCommand.NACK: {
+							var result = DisquuunDeserializer.Nack(byteDatas);
+							// testLogger.Log("nack result:" + result);
+							latestResult = "NACK:" + result;
+							break;
+						}			
+						case Disquuun.DisqueCommand.INFO: {
+							var infoStr = DisquuunDeserializer.Info(byteDatas);
+							testLogger.Log("infoStr:" + infoStr);
+							latestResult = "INFO:";
+							break;
+						}
+						case Disquuun.DisqueCommand.HELLO: {
+							var helloData = DisquuunDeserializer.Hello(byteDatas);
+							// testLogger.Log("helloData	vr:" + helloData.version);
+							// testLogger.Log("helloData	id:" + helloData.sourceNodeId);
+							
+							// testLogger.Log("helloData	node Id:" + helloData.nodeDatas[0].nodeId);
+							// testLogger.Log("helloData	node ip:" + helloData.nodeDatas[0].ip);
+							// testLogger.Log("helloData	node pt:" + helloData.nodeDatas[0].port);
+							// testLogger.Log("helloData	node pr:" + helloData.nodeDatas[0].priority);
+							latestResult = "HELLO:";
+							break;
+						}
+						case Disquuun.DisqueCommand.QLEN: {
+							var qLengthInt = DisquuunDeserializer.Qlen(byteDatas);
+							// testLogger.Log("qLengthInt:" + qLengthInt);
+							latestResult = "QLEN:" + qLengthInt;
+							break;
+						}
+						
+						// QSTAT,// <queue-name>
+						// QPEEK,// <queue-name> <count>
+						// ENQUEUE,// <job-id> ... <job-id>
+						// DEQUEUE,// <job-id> ... <job-id>
+						// DELJOB,// <job-id> ... <job-id>
+						// SHOW,// <job-id>
+						// QSCAN,// [COUNT <count>] [BUSYLOOP] [MINLEN <len>] [MAXLEN <len>] [IMPORTRATE <rate>]
+						// JSCAN,// [<cursor>] [COUNT <count>] [BUSYLOOP] [QUEUE <queue>] [STATE <state1> STATE <state2> ... STATE <stateN>] [REPLY all|id]
+						// PAUSE,
+						default: {
+							// ignored
+							break;
+						}
 					}
+				} catch (Exception e) {
+					testLogger.Log("e:" + e);
 				}
 			},
 			(failedCommand, reason) => {
@@ -208,7 +217,7 @@ public class TestBase {
 					while (true) {
 						tickCount = System.Environment.TickCount * 1.0;
 						if (nextFrame - tickCount > 1) {
-							Thread.Sleep((int)(nextFrame - tickCount)/2);// not good...
+							Thread.Sleep(1000);
 							continue;
 						}
 						

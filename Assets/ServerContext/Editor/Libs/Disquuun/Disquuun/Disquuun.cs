@@ -19,6 +19,8 @@ namespace DisquuunCore {
 		private readonly Action<Exception> Error;
 		private readonly Action<string> Closed;
 		
+		public readonly long BufferSize;
+		
 		public enum ConnectionState {
 			OPENING,
 			OPENED,
@@ -94,6 +96,8 @@ namespace DisquuunCore {
 			testLogger = new TestLogger();
 			this.connectionId = connectionId;
 			
+			this.BufferSize = bufferSize;
+			
 			this.Connected = Connected;
 			this.Received = Received;
 			this.Failed = Failed;
@@ -115,10 +119,11 @@ namespace DisquuunCore {
 				sendArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnSend);
 				
 				var receiveArgs = new SocketAsyncEventArgs();
-				byte[] receiveBuffer2 = new byte[bufferSize];
-				receiveArgs.SetBuffer(receiveBuffer2, 0, receiveBuffer2.Length);
+				byte[] receiveBuffer = new byte[bufferSize];
+				receiveArgs.SetBuffer(receiveBuffer, 0, receiveBuffer.Length);
 				receiveArgs.AcceptSocket = clientSocket;
 				receiveArgs.RemoteEndPoint = endPoint;
+				// receiveArgs.SocketFlags = SocketFlags.;
 				receiveArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnReceived);
 							
 				socketToken = new SocketToken(clientSocket, connectArgs, sendArgs, receiveArgs);
@@ -190,10 +195,12 @@ namespace DisquuunCore {
 		}
 		
 		private void OnReceived (object unused, SocketAsyncEventArgs args) {
+			try {
 			var token = (SocketToken)args.UserToken;
+			testLogger.Log("bytesTransferred:" + args.BytesTransferred);
 			
 			// in Disque, 1 receive per 1 send at least.
-			var command = token.stack.Dequeue();
+			var command = token.stack.Peek();
 			
 			if (args.SocketError != SocketError.Success) { 
 				switch (token.state) {
@@ -219,21 +226,29 @@ namespace DisquuunCore {
 				}
 			}
 			
-			if (0 < args.BytesTransferred) {
-				// testLogger.Log("message receive start:" + command);
-				// ここで複数件受け取る可能性がある。
-				// で、あれば、delimiterとかがここに入ってくる。データが切れることはあるのかな、、バッファオーバーしたらぶっちぎれるんだよな、、そのへんまずやってみるか。
-				// あと、サイズが0で帰ってくることがあるんかな、、
-				
-				// testLogger.Log("複数件突っ込まれるのでは = データが複数入るのでは、、？ YES。 途中でちぎれるのでは、、? <- わからん、、");
-				// testLogger.Log("データのもち越しどうなるんだろう");
-				
+			if (args.Buffer.Length - 2 < args.BytesTransferred) {
+				// トランスバッファより馬鹿でかいのが確定しているっぽい。
+				// これって取得できるんじゃねーのか？
+				testLogger.Log("max size, args.BytesTransferred:" + args.BytesTransferred);
+				// args.SetBuffer(0, args.Count);
+				// args.SendPacketsElements
+				token.socket.ReceiveAsync(args);
+				return;
+			}
+			
+			else if (0 < args.BytesTransferred) {
 				var cursor = token.filter.Evaluate(command, token.stack, args.BytesTransferred, args.Buffer, Received, Failed);
 				if (cursor != args.BytesTransferred) testLogger.Log("command:" + command + " args.BytesTransferred:" + args.BytesTransferred + " vs cursor:" + cursor);
 			}
 			
+			testLogger.Log("async~");
 			// continue to receive.
-			token.socket.ReceiveAsync(args);
+			if (!token.socket.ReceiveAsync(args)) {
+				testLogger.Log("receive is sync...");
+			}
+			} catch (Exception e) {
+				testLogger.Log("e:" + e);
+			}
 		}
 		
 		
@@ -283,21 +298,10 @@ namespace DisquuunCore {
 			
 			public int Evaluate(DisqueCommand currentCommand, Queue<DisqueCommand> commands, int bytesTransferred, byte[] sourceBuffer, Action<DisqueCommand, ByteDatas[]> Received, Action<DisqueCommand, string> Failed) {
 				int cursor = 0;
-				
 				while (cursor < bytesTransferred) {
-					if (0 < cursor && 0 < commands.Count) {
-						// 全データの解析が終わっていない状態、持ちかた変えたほうがいいのかな〜〜
-						// testLogger.Log("before:" + currentCommand);
-						currentCommand = commands.Dequeue();
-						// testLogger.Log("after:" + currentCommand);
-					}
+					if (0 < cursor && 0 < commands.Count) currentCommand = commands.Dequeue();
 					
 					// testLogger.Log("receiving currentCommand:" + currentCommand);
-					
-					// データの先頭しか受け取れないケースとかがありそうな気がする、発生を検知したい。バッファサイズ小さくして試すか。
-					if (sourceBuffer.Length - 1 <= bytesTransferred) {
-						testLogger.Log("too much size data comming. んでどうなるんだろう。 bytesTransferred:" + bytesTransferred + " vs sourceBuffer.Length:" + sourceBuffer.Length);
-					}
 					
 					/*
 						get data then react.

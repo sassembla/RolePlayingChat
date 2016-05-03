@@ -7,8 +7,10 @@ public class DisquuunTests {
 		var testLogger = new TestLogger();
 		try {
 			// run parallel.
+			
 			// new Test1_AllAPIs();
-			new Test2_Fast();
+			// new Test2_Fast();
+			new Test3_Size();
 			
 			// new Test2_Fast();
 			// new Test2_Fast();
