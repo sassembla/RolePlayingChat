@@ -12,3 +12,6 @@ server.log
 Temp/*
 
 Server/log/*
+test.log
+
+Server/bin/logs/error.log
