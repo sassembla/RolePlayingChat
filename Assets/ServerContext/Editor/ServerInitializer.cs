@@ -7,9 +7,6 @@ using System;
 using System.IO;
 
 
-/*
-	このクラス自体がUnityに依存しているので、なんかうまい抽象化を考えないとな
-*/
 [InitializeOnLoad] public class ServerInitializer {
 	[MenuItem ("ServerInitializer/Regenerate Private Client Key", false, 1)] public static void RegenerateClientRandomKey () {
   		var settings = (StandardAssetsConnectorSettings)ScriptableObject.CreateInstance("StandardAssetsConnectorSettings");

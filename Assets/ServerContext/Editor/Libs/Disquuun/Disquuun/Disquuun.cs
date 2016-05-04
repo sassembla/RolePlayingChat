@@ -196,56 +196,62 @@ namespace DisquuunCore {
 		
 		private void OnReceived (object unused, SocketAsyncEventArgs args) {
 			try {
-			var token = (SocketToken)args.UserToken;
-			testLogger.Log("bytesTransferred:" + args.BytesTransferred);
-			
-			// in Disque, 1 receive per 1 send at least.
-			var command = token.stack.Peek();
-			
-			if (args.SocketError != SocketError.Success) { 
-				switch (token.state) {
-					case ConnectionState.CLOSING:
-					case ConnectionState.CLOSED: {
-						// already closing, ignore.
-						return;
-					}
-					default: {
-						// show error, then close or continue receiving.
-						var error = new Exception("receive error:" + args.SocketError.ToString());
-						if (Error != null) Error(error);
-						
-						// connection is already closed.
-						if (!IsSocketConnected(token.socket)) {
-							Disconnect();
+				var token = (SocketToken)args.UserToken;
+				if (args.SocketError != SocketError.Success) { 
+					switch (token.state) {
+						case ConnectionState.CLOSING:
+						case ConnectionState.CLOSED: {
+							// already closing, ignore.
 							return;
 						}
-						
-						// continue receiving data. go to below.
-						break;
+						default: {
+							// show error, then close or continue receiving.
+							
+							if (Error != null) {
+								var error = new Exception("receive error:" + args.SocketError.ToString() + " size:" + args.BytesTransferred);
+								Error(error);
+							}
+							
+							// connection is already closed.
+							if (!IsSocketConnected(token.socket)) {
+								Disconnect();
+								return;
+							}
+							
+							// continue receiving data. go to below.
+							break;
+						}
 					}
 				}
-			}
-			
-			if (args.Buffer.Length - 2 < args.BytesTransferred) {
-				// トランスバッファより馬鹿でかいのが確定しているっぽい。
-				// これって取得できるんじゃねーのか？
-				testLogger.Log("max size, args.BytesTransferred:" + args.BytesTransferred);
-				// args.SetBuffer(0, args.Count);
-				// args.SendPacketsElements
-				token.socket.ReceiveAsync(args);
-				return;
-			}
-			
-			else if (0 < args.BytesTransferred) {
-				var cursor = token.filter.Evaluate(command, token.stack, args.BytesTransferred, args.Buffer, Received, Failed);
-				if (cursor != args.BytesTransferred) testLogger.Log("command:" + command + " args.BytesTransferred:" + args.BytesTransferred + " vs cursor:" + cursor);
-			}
-			
-			testLogger.Log("async~");
-			// continue to receive.
-			if (!token.socket.ReceiveAsync(args)) {
-				testLogger.Log("receive is sync...");
-			}
+				
+				if (0 < args.BytesTransferred) {
+					if (0 < token.stack.Count) { 
+						var command = token.stack.Dequeue();
+						var dataSource = args.Buffer;
+						var bytesAmount = args.BytesTransferred;
+						
+						// testLogger.Log("command:" + command + " args.BytesTransferred:" + args.BytesTransferred);
+						var rest = args.AcceptSocket.Available;
+						if (0 < rest) {
+							var restBuffer = new byte[rest];
+							var additionalReadResult = token.socket.Receive(restBuffer, SocketFlags.None);
+							
+							testLogger.Log("max size overed, rest:" + rest + " additionalReadResult:" + additionalReadResult);
+							var baseLength = dataSource.Length;
+							Array.Resize(ref dataSource, baseLength + rest);
+							
+							for (var i = 0; i < rest; i++) dataSource[baseLength + i] = restBuffer[i];
+							bytesAmount = dataSource.Length;
+						}
+						
+						var cursor = token.filter.Evaluate(command, token.stack, bytesAmount, dataSource, Received, Failed);
+						if (cursor != args.BytesTransferred + rest) testLogger.Log("command:" + command + " args.BytesTransferred+rest:" + (args.BytesTransferred+rest) + " vs cursor2:" + cursor);
+					}
+				}
+				
+				// testLogger.Log("async~");
+				// continue to receive.
+				if (!token.socket.ReceiveAsync(args)) OnReceived(null, args);
 			} catch (Exception e) {
 				testLogger.Log("e:" + e);
 			}
@@ -296,10 +302,14 @@ namespace DisquuunCore {
 				testLogger = new TestLogger();
 			}
 			
-			public int Evaluate(DisqueCommand currentCommand, Queue<DisqueCommand> commands, int bytesTransferred, byte[] sourceBuffer, Action<DisqueCommand, ByteDatas[]> Received, Action<DisqueCommand, string> Failed) {
+			public int Evaluate (DisqueCommand currentCommand, Queue<DisqueCommand> commands, int bytesTransferred, byte[] sourceBuffer, Action<DisqueCommand, ByteDatas[]> Received, Action<DisqueCommand, string> Failed) {
 				int cursor = 0;
+				
 				while (cursor < bytesTransferred) {
-					if (0 < cursor && 0 < commands.Count) currentCommand = commands.Dequeue();
+					if (0 < cursor && 0 < commands.Count) {
+						// 同じバッファ内で、複数のコマンドが入ってる場合。
+						currentCommand = commands.Dequeue();
+					}
 					
 					// testLogger.Log("receiving currentCommand:" + currentCommand);
 					
@@ -352,9 +362,9 @@ namespace DisquuunCore {
 							break;
 						}
 						case DisqueCommand.GETJOB: {
-							ByteDatas[] jobDatas = null;
 							switch (sourceBuffer[cursor]) {
 								case ByteMultiBulk: {
+									ByteDatas[] jobDatas = null;
 									{
 										// *
 										var lineEndCursor = ReadLine(sourceBuffer, cursor);
@@ -908,17 +918,18 @@ namespace DisquuunCore {
 						}
 					}
 				}
+				
 				return cursor;
 			}
 			
-			private int ReadLine (byte[] bytes, int cursor) {
-			do {
-				if (bytes[cursor] == ByteEOL) break;
-				cursor++;
-			} while (cursor < bytes.Length);
-			
-			return cursor - 1;
-		}
+			public int ReadLine (byte[] bytes, int cursor) {
+				do {
+					if (bytes[cursor] == ByteEOL) break;
+					cursor++;
+				} while (cursor < bytes.Length);
+				
+				return cursor - 1;
+			}
 		
 		}
 		
