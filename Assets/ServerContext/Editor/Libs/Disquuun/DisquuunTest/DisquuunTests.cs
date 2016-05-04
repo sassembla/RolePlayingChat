@@ -1,24 +1,28 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 
 public class DisquuunTests {
+	public static List<TestBase> tests;
 	
     public static void RunDisquuunTests () {
+		tests = new List<TestBase>();
 		var testLogger = new TestLogger();
 		try {
-			// run parallel.
-			
-			
-			// new Test1_AllAPIs();
+			tests.Add(new Test1_AllAPIs());
 			// new Test2_Fast();
-			new Test3_Size();
-			
-			// new Test2_Fast();
-			// new Test2_Fast();
+			// tests.Add(new Test3_Size());
 			
 		} catch (Exception e) {
 			testLogger.Log("e:" + e);	
+		}
+	}
+	
+	public static void StopTests () {
+		if (tests == null) return; 
+		foreach (var test in tests) {
+			test.Quit();
 		}
 	}
 }

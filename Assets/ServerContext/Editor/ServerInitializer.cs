@@ -39,6 +39,7 @@ using System.IO;
 	private static void DetectCompileStart () {
 		if (EditorApplication.isCompiling) {
 			EditorApplication.update -= DetectCompileStart;
+			DisquuunTests.StopTests();
 			if (sContext != null) sContext.Teardown();
 		}
 	}
