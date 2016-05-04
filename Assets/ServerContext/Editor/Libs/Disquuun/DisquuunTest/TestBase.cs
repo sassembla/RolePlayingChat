@@ -15,8 +15,6 @@ public class TestBase {
 	
 	public string latestResult;
 	
-	public string latestError;
-	
 	public string jobQueueId;
 
 	public Action[] acts;
@@ -26,6 +24,7 @@ public class TestBase {
 	
 	public TestLogger testLogger;
 	
+	public int failedCount;
 	
 	public TestBase () {
 		testLogger = new TestLogger();
@@ -81,7 +80,7 @@ public class TestBase {
 	}
 	
 	public void JobFailed (Disquuun.DisqueCommand command, string reason) {
-		latestError = reason;
+		latestResult = reason;
 		waiting = false;
 	}
 	
@@ -185,6 +184,7 @@ public class TestBase {
 				index++;
 			}
 		} else {
+			testLogger.Log("failedCount:" + failedCount);
 			return false;
 		}
 		// testLogger.Log("incremented:" + index);
@@ -203,16 +203,7 @@ public class TestBase {
 		else {
 			var error = "FAILED:" + message + " expected:" + expectedJobResult + " actual:" + actualLatestJobResult;
 			testLogger.Log(error);
-			// throw new Exception(error);
-		}
-	}
-	
-	public void AssertFailureResult(string expectedJobFailedResult, string actualLatestJobFailedResult, string message) {
-		if (expectedJobFailedResult == actualLatestJobFailedResult) testLogger.Log("PASSED:" + message);
-		else {
-			var error = "FAILED:" + message + " actual:" + actualLatestJobFailedResult;
-			testLogger.Log(error);
-			// throw new Exception(error);
+			failedCount++;
 		}
 	}
 	

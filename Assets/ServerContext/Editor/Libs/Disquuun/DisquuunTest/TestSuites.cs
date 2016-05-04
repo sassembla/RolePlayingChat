@@ -5,102 +5,168 @@ public class Test1_AllAPIs : TestBase {
 		return new Action[] {
 			
 			
-			// add -> get -> ack.
-			() => {
-				jobQueueId = Guid.NewGuid().ToString();
-			},
-			() =>{
-				waiting = true;
-				disquuun.AddJob(jobQueueId, new byte[10]{0,1,2,3,4,5,6,7,8,9}, 0);
-			},
-			() => {
-				waiting = true;
-				disquuun.GetJob(new string[]{jobQueueId});
-			},
-			() => {
-				waiting = true;
-				disquuun.AckJob(new string[]{latestGotJobId});
-			},
-			() => AssertResult("ACKJOB:1", latestResult, "add -> get -> ack."),
+			// // add -> get -> ack.
+			// () => {
+			// 	jobQueueId = Guid.NewGuid().ToString();
+			// },
+			// () =>{
+			// 	waiting = true;
+			// 	disquuun.AddJob(jobQueueId, new byte[10]{0,1,2,3,4,5,6,7,8,9}, 0);
+			// },
+			// () => {
+			// 	waiting = true;
+			// 	disquuun.GetJob(new string[]{jobQueueId});
+			// },
+			// () => {
+			// 	waiting = true;
+			// 	disquuun.AckJob(new string[]{latestGotJobId});
+			// },
+			// () => AssertResult("ACKJOB:1", latestResult, "add -> get -> ack."),
 			
 			
-			// add -> get -> fastack.
-			() => {
-				jobQueueId = Guid.NewGuid().ToString();
-			},
-			() => {
-				waiting = true;
-				disquuun.AddJob(jobQueueId, new byte[10]{0,1,2,3,4,5,6,7,8,9}, 0);
-			},
-			() => {
-				waiting = true;
-				disquuun.GetJob(new string[]{jobQueueId});
-			},
-			() => {
-				waiting = true;
-				disquuun.FastAck(new string[]{latestGotJobId});
-			},
-			() => AssertResult("FASTACK:1", latestResult, "add -> get -> fastack."),
+			// // add -> get -> fastack.
+			// () => {
+			// 	jobQueueId = Guid.NewGuid().ToString();
+			// },
+			// () => {
+			// 	waiting = true;
+			// 	disquuun.AddJob(jobQueueId, new byte[10]{0,1,2,3,4,5,6,7,8,9}, 0);
+			// },
+			// () => {
+			// 	waiting = true;
+			// 	disquuun.GetJob(new string[]{jobQueueId});
+			// },
+			// () => {
+			// 	waiting = true;
+			// 	disquuun.FastAck(new string[]{latestGotJobId});
+			// },
+			// () => AssertResult("FASTACK:1", latestResult, "add -> get -> fastack."),
 			
 			
-			// empty queue, will waiting data.
-			() => {
-				jobQueueId = Guid.NewGuid().ToString();
-			},
-			() => {
-				disquuun.GetJob(new string[]{jobQueueId});
-			},
-			() => {
-				waiting = true;
-				disquuun2.AddJob(jobQueueId, new byte[10]{0,1,2,3,4,5,6,7,8,9}, 0);
-			},
-			() => {
-				waiting = true;
-				disquuun.FastAck(new string[]{latestGotJobId});
-			},
-			() => AssertResult("FASTACK:1", latestResult, "empty queue, will waiting data."),
+			// // empty queue, will waiting data.
+			// () => {
+			// 	jobQueueId = Guid.NewGuid().ToString();
+			// },
+			// () => {
+			// 	disquuun.GetJob(new string[]{jobQueueId});
+			// },
+			// () => {
+			// 	waiting = true;
+			// 	disquuun2.AddJob(jobQueueId, new byte[10]{0,1,2,3,4,5,6,7,8,9}, 0);
+			// },
+			// () => {
+			// 	waiting = true;
+			// 	disquuun.FastAck(new string[]{latestGotJobId});
+			// },
+			// () => AssertResult("FASTACK:1", latestResult, "empty queue, will waiting data."),
 			
 			
-			// non exist queue. never back until created.
-			() => {
-				jobQueueId = Guid.NewGuid().ToString();
-			},
-			() => {
-				disquuun.GetJob(new string[]{jobQueueId});
-			},
-			() => {
-				waiting = true;
-				disquuun2.AddJob(jobQueueId, new byte[10]{0,1,2,3,4,5,6,7,8,9}, 0);
-			},
-			() => {
-				waiting = true;
-				disquuun.FastAck(new string[]{latestGotJobId});
-			},
-			() => AssertResult("FASTACK:1", latestResult, "non exist queue. never back until created."),
+			// // non exist queue. never back until created.
+			// () => {
+			// 	jobQueueId = Guid.NewGuid().ToString();
+			// },
+			// () => {
+			// 	disquuun.GetJob(new string[]{jobQueueId});
+			// },
+			// () => {
+			// 	waiting = true;
+			// 	disquuun2.AddJob(jobQueueId, new byte[10]{0,1,2,3,4,5,6,7,8,9}, 0);
+			// },
+			// () => {
+			// 	waiting = true;
+			// 	disquuun.FastAck(new string[]{latestGotJobId});
+			// },
+			// () => AssertResult("FASTACK:1", latestResult, "non exist queue. never back until created."),
 			
 			
-			// info blocking with empty queue.
-			() => {
-				jobQueueId = Guid.NewGuid().ToString();
-			},
-			() => {
-				disquuun.GetJob(new string[]{jobQueueId});
-			},
-			() => {
-				waiting = true;
-				disquuun2.AddJob(jobQueueId, new byte[10]{0,1,2,3,4,5,6,7,8,9}, 0);
-			},
-			() => AssertResult("GETJOB:1", latestResult, "info blocking with empty queue.1"),
-			() => {
-				waiting = true;
-				disquuun.FastAck(new string[]{latestGotJobId});
-			},
-			() => AssertResult("FASTACK:1", latestResult, "info blocking with empty queue.2"),
+			// // info blocking with empty queue.
+			// () => {
+			// 	jobQueueId = Guid.NewGuid().ToString();
+			// },
+			// () => {
+			// 	disquuun.GetJob(new string[]{jobQueueId});
+			// },
+			// () => {
+			// 	waiting = true;
+			// 	disquuun2.AddJob(jobQueueId, new byte[10]{0,1,2,3,4,5,6,7,8,9}, 0);
+			// },
+			// () => {
+			// 	waiting = true;
+			// 	disquuun.FastAck(new string[]{latestGotJobId});
+			// },
+			// () => AssertResult("FASTACK:1", latestResult, "info blocking with empty queue."),
 			
 			
-			// non blocking with empty queue.
-			// () => disquuun.GetJob(new string[]{"testS"}, "NOHANG"),
-			// () => disquuun.Info(),
+			// // nohang getjob.
+			// () => {
+			// 	jobQueueId = Guid.NewGuid().ToString();
+			// },
+			// () => {
+			// 	waiting = true;
+			// 	disquuun.AddJob(jobQueueId, new byte[10]{0,1,2,3,4,5,6,7,8,9}, 0);
+			// },
+			// () => {
+			// 	waiting = true;
+			// 	disquuun.GetJob(new string[]{jobQueueId}, "NOHANG");
+			// },
+			// () => {
+			// 	waiting = true;
+			// 	disquuun.FastAck(new string[]{latestGotJobId});
+			// },
+			// () => AssertResult("FASTACK:1", latestResult, "nohang getjob."),
+			
+			
+			// // nohang getjob with non exist queue.
+			// () => {
+			// 	jobQueueId = Guid.NewGuid().ToString();
+			// },
+			// () => {
+			// 	waiting = true;
+			// 	disquuun.GetJob(new string[]{jobQueueId}, "NOHANG");
+			// },
+			// () => AssertResult("GETJOB:0", latestResult, "nohang getjob with non exist queue."),
+			
+			
+			// // nohang getjob with empty queue.
+			// () => {
+			// 	jobQueueId = Guid.NewGuid().ToString();
+			// },
+			// () => {
+			// 	waiting = true;
+			// 	disquuun.AddJob(jobQueueId, new byte[10]{0,1,2,3,4,5,6,7,8,9}, 0);
+			// },
+			// () => {
+			// 	waiting = true;
+			// 	disquuun.GetJob(new string[]{jobQueueId});
+			// },
+			// () => {
+			// 	waiting = true;
+			// 	disquuun.FastAck(new string[]{latestGotJobId});
+			// },
+			// () => {
+			// 	waiting = true;
+			// 	disquuun.GetJob(new string[]{jobQueueId}, "NOHANG");
+			// },
+			// () => AssertResult("GETJOB:0", latestResult, "nohang getjob with empty queue."),
+			
+			
+			// // getjob with withcounters.
+			// () => {
+			// 	jobQueueId = Guid.NewGuid().ToString();
+			// },
+			// () => {
+			// 	waiting = true;
+			// 	disquuun.AddJob(jobQueueId, new byte[10]{0,1,2,3,4,5,6,7,8,9}, 0);
+			// },
+			// () => {
+			// 	waiting = true;
+			// 	disquuun.GetJob(new string[]{jobQueueId}, "WITHCOUNTERS");
+			// },
+			// () => AssertResult("GETJOB:1", latestResult, "getjob with withcounters."),
+			// () => {
+			// 	waiting = true;
+			// 	disquuun.FastAck(new string[]{latestGotJobId});
+			// },
 			
 			
 			// info
@@ -156,7 +222,7 @@ public class Test1_AllAPIs : TestBase {
 				waiting = true;
 				disquuun.Working("dummyJobId");
 			},
-			() => AssertFailureResult("BADID Invalid Job ID format.", latestError, "working return error with unused job id."),
+			() => AssertResult("BADID Invalid Job ID format.", latestResult, "working return error with unused job id."),
 			
 			
 			// working return \"seconds\". よくわからん。
@@ -187,7 +253,7 @@ public class Test1_AllAPIs : TestBase {
 				waiting = true;
 				disquuun.Nack(new string[]{"dummyJobId"});
 			},
-			() => AssertFailureResult("BADID Invalid Job ID format.", latestError, "nack return error with dummy job id."),
+			() => AssertResult("BADID Invalid Job ID format.", latestResult, "nack return error with dummy job id."),
 			
 			
 			// nack succeeded with status.
@@ -200,7 +266,11 @@ public class Test1_AllAPIs : TestBase {
 			},
 			() => {
 				waiting = true;
-				disquuun.Nack(new string[]{latestAddedJobId});
+				disquuun.GetJob(new string[]{jobQueueId});
+			},
+			() => {
+				waiting = true;
+				disquuun.Nack(new string[]{latestGotJobId});
 			},
 			() => AssertResult("NACK:1", latestResult, "nack succeeded with status."),
 			() => {

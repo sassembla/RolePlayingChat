@@ -245,11 +245,12 @@ namespace DisquuunCore {
 						}
 						
 						var cursor = token.filter.Evaluate(command, token.stack, bytesAmount, dataSource, Received, Failed);
-						if (cursor != args.BytesTransferred + rest) testLogger.Log("command:" + command + " args.BytesTransferred+rest:" + (args.BytesTransferred+rest) + " vs cursor2:" + cursor);
+						if (cursor != bytesAmount) testLogger.Log("command:" + command + " bytesAmount:" + bytesAmount + " vs cursor:" + cursor);
 					}
 				}
 				
 				// testLogger.Log("async~");
+				
 				// continue to receive.
 				if (!token.socket.ReceiveAsync(args)) OnReceived(null, args);
 			} catch (Exception e) {
@@ -306,10 +307,7 @@ namespace DisquuunCore {
 				int cursor = 0;
 				
 				while (cursor < bytesTransferred) {
-					if (0 < cursor && 0 < commands.Count) {
-						// 同じバッファ内で、複数のコマンドが入ってる場合。
-						currentCommand = commands.Dequeue();
-					}
+					if (0 < cursor && 0 < commands.Count) currentCommand = commands.Dequeue();
 					
 					// testLogger.Log("receiving currentCommand:" + currentCommand);
 					
@@ -364,6 +362,7 @@ namespace DisquuunCore {
 						case DisqueCommand.GETJOB: {
 							switch (sourceBuffer[cursor]) {
 								case ByteMultiBulk: {
+									testLogger.Log("all:" + Encoding.UTF8.GetString(sourceBuffer));
 									ByteDatas[] jobDatas = null;
 									{
 										// *
@@ -372,19 +371,27 @@ namespace DisquuunCore {
 										
 										var bulkCountStr = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor - cursor);
 										var bulkCountNum = Convert.ToInt32(bulkCountStr);
+										
 										// testLogger.Log("bulkCountNum:" + bulkCountNum);
 										cursor = lineEndCursor + 2;// CR + LF
 										
-										jobDatas = new ByteDatas[bulkCountNum];
+										if (bulkCountNum < 0) {
+											if (Received != null) {
+												Received(currentCommand, new ByteDatas[]{});
+											}
+											break;
+										}
 										
+										jobDatas = new ByteDatas[bulkCountNum];
 										for (var i = 0; i < bulkCountNum; i++) {
+											var itemCount = 0;
 											{
 												// *
 												var lineEndCursor2 = ReadLine(sourceBuffer, cursor);
 												cursor = cursor + 1;// add header byte size = 1.
 												
 												var bulkCountStr2 = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor2 - cursor);
-												var bulkCountNum2 = Convert.ToInt32(bulkCountStr2);
+												itemCount = Convert.ToInt32(bulkCountStr2);
 												// testLogger.Log("bulkCountNum2:" + bulkCountNum2);
 												cursor = lineEndCursor2 + 2;// CR + LF
 											}
@@ -451,7 +458,11 @@ namespace DisquuunCore {
 												jobDatas[i] = new ByteDatas(jobIdBytes, dataBytes);
 												
 												cursor = cursor + strNum + 2;// CR + LF
-											}	
+											}
+											
+											if (itemCount == 7) {
+												
+											}
 										}
 									}
 									
