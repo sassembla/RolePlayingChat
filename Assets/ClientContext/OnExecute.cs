@@ -178,11 +178,11 @@ public class OnExecute : MonoBehaviour {
 	}
 	
 	private void ExecuteMyPlayer (PlayerContext context) {
-		// 上下左右、、、
+		
 		if (context.auto.Contains(AutoConditions.Control.Contorllable)) {
 			// 受け付けた操作の内容によって、次の動作を変更する。まずは歩こう。
 			// キーの入力を斜めに分解して歩く。1ブロック。最後にカメラで斜めにすればイイんで、walkを用意して変えてみよう。
-			// 入力に対して、方向をとって、セットする。実際には「向く->歩く->止まる」があるはず。
+			
 			context.auto = context.auto.ChangeTo(new Walk<PlayerContext, List<PlayerContext>>(clientFrame, context));
 		}
 	}
