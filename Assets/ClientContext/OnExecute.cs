@@ -8,6 +8,8 @@ using XrossPeerUtility;
 public class OnExecute : MonoBehaviour {
 	private string playerId;// 100 ~ 199の間でランダムにしよう。
 	
+	public const float floorUnit = 10f;
+	
 	public List<PlayerContext> players;
 	
 	// Use this for initialization
@@ -155,6 +157,10 @@ public class OnExecute : MonoBehaviour {
 			UpdatePlayerContext(playerContext);
 			
 			// キャラの位置とか向きをContextから取得、反映させる。
+			// 対象のgameObjectに対して、パラメータを反映させる。
+			/*
+				dir, pos, 
+			*/
 			
 		}
 		

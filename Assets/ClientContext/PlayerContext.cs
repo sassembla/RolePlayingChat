@@ -15,6 +15,8 @@ public class PlayerContext {
 	
 	public DirectionEnum forward;
 	
+	public float x, y, height;
+	
 	public PlayerContext (string playerId) {
 		this.playerId = playerId;
 		this.forward = DirectionEnum.North;
