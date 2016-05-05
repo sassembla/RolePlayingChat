@@ -15,7 +15,7 @@ public class PlayerContext {
 	
 	public DirectionEnum forward;
 	
-	public float x=5, z=5, height=25;
+	public float x=0, z=0, height=25;
 	
 	public PlayerContext (string playerId) {
 		this.playerId = playerId;

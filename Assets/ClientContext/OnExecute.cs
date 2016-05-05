@@ -156,6 +156,12 @@ public class OnExecute : MonoBehaviour {
 	void Update () {
 		/*
 			・視界に入ってる範囲だけが対象、とかのリミテーションが必要
+			・移動のリミテーションせねば。
+			・複数人が入れるようにはなってるけど、位置がかぶってるはず
+			・影落ちないと落下位置わかんねーな
+			・チャットウインドウ入れねば。
+			・カメラ制御、とりあえずキャラに対して固定
+			
 			Playerたちを動かす。
 		*/
 		foreach (var playerContext in players) {
