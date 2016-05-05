@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using System.Threading;
 using DisquuunCore;
 using DisquuunCore.Deserialize;
@@ -11,6 +10,8 @@ public class TestBase {
 	
 	public string latestAddedJobId;
 	public string latestGotJobId;
+	public int latestGotNackCount;
+	
 	public string[] latestWholeGotJobId;
 	
 	public string latestResult;
@@ -22,20 +23,16 @@ public class TestBase {
 	public Disquuun disquuun;
 	public Disquuun disquuun2;
 	
-	public TestLogger testLogger;
-	
 	public int failedCount;
 	
 	public TestBase () {
-		testLogger = new TestLogger();
-		
 		disquuun2 = new Disquuun(
 			Guid.NewGuid().ToString(),
 			"127.0.0.1",
 			7711,
 			5000,
 			(connectionId) => {
-				Setup();
+				InitializeDisquuunTestTarget();
 			},
 			(command, byteDatas) => {
 				JobProcess(command, byteDatas);
@@ -50,8 +47,9 @@ public class TestBase {
 		Killed();
 	}
 	
-	private void Setup () {
+	private void InitializeDisquuunTestTarget () {
 		var conId = Guid.NewGuid().ToString();
+		
 		
 		disquuun = new Disquuun(
 			conId,
@@ -59,7 +57,7 @@ public class TestBase {
 			7711,
 			102400,
 			(connectionId) => {
-				acts = Ready(connectionId);
+				acts = Setup(connectionId);
 				index = 0;
 				new TestUpdater("disquuunTestThread_" + connectionId, Run, Killed);
 			},
@@ -75,7 +73,7 @@ public class TestBase {
 	
 	
 	
-	public virtual Action[] Ready (string testSuiteId) {
+	public virtual Action[] Setup (string testSuiteId) {
 		return null;
 	}
 	
@@ -99,9 +97,11 @@ public class TestBase {
 				var jobDatas = DisquuunDeserializer.GetJob(byteDatas);
 				foreach (var jobData in jobDatas) {
 					var gotJobIdStr = jobData.jobId;
+					var gotNackCount = jobData.nackCount;
 					// testLogger.Log("gotJobIdStr:" + gotJobIdStr);
 					
 					latestGotJobId = gotJobIdStr;
+					latestGotNackCount = gotNackCount;
 				}
 				
 				latestWholeGotJobId = new string[jobDatas.Length];
@@ -137,7 +137,7 @@ public class TestBase {
 			}			
 			case Disquuun.DisqueCommand.INFO: {
 				var infoStr = DisquuunDeserializer.Info(byteDatas);
-				testLogger.Log("infoStr:" + infoStr);
+				TestLogger.Log("infoStr:" + infoStr);
 				latestResult = "INFO:";
 				break;
 			}
@@ -177,14 +177,14 @@ public class TestBase {
 		waiting = false;
 	}
 	
-	private bool Run() {
+	private bool Run () {
 		if (index < acts.Length) {
 			if (!waiting) {
 				acts[index]();
 				index++;
 			}
 		} else {
-			testLogger.Log("failedCount:" + failedCount);
+			TestLogger.Log("failedCount:" + failedCount);
 			return false;
 		}
 		// testLogger.Log("incremented:" + index);
@@ -192,17 +192,16 @@ public class TestBase {
 	}
 	
 	private void Killed () {
-		testLogger.Log("killed.");
 		if (disquuun != null) disquuun.Disconnect();
 		if (disquuun != null) disquuun2.Disconnect();
 	}
 	
 	
 	public void AssertResult(string expectedJobResult, string actualLatestJobResult, string message) {
-		if (expectedJobResult == actualLatestJobResult) testLogger.Log("PASSED:" + message);
+		if (expectedJobResult == actualLatestJobResult) TestLogger.Log("PASSED:" + message);
 		else {
 			var error = "FAILED:" + message + " expected:" + expectedJobResult + " actual:" + actualLatestJobResult;
-			testLogger.Log(error);
+			TestLogger.Log(error);
 			failedCount++;
 		}
 	}
@@ -241,7 +240,7 @@ public class TestBase {
 						nextFrame += mainThreadInterval;
 						before = tickCount; 
 					}
-					testLogger.Log("loopId:" + loopId + " is finished.");
+					TestLogger.Log("loopId:" + loopId + " is finished.");
 				} catch (Exception e) {
 					testLogger.LogError("loopId:" + loopId + " error:" + e);
 					errorBreak = true;
