@@ -153,6 +153,9 @@ public class OnExecute : MonoBehaviour {
 		*/
 		foreach (var playerContext in players) {
 			UpdatePlayerContext(playerContext);
+			
+			// キャラの位置とか向きをContextから取得、反映させる。
+			
 		}
 		
 		PublishStackedData();
@@ -177,13 +180,37 @@ public class OnExecute : MonoBehaviour {
 		context.auto.Update(clientFrame, players);
 	}
 	
+	private DirectionEnum inputDirection = DirectionEnum.None;
+	
 	private void ExecuteMyPlayer (PlayerContext context) {
+		if (inputDirection == DirectionEnum.None) return;
 		
 		if (context.auto.Contains(AutoConditions.Control.Contorllable)) {
-			// 受け付けた操作の内容によって、次の動作を変更する。まずは歩こう。
-			// キーの入力を斜めに分解して歩く。1ブロック。最後にカメラで斜めにすればイイんで、walkを用意して変えてみよう。
-			
+			context.forward = inputDirection;
 			context.auto = context.auto.ChangeTo(new Walk<PlayerContext, List<PlayerContext>>(clientFrame, context));
+		}
+		
+		// consume.
+		inputDirection = DirectionEnum.None;
+	}
+	
+	public void Go (Vector2 dir) {
+		var degree = Math.Abs(Math.Atan2(dir.x, dir.y) * 180.0 / Math.PI);
+		
+		if (dir.x < 0) {
+			degree = (180.0 * 2) - degree;
+		}
+		
+		if (degree < (360 * 1f/8f)) {
+			inputDirection = DirectionEnum.North;
+		} else if (degree < (360 * 3f/8f)) {
+			inputDirection = DirectionEnum.East;
+		} else if (degree < (360 * 5f/8f)) {
+			inputDirection = DirectionEnum.South;
+		} else if (degree < (360 * 7f/8f)) {
+			inputDirection = DirectionEnum.West;
+		} else {
+			inputDirection = DirectionEnum.North;
 		}
 	}
 	

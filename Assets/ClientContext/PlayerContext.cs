@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Automatine;
 
 public enum DirectionEnum {
+	None,
 	North,
 	East,
 	South,
