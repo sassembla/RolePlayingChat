@@ -16,21 +16,16 @@ public static class Commands {
 		None,
 		
 		Datas,
-		
-		
 		Message,
-		
-		ExecutedOnClient,
-		ExecutedOnServer,
 		
 		OnConnected,
 		OnDisconnected,
 		
 		EntriedId,
-		PlayerLeft,
 		
-        Resetted,
         SpawnRequest,
+		Spawn,
+		
         Action,
         GameData,
         FrameData,
@@ -71,20 +66,9 @@ public static class Commands {
 		}
 	}
 	
-	/**
-		Serverへと送り、接続車としてのPlayerIdを伝える
-	*/
 	public class EntriedId : BaseData {
 		public EntriedId (string playerId) : base (CommandEnum.EntriedId, playerId) {
 			// エントリー時になんか出せるね。
-		}
-	}
-	
-	public class PlayerLeft : BaseData {
-		public int reasonCode;
-		
-		public PlayerLeft (string playerId, int reasonCode) : base (CommandEnum.PlayerLeft, playerId) {
-			this.reasonCode = reasonCode;
 		}
 	}
 	
@@ -99,158 +83,21 @@ public static class Commands {
 	}
 	
 	/**
-		あらゆるXrossPeerのメソッド実行記録
-	*/
-	public class ExecutedOnClient : BaseData {
-		public string executedMethodName;
-		public string newAutoName;
-		
-		public ExecutedOnClient (string playerId, string executedMethodName, string newAutoName) : base (CommandEnum.ExecutedOnClient, playerId) {
-			this.executedMethodName = executedMethodName;
-			this.newAutoName = newAutoName;
-		}
-	}
-	
-	public class ExecutedOnServer : BaseData {
-		public string executedMethodName;
-		public string newAutoName;
-		
-		public ExecutedOnServer (string playerId, string executedMethodName, string newAutoName) : base (CommandEnum.ExecutedOnServer, playerId) {
-			this.executedMethodName = executedMethodName;
-			this.newAutoName = newAutoName;
-		}
-	}
-	
-
-	/**
-		サーバ側からのリセット通知
-	*/
-	public class Resetted : BaseData {
-		public Resetted () : base (CommandEnum.Resetted, string.Empty) {}
-	}
-
-
-	/**
 		Serverへと送り、既存のゲームへと参加する
 	*/
 	public class SpawnRequest : BaseData {
-		public int index;
-		public SpawnRequest (string playerId, int index) : base (CommandEnum.SpawnRequest, playerId) {
-			this.index = index;
+		public SpawnRequest (string playerId) : base (CommandEnum.SpawnRequest, playerId) {
+			
 		}
 	}
 	
-	/**
-		アクションのトリガーをServerに送付
-		8方向くらい用意するなら違った話になる。とりあえず、移動と基本攻撃を入れておく。
-	*/
-	public class Action : BaseData {
-		public bool front;
-		public bool back;
-		public bool right;
-		public bool left;
-		public bool up;
-		public bool down;
-		public bool attack;
-		public bool fire;
-		public float fx;
-		public float fy;
-		public float fz;
-
-		public Action (string playerId, bool front, bool back, bool right, bool left, bool up, bool down, bool attack, 
-			bool fire, float fx, float fy, float fz) : base (CommandEnum.Action, playerId) {
-			this.front = front;
-			this.back = back;
-
-			this.right = right;
-			this.left = left;
+	
+	public class Spawn : BaseData {
+		public Spawn (string playerId) : base (CommandEnum.Spawn, playerId) {
 			
-			this.up = up;
-			this.down = down;
-
-			this.attack = attack;
-
-			this.fire = fire;
-			this.fx = fx;
-			this.fy = fy;
-			this.fz = fz;
-
 		}
 	}
-
-	/**
-		ゲームの状態を取得、Spawn可能なところまでクライアント状態を持っていく。
-	*/
-	public class GameData : BaseData {
-		public int frame;
-		
-		public int positionIndex;
-		
-		public GameData (string playerId, int frame, int positionIndex) : base (CommandEnum.GameData, playerId) {
-			// 存在しているplayerIdや、どんなジョブか、などをクライアントに送付する。
-			/*
-				playerId
-					pos
-					job
-					hp
-					他
-			*/
-			this.frame = frame;
-			this.positionIndex = positionIndex;
-		}
-	}
-
-	/**
-		Serverからのframeデータを受け取り、ゲームに反映させる。
-		コア
-	*/
-	public class FrameData : BaseData {
-		public int frame;
-		// public Dictionary<string, PlayerPos> playersPos;
-		// public List<Record.RecordBase> playersFrameActions;
-
-		public FrameData (string playerId, int frame, Dictionary<string, PlayerPos> playersPosDict) : base (CommandEnum.FrameData, playerId) {
-			this.frame = frame;
-			// this.playersPos = playersPosDict;
-			// this.playersFrameActions = new List<Record.RecordBase>();
-		}
-		
-		// public FrameData (int frame, Dictionary<string, PlayerPos> playersPosDict, List<Record.RecordBase> playersFrameActions) : base ("FrameData") {
-		// 	this.frame = frame;
-		// 	// this.playersPos = playersPosDict;
-		// 	// this.playersFrameActions = playersFrameActions;
-		// }
-	}
-
-	/**
-		プレイヤーの位置情報	を受け取る
-	*/
-	public class PlayerPos : BaseData {
-		public int x;
-		public int y;
-		public int z;
-		public int dir;
-
-		public PlayerPos (string playerId, int x, int y, int z, int dir) : base (CommandEnum.PlayerPos, playerId) {
-			this.x = x;
-			this.y = y;
-			this.z = z;
-			this.dir = dir;
-		}
-	}
-
-	/**
-		ゲームサーバへとlogを送付する
-	*/
-	public class Log : BaseData {
-		public string log;
-		public Log (string playerId, string log) : base (CommandEnum.Log, playerId) {
-			this.log = log;
-		}
-	}
-
-
-
+	
 	/**
 		送信できる辞書データの基礎クラス
 		お、この型の拡張メソッド作れば良いことありそう。各拡張で勝手に自分の型で取り出せるとちょっとらく。
@@ -263,12 +110,6 @@ public static class Commands {
 			this.playerId = playerId;
 		}
 	}
-
-	/**
-		変換。
-	*/
-	// private static ObjectPacker packer = new ObjectPacker();
-	
 
 	public static byte[] ToData (this Commands.BaseData data) {
 		// json

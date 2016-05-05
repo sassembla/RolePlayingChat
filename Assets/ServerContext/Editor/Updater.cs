@@ -5,6 +5,7 @@ using System.Threading;
 
 
 public class Updater {
+	private bool continuation;
 	/*
 		C#のtickで動くThread。
 		UnityEditorのUpdateと違い、UnityPlayerと同期しないため、
@@ -19,6 +20,8 @@ public class Updater {
 	public Updater (string loopId, Func<bool> OnUpdate) {
 		var framePerSecond = RolePlayingChatDefinitions.FRAMERATE;
 		var mainThreadInterval = 1000f / framePerSecond;
+		
+		continuation = true;
 		
 		Action loopMethod = () => {
 			try {
@@ -43,8 +46,10 @@ public class Updater {
 						continue;
 					}
 					
+					if (!continuation) break;
+					
 					// run action for update.
-					var continuation = OnUpdate();
+					continuation = OnUpdate();
 					if (!continuation) break;
 					
 					nextFrame += mainThreadInterval;
@@ -58,5 +63,9 @@ public class Updater {
 		
 		var thread = new Thread(new ThreadStart(loopMethod));
 		thread.Start();
+	}
+	
+	public void Quit () {
+		continuation = false;
 	}
 }

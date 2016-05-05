@@ -14,9 +14,13 @@ public class ReservationLayer {
 	public ReservationLayer (Action<string, byte[]> publish) {
 		XrossPeer.TimeAssert(Develop.TIME_ASSERT, "とりあえず通過できるtokenとして特定のplayerIdを直書きしてある。");
 		
-		var reservedPlayerIds = new List<string>{
-			"100", "_empty_",
-		};
+		var reservedPlayerIds = new List<string>{"_empty_",};
+		/*
+			acceptable id is 100 ~ 199
+		*/
+		for (var i = 100; i < 200; i++) {
+			reservedPlayerIds.Add(i.ToString());
+		}
 		
 		reservationLayerId = Guid.NewGuid().ToString();
 		gameLayer = new GameContextLayer(reservedPlayerIds, publish);
@@ -33,7 +37,7 @@ public class ReservationLayer {
 		if (!succeeded) return;
 		
 		if (playerId == "_empty_") {
-			XrossPeer.Log("空のユーザーなんで、接続認定できたらここで引き返す");
+			XrossPeer.Log("接続時にプレイヤーIDが空のユーザーが接続してきた。追い返すようにしてある。");
 			return;
 		}
 		
@@ -46,21 +50,21 @@ public class ReservationLayer {
 		if (true) gameLayer.EnqueOnReceive(connectionId, data);
 	}
 	public void EnqueueOnDisconnect (string connectionId, string token, string reason) {
+		XrossPeer.TimeAssert(Develop.TIME_ASSERT, "tokenそのまま使ってるんで、このままの構造だと、他人が偽って他プレイヤーの通信切断できちゃうな。プレイヤーしかしらないパラメータを使ってplayerIdを読みだす仕組みをつくらんとな。 具体的にはtokenが");
+		
 		var playerId = token;
 		var data = new Commands.OnDisconnected(playerId, reason).ToData();
 		
 		XrossPeer.TimeAssert(Develop.TIME_ASSERT, "disconnect. とりあえずすべてのconnectionIdに対して、このreserveレイヤに登録があった、みたいなみなしをしてうけいれる。");
 		if (true) {
-			/*
-				ここでEnqueueしておくと、接続情報の消去前にenqueueされる。
-				で、実際のframeでの実行時には、
-			*/
-			gameLayer.EnqueOnReceive(connectionId, data);
-			
 			// remove connectionId from reserved playerId.
 			var succeeded = gameLayer.DiscardConnectionIdOfPlayerId(playerId);
-			if (!succeeded) XrossPeer.Log("playerId:" + playerId + " のconnectionの廃棄に失敗した。ふむ、、");
-			else XrossPeer.Log("playerId:" + playerId + " のConnectionの廃棄に成功した。");
+			if (!succeeded) XrossPeer.Log("playerId:" + playerId + " のconnectionの廃棄に失敗した。存在しないプレイヤーからの切断っぽい。");
+			
+			/*
+				すでに切断されているので、このプレイヤーへの通信はこの時点で不可能。
+			*/
+			gameLayer.EnqueOnDisconnect(playerId, data);
 		}
 	}
 }

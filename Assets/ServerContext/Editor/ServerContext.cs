@@ -4,6 +4,7 @@ using System;
 using System.Text;
 using DisquuunCore;
 using System.Collections.Generic;
+using System.Linq;
 
 public class ServerContext {
 	
@@ -17,6 +18,8 @@ public class ServerContext {
 		serverContextId = Guid.NewGuid().ToString();
 		
 		XrossPeer.Log("server generated! serverContextId:" + serverContextId + " serverQueueId:" + serverQueueId);
+		
+		Updater queueGetJobber = null;
 		
 		var disqueId = Guid.NewGuid().ToString();
 		disquuun = new Disquuun(
@@ -32,8 +35,14 @@ public class ServerContext {
 				Setup(Send);
 				
 				XrossPeer.Log("同期的にコンテキストの用意が終わったつもり。 ほんとはいろんな接続があるはず。");
-				disquuun.Info();
-				disquuun.GetJob(new string[]{serverQueueId}, "COUNT", 1000);// これで過去のやつを拾ってきちゃうのか。
+				queueGetJobber = new Updater(
+					"disquuunGetJobber", 
+					() => {
+						disquuun.GetJob(new string[]{serverQueueId}, "COUNT", 1000, "NOHANG");
+						return true;
+					}
+				);
+				
 			},
 			(command, byteDatas) => {
 				switch (command) {
@@ -52,11 +61,11 @@ public class ServerContext {
 							ParseData(bytes.bytesArray[1]);
 						}
 						
-						disquuun.FastAck(jobIds.ToArray());
+						if (jobIds.Any()) disquuun.FastAck(jobIds.ToArray());
 						break;
 					}
 					case Disquuun.DisqueCommand.FASTACK: {
-						disquuun.GetJob(new string[]{serverQueueId}, "COUNT", 1000);// 適当に1000件くらいとってくる
+						// do nothing.
 						break;
 					}
 					default: {
@@ -69,6 +78,7 @@ public class ServerContext {
 			},
 			e => {
 				XrossPeer.LogError("Disque error:" + e);
+				if (queueGetJobber != null) queueGetJobber.Quit();
 			},
 			disconnectedConId => {
 				XrossPeer.Log("Disque disconnected:" + disqueId);
@@ -215,7 +225,6 @@ public class ServerContext {
 	
 	
 	public void OnConnected (string connectionId, byte[] data) {
-		XrossPeer.Log("OnConnected! connectionId:" + connectionId);
 		/*
 			接続時にidentityを確立する手段が2つ考えられて、
 			1.接続時にconnectionServer側で予約と付き合わせてなんとかする
@@ -230,12 +239,6 @@ public class ServerContext {
 		var playerIdString = Encoding.UTF8.GetString(data);
 		
 		reservationLayer.EnqueueOnConnect(connectionId, playerIdString);
-		 
-		// send per frame test.
-		// for (var i = 0; i < 100000; i++) {
-		// 	var data = new Commands.GameData(i);
-		// 	PublishTo(data, new string[]{connectionId});
-		// }
 	}
 	
 	public void OnMessage (string connectionId, byte[] data) {
@@ -244,7 +247,6 @@ public class ServerContext {
 	}
 
 	public void OnDisconnected (string connectionId, byte[] data, string reason) {
-		XrossPeer.Log("切断しにきてる:" + connectionId);
 		var playerIdString = Encoding.UTF8.GetString(data);
 		reservationLayer.EnqueueOnDisconnect(connectionId, playerIdString, reason);
 	}
