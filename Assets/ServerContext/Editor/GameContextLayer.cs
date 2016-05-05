@@ -261,15 +261,16 @@ public class GameContextLayer {
 		switch (command) {
 			
 			case Commands.CommandEnum.OnConnected: {
-				var side = 0;
 				var onConnected = Commands.FromData<Commands.OnConnected>(data);
 				var onConnectedPlayerId = onConnected.playerId;
 				
-				XrossPeer.Log("connected playerId:" + onConnectedPlayerId + " sideはまだ適当。 side:" + side + "reserveからどっちかはわかる感じだよな。");
+				XrossPeer.Log("connected playerId:" + onConnectedPlayerId);
 				
-				// xrossPeerContext.DeployNewAuto(onConnectedPlayerId, gameFrame);
-				
-				// StackPublish(new Commands.EntriedId(onConnectedPlayerId, side), AllConnectedIds());
+				/*
+					このタイミングで、サーバへのプレイヤーのログインが完了してる。ので、動けるようにいろいろやるとイイと思う。
+					
+				*/
+				StackPublish(new Commands.EntriedId(onConnectedPlayerId), AllConnectedIds());
 				return;
 			}
 			case Commands.CommandEnum.OnDisconnected: {

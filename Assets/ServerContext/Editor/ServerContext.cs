@@ -15,11 +15,8 @@ public class ServerContext {
 
 	public ServerContext (string serverQueueId) {
 		serverContextId = Guid.NewGuid().ToString();
+		
 		XrossPeer.Log("server generated! serverContextId:" + serverContextId + " serverQueueId:" + serverQueueId);
-		
-		
-		DisquuunTests.RunDisquuunTests();
-		if (true) return; 
 		
 		var disqueId = Guid.NewGuid().ToString();
 		disquuun = new Disquuun(
@@ -38,35 +35,28 @@ public class ServerContext {
 				disquuun.Info();
 				disquuun.GetJob(new string[]{serverQueueId}, "COUNT", 1000);// これで過去のやつを拾ってきちゃうのか。
 			},
-			(command, bytes0) => {
+			(command, byteDatas) => {
 				switch (command) {
 					case Disquuun.DisqueCommand.INFO: {
-						var stringData = bytes0[0];
+						var stringData = byteDatas[0];
 						var info = Encoding.UTF8.GetString(stringData.bytesArray[0], 0, stringData.bytesArray[0].Length);
 						XrossPeer.Log("info:" + info);
 						break;
 					}
 					case Disquuun.DisqueCommand.GETJOB: {
 						var jobIds = new List<string>();
-						foreach (var bytes in bytes0) {
-							var data = (Disquuun.ByteDatas)bytes;
-							var jobId = Encoding.UTF8.GetString(data.bytesArray[0], 0, data.bytesArray[0].Length);
+						foreach (var bytes in byteDatas) {
+							var jobId = Encoding.UTF8.GetString(bytes.bytesArray[0]);
 							jobIds.Add(jobId);
 							
-							var bytes1 = data.bytesArray[1];
-							ParseData(bytes1);
+							ParseData(bytes.bytesArray[1]);
 						}
 						
 						disquuun.FastAck(jobIds.ToArray());
 						break;
 					}
 					case Disquuun.DisqueCommand.FASTACK: {
-						XrossPeer.Log("fastack1");
-						// var countStr = Encoding.UTF8.GetString(bytes0, 0, bytes0.Length);
-						// var countNum = Convert.ToInt32(countStr);
-						// XrossPeer.Log("fastack:" + countNum);
-						// disquuun.Info();
-						disquuun.GetJob(new string[]{serverQueueId}, "COUNT", 1000);// N回走っちゃう。
+						disquuun.GetJob(new string[]{serverQueueId}, "COUNT", 1000);// 適当に1000件くらいとってくる
 						break;
 					}
 					default: {

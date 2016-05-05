@@ -24,7 +24,7 @@ namespace DisquuunCore.Deserialize {
 				if (dataSourceBytes.bytesArray.Length < 3) {
 					nackCount = -1;
 					additionalDeliveriesCount = -1;
-				} else {
+				} else {// with "withcounters" option
 					nackCount = Convert.ToInt32(Encoding.UTF8.GetString(dataSourceBytes.bytesArray[2]));
 					additionalDeliveriesCount = Convert.ToInt32(Encoding.UTF8.GetString(dataSourceBytes.bytesArray[3]));
 				}

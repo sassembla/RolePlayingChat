@@ -77,7 +77,7 @@ public class Test1_AllAPIs : TestBase {
 			() => AssertResult("FASTACK:1", latestResult, "non exist queue. never back until created."),
 			
 			
-			// info blocking with empty queue.
+			// blocking with empty queue.
 			() => {
 				jobQueueId = Guid.NewGuid().ToString();
 			},
@@ -92,7 +92,7 @@ public class Test1_AllAPIs : TestBase {
 				waiting = true;
 				disquuun.FastAck(new string[]{latestGotJobId});
 			},
-			() => AssertResult("FASTACK:1", latestResult, "info blocking with empty queue."),
+			() => AssertResult("FASTACK:1", latestResult, "blocking with empty queue."),
 			
 			
 			// nohang getjob.
@@ -285,6 +285,7 @@ public class Test1_AllAPIs : TestBase {
 				waiting = true;
 				disquuun.Info();
 			},
+			() => TestLogger.Log("result info:" + latestInfoStr),
 			() => {
 				disquuun.Disconnect();
 				disquuun2.Disconnect();
@@ -356,9 +357,10 @@ public class Test2_Fast : TestBase {
 			
 			() => {
 				TestLogger.Log("---------------------------result info.---------------------------");
+				waiting = true;
 				disquuun2.Info();
 			},
-			
+			() => TestLogger.Log("result info:" + latestInfoStr),
 			() => {
 				disquuun.Disconnect();
 				disquuun2.Disconnect();
@@ -402,9 +404,10 @@ public class Test3_Size : TestBase {
 			
 			() => {
 				TestLogger.Log("---------------------------result info.---------------------------");
+				waiting = true;
 				disquuun.Info();
 			},
-			
+			() => TestLogger.Log("result info:" + latestInfoStr),
 			
 			() => {
 				disquuun.Disconnect();

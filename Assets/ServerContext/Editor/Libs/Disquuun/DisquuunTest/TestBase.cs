@@ -12,6 +12,8 @@ public class TestBase {
 	public string latestGotJobId;
 	public int latestGotNackCount;
 	
+	public string latestInfoStr;
+	
 	public string[] latestWholeGotJobId;
 	
 	public string latestResult;
@@ -137,8 +139,9 @@ public class TestBase {
 			}			
 			case Disquuun.DisqueCommand.INFO: {
 				var infoStr = DisquuunDeserializer.Info(byteDatas);
-				TestLogger.Log("infoStr:" + infoStr);
+				// TestLogger.Log("infoStr:" + infoStr);
 				latestResult = "INFO:";
+				latestInfoStr = infoStr;
 				break;
 			}
 			case Disquuun.DisqueCommand.HELLO: {

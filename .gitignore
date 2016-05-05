@@ -15,3 +15,11 @@ Server/log/*
 test.log
 
 Server/bin/logs/error.log
+
+Assets/Cinemachine/*
+
+Assets/Gizmos/*
+
+obj/*
+
+Server/bin/logs/*

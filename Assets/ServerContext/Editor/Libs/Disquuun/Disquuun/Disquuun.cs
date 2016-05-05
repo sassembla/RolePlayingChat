@@ -1,14 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
 using System.Net;
 using System.Net.Sockets;
-using System.Security.Cryptography;
 using System.Text;
 
 namespace DisquuunCore {
-	public class Disquuun {
+    public class Disquuun {
 		public readonly string connectionId;
 		
 		private readonly Action<string> Connected;
@@ -60,8 +58,6 @@ namespace DisquuunCore {
 			
 			public Queue<DisqueCommand> stack;
 			
-			public DisqueFilter filter;
-			
 			public SocketToken (Socket socket, SocketAsyncEventArgs connectArgs, SocketAsyncEventArgs sendArgs, SocketAsyncEventArgs receiveArgs) {
 				this.state = ConnectionState.OPENING;
 				this.socket = socket;
@@ -71,14 +67,12 @@ namespace DisquuunCore {
 				this.receiveArgs = receiveArgs;
 				
 				this.stack = new Queue<DisqueCommand>();
-				this.filter = new DisqueFilter();
 				 
 				this.connectArgs.UserToken = this;
 				this.sendArgs.UserToken = this;
 				this.receiveArgs.UserToken = this;
 			}
 		}
-		
 		
 		public Disquuun (
 			string connectionId,
@@ -120,7 +114,6 @@ namespace DisquuunCore {
 				receiveArgs.SetBuffer(receiveBuffer, 0, receiveBuffer.Length);
 				receiveArgs.AcceptSocket = clientSocket;
 				receiveArgs.RemoteEndPoint = endPoint;
-				// receiveArgs.SocketFlags = SocketFlags.;
 				receiveArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnReceived);
 							
 				socketToken = new SocketToken(clientSocket, connectArgs, sendArgs, receiveArgs);
@@ -223,7 +216,6 @@ namespace DisquuunCore {
 			
 			if (0 < args.BytesTransferred) {
 				if (0 < token.stack.Count) { 
-					var command = token.stack.Dequeue();
 					var dataSource = args.Buffer;
 					var bytesAmount = args.BytesTransferred;
 					
@@ -239,8 +231,7 @@ namespace DisquuunCore {
 						bytesAmount = dataSource.Length;
 					}
 					
-					var cursor = token.filter.Evaluate(command, token.stack, bytesAmount, dataSource, Received, Failed);
-					// if (cursor != bytesAmount) ("command:" + command + " bytesAmount:" + bytesAmount + " vs cursor:" + cursor);
+					DisqueFilter.Evaluate(token.stack, bytesAmount, dataSource, Received, Failed);
 				}
 			}
 			
@@ -286,13 +277,17 @@ namespace DisquuunCore {
 		/*
 			transform disque result to byte datas. 
 		*/
-		public class DisqueFilter {
+		public static class DisqueFilter {
 			
-			public int Evaluate (DisqueCommand currentCommand, Queue<DisqueCommand> commands, int bytesTransferred, byte[] sourceBuffer, Action<DisqueCommand, ByteDatas[]> Received, Action<DisqueCommand, string> Failed) {
+			public static void Evaluate (Queue<DisqueCommand> commands, int bytesTransferred, byte[] sourceBuffer, Action<DisqueCommand, ByteDatas[]> Received, Action<DisqueCommand, string> Failed) {
 				int cursor = 0;
 				
 				while (cursor < bytesTransferred) {
-					if (0 < cursor && 0 < commands.Count) currentCommand = commands.Dequeue();
+					if (commands.Count == 0) {
+						// shortage of command. 
+						break;
+					} 
+					var currentCommand = commands.Dequeue();
 					
 					// Log("receiving currentCommand:" + currentCommand);
 					
@@ -970,11 +965,9 @@ namespace DisquuunCore {
 						}
 					}
 				}
-				
-				return cursor;
 			}
 			
-			public int ReadLine (byte[] bytes, int cursor) {
+			public static int ReadLine (byte[] bytes, int cursor) {
 				do {
 					if (bytes[cursor] == ByteEOL) break;
 					cursor++;
@@ -1155,20 +1148,6 @@ namespace DisquuunCore {
 			if (part1 && part2) return false;
 			
 			return true;
-		}
-		
-		private static ulong GetHash (string str) {
-			using (var md5 = MD5.Create()) {
-				using (var stream = new MemoryStream()) {
-					using (var writer = new StreamWriter(stream)) {
-						writer.Write(str);
-						writer.Flush();
-						stream.Position = 0;
-						var hashed = md5.ComputeHash(stream);
-						return BitConverter.ToUInt64(hashed, 0);
-					}
-				}
-			}
 		}
 	}
 }

@@ -75,9 +75,8 @@ public static class Commands {
 		Serverへと送り、接続車としてのPlayerIdを伝える
 	*/
 	public class EntriedId : BaseData {
-		public int side;
-		public EntriedId (string playerId, int side) : base (CommandEnum.EntriedId, playerId) {
-			this.side = side;
+		public EntriedId (string playerId) : base (CommandEnum.EntriedId, playerId) {
+			// エントリー時になんか出せるね。
 		}
 	}
 	
