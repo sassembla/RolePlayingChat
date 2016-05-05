@@ -3,18 +3,20 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using WebSocketControl;
-using XrossPeerUtility;
 
 public class OnExecute : MonoBehaviour {
-	private string playerId;// 100 ~ 199の間でランダムにしよう。
 	
-	public const float floorUnit = 10f;
+	public string playerId;// 100 ~ 199の間でランダムにしよう。
 	
 	public List<PlayerContext> players;
+	
+	public Dictionary<string, GameObject> playerModels;
+	
 	
 	// Use this for initialization
 	void Start () {
 		players = new List<PlayerContext>();
+		playerModels = new Dictionary<string, GameObject>();
 		
 		var dateMilliSec = DateTime.Now.Millisecond;
 		UnityEngine.Random.seed = dateMilliSec;
@@ -84,6 +86,9 @@ public class OnExecute : MonoBehaviour {
 					
 					playerContext.auto = auto;
 					players.Add(playerContext);
+					
+					var prefab = Resources.Load("Chara") as GameObject;
+					playerModels[entriedPlayerId] = Instantiate(prefab, new Vector3(playerContext.x, playerContext.height, playerContext.z), Quaternion.identity) as GameObject;
 				}
 				
 				if (commandSourcePlayerId == this.playerId) {
@@ -161,7 +166,9 @@ public class OnExecute : MonoBehaviour {
 			/*
 				dir, pos, 
 			*/
-			
+			var position = playerModels[playerContext.playerId].transform.position;
+			playerModels[playerContext.playerId].transform.position = new Vector3(playerContext.x, position.y, playerContext.z);
+			playerModels[playerContext.playerId].transform.eulerAngles = new Vector3(0, 90 * ((int)playerContext.forward - 1), 0);
 		}
 		
 		PublishStackedData();

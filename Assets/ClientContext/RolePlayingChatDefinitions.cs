@@ -4,6 +4,9 @@ public class Develop {
 
 public class RolePlayingChatDefinitions {
 	public const int FRAMERATE = 60;
+	
+	public const float FloorUnit = 10f;// 適当に地面のユニットを作った。10f x 10fのサイズ。
+	public const float StepUnit = 0.5f;
 }
 
 
