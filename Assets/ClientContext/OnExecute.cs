@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Cinemachine;
 using UnityEngine;
 using WebSocketControl;
 
@@ -89,6 +90,13 @@ public class OnExecute : MonoBehaviour {
 					
 					var prefab = Resources.Load("Chara") as GameObject;
 					playerModels[entriedPlayerId] = Instantiate(prefab, new Vector3(playerContext.x, playerContext.height, playerContext.z), Quaternion.identity) as GameObject;
+					
+					if (entriedPlayerId == this.playerId) {
+						var camera = GameObject.Find("CinemachineVirtualCamera") as GameObject;
+						Debug.LogError("camera:" + camera);
+						var cinemachineComponent = camera.GetComponent<CinemachineVirtualCamera>() as CinemachineVirtualCamera;
+						cinemachineComponent.CameraTransposerTarget = playerModels[entriedPlayerId].transform;
+					} 
 				}
 				
 				if (commandSourcePlayerId == this.playerId) {
@@ -160,7 +168,6 @@ public class OnExecute : MonoBehaviour {
 			・複数人が入れるようにはなってるけど、位置がかぶってるはず
 			・影落ちないと落下位置わかんねーな
 			・チャットウインドウ入れねば。
-			・カメラ制御、とりあえずキャラに対して固定
 			
 			Playerたちを動かす。
 		*/
@@ -174,13 +181,13 @@ public class OnExecute : MonoBehaviour {
 			*/
 			var position = playerModels[playerContext.playerId].transform.position;
 			playerModels[playerContext.playerId].transform.position = new Vector3(playerContext.x, position.y, playerContext.z);
-			playerModels[playerContext.playerId].transform.eulerAngles = new Vector3(0, 90 * ((int)playerContext.forward - 1), 0);
+			var targetAngle = new Vector3(0, 90 * ((int)playerContext.forward - 1), 0);
+			playerModels[playerContext.playerId].transform.GetChild(0).transform.eulerAngles = targetAngle;
 		}
 		
 		PublishStackedData();
 		
-		clientFrame++;
-		if (10000 < clientFrame) clientFrame = 0;
+		clientFrame++;// そのうちフローすると思う。
 	}
 	
 	private void UpdatePlayerContext (PlayerContext context) {
