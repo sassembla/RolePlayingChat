@@ -17,6 +17,8 @@ public class PlayerContext {
 	
 	public float x=0, z=0, height=30;
 	
+	public string motionName = string.Empty;
+	
 	public PlayerContext (string playerId) {
 		this.playerId = playerId;
 		this.forward = DirectionEnum.North;

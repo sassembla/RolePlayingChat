@@ -92,9 +92,8 @@ public class OnExecute : MonoBehaviour {
 					playerModels[entriedPlayerId] = Instantiate(prefab, new Vector3(playerContext.x, playerContext.height, playerContext.z), Quaternion.identity) as GameObject;
 					
 					if (entriedPlayerId == this.playerId) {
-						var camera = GameObject.Find("CinemachineVirtualCamera") as GameObject;
-						Debug.LogError("camera:" + camera);
-						var cinemachineComponent = camera.GetComponent<CinemachineVirtualCamera>() as CinemachineVirtualCamera;
+						var cinemachineCamera = GameObject.Find("CinemachineVirtualCamera") as GameObject;
+						var cinemachineComponent = cinemachineCamera.GetComponent<CinemachineVirtualCamera>() as CinemachineVirtualCamera;
 						cinemachineComponent.CameraTransposerTarget = playerModels[entriedPlayerId].transform;
 					} 
 				}
@@ -200,7 +199,7 @@ public class OnExecute : MonoBehaviour {
 			自分のキャラの場合、操作を受け付ける。
 		*/
 		if (context.playerId == this.playerId) {
-			ExecuteMyPlayer(context); 
+			ExecuteMyPlayer(context);
 		}
 		
 		context.auto.Update(clientFrame, players);
