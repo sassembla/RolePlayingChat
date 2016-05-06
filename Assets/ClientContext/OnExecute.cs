@@ -219,24 +219,17 @@ public class OnExecute : MonoBehaviour {
 		inputDirection = DirectionEnum.None;
 	}
 	
-	public void Go (Vector2 dir) {
+	public void OnJoystickInput (Vector2 dir) {
 		var degree = Math.Abs(Math.Atan2(dir.x, dir.y) * 180.0 / Math.PI);
 		
-		if (dir.x < 0) {
-			degree = (180.0 * 2) - degree;
-		}
+		// convert 0 ~ 360 degree.
+		if (dir.x < 0) degree = (180.0 * 2) - degree;
 		
-		if (degree < (360 * 1f/8f)) {
-			inputDirection = DirectionEnum.North;
-		} else if (degree < (360 * 3f/8f)) {
-			inputDirection = DirectionEnum.East;
-		} else if (degree < (360 * 5f/8f)) {
-			inputDirection = DirectionEnum.South;
-		} else if (degree < (360 * 7f/8f)) {
-			inputDirection = DirectionEnum.West;
-		} else {
-			inputDirection = DirectionEnum.North;
-		}
+		if (degree < (360.0 * 1f/8f)) inputDirection = DirectionEnum.North;
+		else if (degree < (360.0 * 3f/8f)) inputDirection = DirectionEnum.East;
+		else if (degree < (360.0 * 5f/8f)) inputDirection = DirectionEnum.South;
+		else if (degree < (360.0 * 7f/8f)) inputDirection = DirectionEnum.West;
+		else inputDirection = DirectionEnum.North;
 	}
 	
 	public void OnApplicationQuit () {
