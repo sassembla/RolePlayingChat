@@ -78,10 +78,9 @@ public class GameContextLayer {
 				continue;
 			}
 			
-			// multiple combined data.
-			var commands = stackedData[connectionId].Select(command => command.command).ToArray();
+			// publish as multiple combined data.
 			var byteDatas = stackedData[connectionId].Select(command => command.ToData()).ToArray();
-			var combinedData = new Commands.Datas(playerId, commands, byteDatas).ToData();
+			var combinedData = new Commands.Datas(playerId, byteDatas).ToData();
 			
 			Publish(connectionId, combinedData);
 		}
@@ -275,8 +274,8 @@ public class GameContextLayer {
 					このタイミングで、サーバへのプレイヤーのログインが完了してる。
 				*/
 				{
-					var x = Convert.ToInt32(onConnectedPlayerId);
-					var pos = new Commands.StructVector3(x, 0, 30);
+					// var x = Convert.ToInt32(onConnectedPlayerId);
+					var pos = new Commands.StructVector3(0, 0, 30);
 					StackPublish(new Commands.EntriedId(onConnectedPlayerId, pos), AllConnectedIds());
 				}
 				
@@ -284,7 +283,7 @@ public class GameContextLayer {
 					ダミーを10人くらい降らせよう。
 				*/
 				if (AllConnectedIds().Length == 1) {
-					XrossPeer.Log("最初の予定された接続者 onConnectedPlayerId:" + onConnectedPlayerId);
+					XrossPeer.Log("最初の接続者 onConnectedPlayerId:" + onConnectedPlayerId);
 					var xRand = new byte[10];
 					var zRand = new byte[10];
 					
@@ -296,8 +295,9 @@ public class GameContextLayer {
 					
 					for (var i = 0; i < 10; i++) {
 						var dummyPlayerId = Guid.NewGuid().ToString();
-						var dummyPos = new Commands.StructVector3(xRand[i], zRand[i], 30);
+						var dummyPos = new Commands.StructVector3(xRand[i]%40, zRand[i]%40, 30);
 						StackPublish(new Commands.EntriedId(dummyPlayerId, dummyPos), AllConnectedIds());
+						StackPublish(new Commands.Spawn(dummyPlayerId), AllConnectedIds());
 					}
 				} else {
 					XrossPeer.Log("後発の接続者、この時点で他のプレイヤーが存在してるはずなんだよな。それらの存在を受け取る必要があるな。");									
@@ -313,7 +313,7 @@ public class GameContextLayer {
 				
 				var reasonCode = 0;
 				
-				XrossPeer.Log("disconnected この時点で通信対象リストからは外されている。 disconnectedPlayerId:" + disconnectedPlayerId + " reason:" + reason);
+				XrossPeer.Log("disconnected この時点で通信対象リストからは外されている。 disconnectedPlayerId:" + disconnectedPlayerId + " reason:" + reason + " まだなんにもしてない。");
 				// StackPublish(new Commands.PlayerLeft(disconnectedPlayerId, reasonCode), AllConnectedIds());
 				return;
 			}
@@ -332,7 +332,7 @@ public class GameContextLayer {
 				/*
 					すでにSpawnしてないかとかみて、OKだったらSpawnを返す
 				*/
-				// StackPublish(new Commands.Spawn(spawnPlayerId), AllConnectedIds());
+				StackPublish(new Commands.Spawn(spawnPlayerId), AllConnectedIds());
 				return;
 			}
 			

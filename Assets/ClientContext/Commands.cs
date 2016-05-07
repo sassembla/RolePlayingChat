@@ -36,10 +36,8 @@ public static class Commands {
     }
 	
 	[Serializable] public class Datas : BaseData {
-		[SerializeField] public CommandEnum[] commands;
 		[SerializeField] public PackedData[] datas;
-		public Datas (string playerId, CommandEnum[] commands, byte[][] datas) : base (CommandEnum.Datas, playerId) {
-			this.commands = commands;
+		public Datas (string playerId, byte[][] datas) : base (CommandEnum.Datas, playerId) {
 			this.datas = datas.Select(data => new PackedData(data)).ToArray();
 		}
 	}
@@ -52,25 +50,36 @@ public static class Commands {
 	}
 	
 	
-	public class OnConnected : BaseData {
+	[Serializable] public class OnConnected : BaseData {
 		
 		public OnConnected (string playerId) : base (CommandEnum.OnConnected, playerId) {
 		}
 	}
 	
-	public class OnDisconnected : BaseData {
-		public string reason;
+	[Serializable] public class OnDisconnected : BaseData {
+		[SerializeField] public string reason;
 		
 		public OnDisconnected (string playerId, string reason) : base (CommandEnum.OnDisconnected, playerId) {
 			this.reason = reason;
 		}
 	}
 	
-	public struct  StructVector3 {
-		public int x;
-		public int z;
+	
+	[Serializable] public class StructVector2 {
+		[SerializeField] public int x;
+		[SerializeField] public int z;
 		
-		public int height;
+		public StructVector2 (int x, int z) {
+			this.x = x;
+			this.z = z;
+		}
+	}
+	
+	[Serializable] public class StructVector3 {
+		[SerializeField] public int x;
+		[SerializeField] public int z;
+		
+		[SerializeField] public int height;
 		
 		public StructVector3 (int x, int z, int height) {
 			this.x = x;
@@ -79,8 +88,8 @@ public static class Commands {
 		}
 	}
 	
-	public class EntriedId : BaseData {
-		public StructVector3 pos;
+	[Serializable] public class EntriedId : BaseData {
+		[SerializeField] public StructVector3 pos;
 		
 		public EntriedId (string playerId, StructVector3 pos) : base (CommandEnum.EntriedId, playerId) {
 			this.pos = pos;
@@ -90,8 +99,8 @@ public static class Commands {
 	/**
 		意味を持たせない単なるメッセージ
 	*/
-	public class Message : BaseData {
-		public string message;
+	[Serializable] public class Message : BaseData {
+		[SerializeField] public string message;
 		public Message (string playerId, string message) : base (CommandEnum.Message, playerId) {
 			this.message = message;
 		} 
@@ -100,14 +109,14 @@ public static class Commands {
 	/**
 		Serverへと送り、既存のゲームへと参加する
 	*/
-	public class SpawnRequest : BaseData {
+	[Serializable] public class SpawnRequest : BaseData {
 		public SpawnRequest (string playerId) : base (CommandEnum.SpawnRequest, playerId) {
 			
 		}
 	}
 	
 	
-	public class Spawn : BaseData {
+	[Serializable] public class Spawn : BaseData {
 		public Spawn (string playerId) : base (CommandEnum.Spawn, playerId) {
 			
 		}
@@ -117,9 +126,9 @@ public static class Commands {
 		送信できる辞書データの基礎クラス
 		お、この型の拡張メソッド作れば良いことありそう。各拡張で勝手に自分の型で取り出せるとちょっとらく。
 	*/
-	public class BaseData {
-		public CommandEnum command;
-		public string playerId;
+	[Serializable] public class BaseData {
+		[SerializeField] public CommandEnum command;
+		[SerializeField] public string playerId;
 		public BaseData (CommandEnum command, string playerId) {
 			this.command = command;
 			this.playerId = playerId;

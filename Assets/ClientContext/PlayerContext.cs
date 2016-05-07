@@ -20,13 +20,17 @@ public class PlayerContext {
 	
 	public string motionName = string.Empty;
 	
+	public string talkablePlayerId = string.Empty;
+	public string lastTalkedPlayerId = string.Empty;
+	
+	public string talkingPlayerId = string.Empty;
+	
 	public PlayerContext (string playerId, Commands.StructVector3 pos) {
 		this.playerId = playerId;
 		this.forward = DirectionEnum.North;
 		this.x = pos.x * RolePlayingChatDefinitions.FloorUnit;
 		this.z = pos.z * RolePlayingChatDefinitions.FloorUnit;
 		this.height = pos.height;
-		Debug.LogError("x:" + x);
 	}
 	
 }

@@ -16,7 +16,11 @@ public class OnExecute : MonoBehaviour {
 	
 	/*
 		メッセージをどうやってデザインしようかな。
-		・まず他人が必要だな。ダミー出そう。
+		✔︎まず他人が必要だな。ダミー出そう。
+		・他人の近所にいったら、会話ボタン？どうやってチャット開始しよう。
+		・突然ウィンドウでるんでいいや。状態としては？
+		・walk -> 円形近接 -> 歩き終わったタイミングでTalk? Talk終わったらDefault。
+		・
 	*/
 	
 	
@@ -57,20 +61,20 @@ public class OnExecute : MonoBehaviour {
 	private void ProcessData (byte[] data) {
 		var commandAndPlayerId = Commands.ReadCommandAndSourceId(data);
 		var command = commandAndPlayerId.command;
-		var commandSourcePlayerId = commandAndPlayerId.playerId;//これ、固める時に受信対象ユーザーの名前がついちゃうんだな。だめじゃん。
+		var commandSourcePlayerId = commandAndPlayerId.playerId;
 		
 		/*
 			複数コマンドを固めたものを受け取った場合、展開して実行
 		*/
 		if (command == Commands.CommandEnum.Datas) {
 			var datas = Commands.FromData<Commands.Datas>(data);
-			for (var i = 0; i < datas.commands.Length; i++) {
+			for (var i = 0; i < datas.datas.Length; i++) {
 				var containedByteData = datas.datas[i].data;
 				var commandAndPlayerId2 = Commands.ReadCommandAndSourceId(containedByteData);
 				var currentPlayerId = commandAndPlayerId2.playerId;
-				var containedCommand = datas.commands[i];
+				var currentCommand = commandAndPlayerId2.command;
 				
-				ExecuteCommandFromBytes(currentPlayerId, containedCommand, containedByteData);
+				ExecuteCommandFromBytes(currentPlayerId, currentCommand, containedByteData);
 			}
 			return;
 		}
@@ -92,7 +96,7 @@ public class OnExecute : MonoBehaviour {
 					var entriedPlayerId = entriedData.playerId;
 					var pos = entriedData.pos;
 					
-					Debug.LogError("EntriedIdをサーバから受け取った entriedPlayerId:" + entriedPlayerId);
+					// Debug.LogError("EntriedIdをサーバから受け取った entriedPlayerId:" + entriedPlayerId);
 					
 					var playerContext = new PlayerContext(entriedPlayerId, pos);
 					var auto = new Spawning<PlayerContext, List<PlayerContext>>(clientFrame, playerContext);
@@ -113,19 +117,19 @@ public class OnExecute : MonoBehaviour {
 					} 
 				}
 				
+				
+				
 				if (commandSourcePlayerId == this.playerId) {
 					Debug.LogError("自分がエントリーしたのでSpawnRequestを送る");
 					StackPublish(new Commands.SpawnRequest(playerId));
-				} else {
-					Debug.LogError("だれかのエントリーがあった playerId:" + commandSourcePlayerId + " この他人のAutoを生成。");
 				}
 				return;
 			}
 			
 			case Commands.CommandEnum.Spawn: {
-				// 誰かspawnしたんで、Autoの状態を変更する。
 				var spawnData = Commands.FromData<Commands.Spawn>(data);
 				var spawnPlayerId = spawnData.playerId;
+				// Debug.LogError("誰かspawnしたんで、Autoの状態を変更する。自分以外のspawnって意味あるのかな、、あー、入室とかか。spawnPlayerId:" + spawnPlayerId);
 				
 				players
 					.Where(p => p.playerId == spawnPlayerId)
@@ -179,11 +183,11 @@ public class OnExecute : MonoBehaviour {
 		/*
 			・視界に入ってる範囲だけが対象、とかのリミテーションが必要
 			・移動のリミテーションせねば。
-			・複数人が入れるようにはなってるけど、位置がかぶってるはず
 			・影落ちないと落下位置わかんねーな
-			・チャットウインドウ入れねば。
-			
-			Playerたちを動かす。
+		*/
+		
+		/*
+			update players.
 		*/
 		foreach (var playerContext in players) {
 			UpdatePlayerContext(playerContext);
@@ -212,9 +216,70 @@ public class OnExecute : MonoBehaviour {
 	}
 	
 	private void UpdatePlayerContext (PlayerContext context) {
+		if (context.playerId == this.playerId) {
+			// 近所にだれかいて、そいつが通話可能だったら、会話ウィンドウを出す。
+			// 最後に会話したやつとは話をしないほうがいいのかな、離れ損なって連続、、ていうのがありそう。
+			// どうやって状態管理しよう、、ああ、lastTalkedPlayerIdでいいのか。
+			// walkの時に、一番近くにいるプレイヤーのIdを保持しとけばいいな。
+			
+			/*
+				話しかける、話しかけられる、の関係をどう整理しようかな。
+				声をかけることができる = Emittable
+				声をうけることができる = Receibable
+				双方がないと成立しないんだよな。
+			*/
+			
+			if (!string.IsNullOrEmpty(context.talkablePlayerId) && context.talkablePlayerId != context.lastTalkedPlayerId) {
+				var targetPlayerId = context.talkablePlayerId;
+				if (context.auto.Contains(AutoConditions.Talkable.Emittable)) {
+					Debug.LogError("自分のほうは話しかけることができる");
+					
+					var talkTargetContext = players.Where(p => p.playerId == targetPlayerId).FirstOrDefault();
+					if (talkTargetContext.auto.Contains(AutoConditions.Talkable.Receivable)) {
+						Debug.LogError("相手のほうも話を受けることができる。");
+						Debug.LogError("エンカウント、双方が会話状態に入る。");
+						context.auto = new TalkStart<PlayerContext, List<PlayerContext>>(clientFrame, context);
+					} else {
+						Debug.LogError("話しかけられなかったよ、、、");
+					}
+					
+				} 
+			}
+			
+			var stackeds = context.auto.StackedChangers();
+			if (stackeds.Any()) {
+				Debug.LogError("stackeds:" + stackeds.Count);
+				
+				/*
+					loadingからのみ、talkに遷移できるんじゃないかっていう。
+				*/
+				if (context.auto.Contains(AutoConditions.Talk.Loading)) { 
+					foreach (var stacked in stackeds) {
+						var stackedName = stacked.ChangerName();
+						
+						switch (stackedName) {
+							case "TalkChanger": {
+								context.auto = new Talk<PlayerContext, List<PlayerContext>>(clientFrame, context);
+								break;
+							}
+							default: {
+								Debug.LogError("なんか違うのきたぞ。:" + stackedName);
+								break;
+							}
+						}
+					}
+				}
+			}
+		}
+		
+		/*
+			デフォルト落ち
+		*/
 		if (context.auto.ShouldFalldown(clientFrame)) {
+			// これも一種のイベントだな。
+			
 			// このプレイヤーのこのAuto終わってるので、デフォルトに戻す。
-			context.auto = context.auto.ChangeTo(new Default<PlayerContext, List<PlayerContext>>(clientFrame, context));
+			context.auto = new Default<PlayerContext, List<PlayerContext>>(clientFrame, context);
 		}
 		
 		/*
@@ -231,6 +296,18 @@ public class OnExecute : MonoBehaviour {
 	
 	private void ExecuteMyPlayer (PlayerContext context) {
 		if (inputDirection == DirectionEnum.None) return;
+		
+		// あー、、このへんswitchで書けるといいなあ。もしくはchangerか。
+		
+		
+		/*
+			会話中に移動したら、会話キャンセルしたいよね。
+		*/
+		if (context.auto.Contains(AutoConditions.Talk.Loading) || context.auto.Contains(AutoConditions.Talk.Talking)) {
+			// 会話を途切れさせる。っていうか歩く。
+			context.forward = inputDirection;
+			context.auto = context.auto.ChangeTo(new Walk<PlayerContext, List<PlayerContext>>(clientFrame, context));
+		}
 		
 		if (context.auto.Contains(AutoConditions.Control.Contorllable)) {
 			context.forward = inputDirection;
