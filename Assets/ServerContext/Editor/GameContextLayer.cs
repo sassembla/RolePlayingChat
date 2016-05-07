@@ -82,7 +82,7 @@ public class GameContextLayer {
 			var commands = stackedData[connectionId].Select(command => command.command).ToArray();
 			var byteDatas = stackedData[connectionId].Select(command => command.ToData()).ToArray();
 			var combinedData = new Commands.Datas(playerId, commands, byteDatas).ToData();
-			XrossPeer.Log("send!");
+			
 			Publish(connectionId, combinedData);
 		}
 		
@@ -272,9 +272,38 @@ public class GameContextLayer {
 				XrossPeer.Log("connected playerId:" + onConnectedPlayerId);
 				
 				/*
-					このタイミングで、サーバへのプレイヤーのログインが完了してる。ので、動けるようにいろいろやるとイイと思う。
+					このタイミングで、サーバへのプレイヤーのログインが完了してる。
 				*/
-				StackPublish(new Commands.EntriedId(onConnectedPlayerId), AllConnectedIds());
+				{
+					var x = Convert.ToInt32(onConnectedPlayerId);
+					var pos = new Commands.StructVector3(x, 0, 30);
+					StackPublish(new Commands.EntriedId(onConnectedPlayerId, pos), AllConnectedIds());
+				}
+				
+				/*
+					ダミーを10人くらい降らせよう。
+				*/
+				if (AllConnectedIds().Length == 1) {
+					XrossPeer.Log("最初の予定された接続者 onConnectedPlayerId:" + onConnectedPlayerId);
+					var xRand = new byte[10];
+					var zRand = new byte[10];
+					
+					var r1 = new System.Random();
+					r1.NextBytes(xRand);
+					
+					var r2 = new System.Random();
+					r2.NextBytes(zRand);
+					
+					for (var i = 0; i < 10; i++) {
+						var dummyPlayerId = Guid.NewGuid().ToString();
+						var dummyPos = new Commands.StructVector3(xRand[i], zRand[i], 30);
+						StackPublish(new Commands.EntriedId(dummyPlayerId, dummyPos), AllConnectedIds());
+					}
+				} else {
+					XrossPeer.Log("後発の接続者、この時点で他のプレイヤーが存在してるはずなんだよな。それらの存在を受け取る必要があるな。");									
+				}
+				
+				
 				return;
 			}
 			case Commands.CommandEnum.OnDisconnected: {
@@ -300,8 +329,10 @@ public class GameContextLayer {
 				var spawnPlayerId = spawnData.playerId;
 				XrossPeer.Log("spawnがきた spawnPlayerId:" + spawnPlayerId);
 				
-				// んーさて、キャラクターモデル出してイイよっていう命令 = spawnを送る
-				StackPublish(new Commands.Spawn(spawnPlayerId), AllConnectedIds());
+				/*
+					すでにSpawnしてないかとかみて、OKだったらSpawnを返す
+				*/
+				// StackPublish(new Commands.Spawn(spawnPlayerId), AllConnectedIds());
 				return;
 			}
 			

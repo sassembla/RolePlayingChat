@@ -66,9 +66,24 @@ public static class Commands {
 		}
 	}
 	
+	public struct  StructVector3 {
+		public int x;
+		public int z;
+		
+		public int height;
+		
+		public StructVector3 (int x, int z, int height) {
+			this.x = x;
+			this.z = z;
+			this.height = height;
+		}
+	}
+	
 	public class EntriedId : BaseData {
-		public EntriedId (string playerId) : base (CommandEnum.EntriedId, playerId) {
-			// エントリー時になんか出せるね。
+		public StructVector3 pos;
+		
+		public EntriedId (string playerId, StructVector3 pos) : base (CommandEnum.EntriedId, playerId) {
+			this.pos = pos;
 		}
 	}
 	

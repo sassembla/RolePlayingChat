@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using Cinemachine;
 using UnityEngine;
 using WebSocketControl;
@@ -12,6 +13,11 @@ public class OnExecute : MonoBehaviour {
 	public List<PlayerContext> players;
 	
 	public Dictionary<string, GameObject> playerModels;
+	
+	/*
+		メッセージをどうやってデザインしようかな。
+		・まず他人が必要だな。ダミー出そう。
+	*/
 	
 	
 	// Use this for initialization
@@ -51,17 +57,20 @@ public class OnExecute : MonoBehaviour {
 	private void ProcessData (byte[] data) {
 		var commandAndPlayerId = Commands.ReadCommandAndSourceId(data);
 		var command = commandAndPlayerId.command;
-		var commandSourcePlayerId = commandAndPlayerId.playerId;
-		 
+		var commandSourcePlayerId = commandAndPlayerId.playerId;//これ、固める時に受信対象ユーザーの名前がついちゃうんだな。だめじゃん。
+		
 		/*
 			複数コマンドを固めたものを受け取った場合、展開して実行
 		*/
 		if (command == Commands.CommandEnum.Datas) {
 			var datas = Commands.FromData<Commands.Datas>(data);
 			for (var i = 0; i < datas.commands.Length; i++) {
-				var containedCommand = datas.commands[i];
 				var containedByteData = datas.datas[i].data;
-				ExecuteCommandFromBytes(commandSourcePlayerId, containedCommand, containedByteData);
+				var commandAndPlayerId2 = Commands.ReadCommandAndSourceId(containedByteData);
+				var currentPlayerId = commandAndPlayerId2.playerId;
+				var containedCommand = datas.commands[i];
+				
+				ExecuteCommandFromBytes(currentPlayerId, containedCommand, containedByteData);
 			}
 			return;
 		}
@@ -76,13 +85,16 @@ public class OnExecute : MonoBehaviour {
 		
 		switch (command) {
 			case Commands.CommandEnum.EntriedId: {
-				Debug.LogError("EntriedIdをサーバから受け取った");
 				var entriedData = Commands.FromData<Commands.EntriedId>(data);
 				
 				// 新規参加ユーザーを生成
 				{
 					var entriedPlayerId = entriedData.playerId;
-					var playerContext = new PlayerContext(entriedPlayerId);
+					var pos = entriedData.pos;
+					
+					Debug.LogError("EntriedIdをサーバから受け取った entriedPlayerId:" + entriedPlayerId);
+					
+					var playerContext = new PlayerContext(entriedPlayerId, pos);
 					var auto = new Spawning<PlayerContext, List<PlayerContext>>(clientFrame, playerContext);
 					
 					playerContext.auto = auto;
@@ -91,6 +103,9 @@ public class OnExecute : MonoBehaviour {
 					var prefab = Resources.Load("Chara") as GameObject;
 					playerModels[entriedPlayerId] = Instantiate(prefab, new Vector3(playerContext.x, playerContext.height, playerContext.z), Quaternion.identity) as GameObject;
 					
+					/*
+						カメラセッティング
+					*/
 					if (entriedPlayerId == this.playerId) {
 						var cinemachineCamera = GameObject.Find("CinemachineVirtualCamera") as GameObject;
 						var cinemachineComponent = cinemachineCamera.GetComponent<CinemachineVirtualCamera>() as CinemachineVirtualCamera;
@@ -102,7 +117,7 @@ public class OnExecute : MonoBehaviour {
 					Debug.LogError("自分がエントリーしたのでSpawnRequestを送る");
 					StackPublish(new Commands.SpawnRequest(playerId));
 				} else {
-					Debug.Log("だれかのエントリーがあった playerId:" + commandSourcePlayerId + " この他人のAutoを生成。");
+					Debug.LogError("だれかのエントリーがあった playerId:" + commandSourcePlayerId + " この他人のAutoを生成。");
 				}
 				return;
 			}
@@ -178,10 +193,17 @@ public class OnExecute : MonoBehaviour {
 			/*
 				dir, pos, 
 			*/
-			var position = playerModels[playerContext.playerId].transform.position;
-			playerModels[playerContext.playerId].transform.position = new Vector3(playerContext.x, position.y, playerContext.z);
+			playerModels[playerContext.playerId].transform.position = new Vector3(playerContext.x, playerModels[playerContext.playerId].transform.position.y, playerContext.z);
 			var targetAngle = new Vector3(0, 90 * ((int)playerContext.forward - 1), 0);
 			playerModels[playerContext.playerId].transform.GetChild(0).transform.eulerAngles = targetAngle;
+			
+			if (playerModels[playerContext.playerId].transform.position.y < 0) playerModels[playerContext.playerId].transform.position = new Vector3(playerModels[playerContext.playerId].transform.position.x, 0, playerModels[playerContext.playerId].transform.position.z);  
+			
+			if (!string.IsNullOrEmpty(playerContext.motionName)) {
+				// SetMotion();// いつかやる。
+				// Debug.LogError("playerModels[playerContext.playerId]:" + playerModels[playerContext.playerId]);
+				playerContext.motionName = string.Empty;
+			}
 		}
 		
 		PublishStackedData();
