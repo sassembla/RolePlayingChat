@@ -23,9 +23,13 @@ public class OnExecute : MonoBehaviour {
 		・
 	*/
 	
+	private GameObject uiScreen;
+	
 	
 	// Use this for initialization
 	void Start () {
+		uiScreen = GameObject.Find("EasyTouchControlsCanvas") as GameObject;
+		
 		players = new List<PlayerContext>();
 		playerModels = new Dictionary<string, GameObject>();
 		
@@ -163,7 +167,7 @@ public class OnExecute : MonoBehaviour {
 	
 	private List<Commands.BaseData> stackedCommands = new List<Commands.BaseData>();
 	
-	private void StackPublish (Commands.BaseData data, string[] connectionIds=null) {
+	private void StackPublish (Commands.BaseData data) {
 		stackedCommands.Add(data);
 	}
 	
@@ -225,7 +229,7 @@ public class OnExecute : MonoBehaviour {
 			/*
 				話しかける、話しかけられる、の関係をどう整理しようかな。
 				声をかけることができる = Emittable
-				声をうけることができる = Receibable
+				声をうけることができる = Receivable
 				双方がないと成立しないんだよな。
 			*/
 			
@@ -236,40 +240,47 @@ public class OnExecute : MonoBehaviour {
 					
 					var talkTargetContext = players.Where(p => p.playerId == targetPlayerId).FirstOrDefault();
 					if (talkTargetContext.auto.Contains(AutoConditions.Talkable.Receivable)) {
-						Debug.LogError("相手のほうも話を受けることができる。");
-						Debug.LogError("エンカウント、双方が会話状態に入る。");
-						context.auto = new TalkStart<PlayerContext, List<PlayerContext>>(clientFrame, context);
+						Debug.LogError("相手のほうも話を受けることができる。この辺は、会話対象としてOn/Offとかも視野に入る気がする。sendを許すだけ。");
+						Debug.LogError("エンカウント、一方的に攻撃?ができる。相手側は別に返答しなければTalkingに入らない。");
+						context.auto = new Talk<PlayerContext, List<PlayerContext>>(clientFrame, context);
+						
+						StartTalking(this.playerId, targetPlayerId);
 					} else {
 						Debug.LogError("話しかけられなかったよ、、、");
 					}
 					
-				} 
-			}
-			
-			var stackeds = context.auto.StackedChangers();
-			if (stackeds.Any()) {
-				Debug.LogError("stackeds:" + stackeds.Count);
-				
-				/*
-					loadingからのみ、talkに遷移できるんじゃないかっていう。
-				*/
-				if (context.auto.Contains(AutoConditions.Talk.Loading)) { 
-					foreach (var stacked in stackeds) {
-						var stackedName = stacked.ChangerName();
-						
-						switch (stackedName) {
-							case "TalkChanger": {
-								context.auto = new Talk<PlayerContext, List<PlayerContext>>(clientFrame, context);
-								break;
-							}
-							default: {
-								Debug.LogError("なんか違うのきたぞ。:" + stackedName);
-								break;
-							}
-						}
-					}
 				}
 			}
+		}
+		
+		/*
+			誰かから話しかけられていれば、ここで判断できる。
+		*/
+		var stackeds = context.auto.StackedChangers();
+		if (stackeds.Any()) {
+			Debug.LogError("stackeds:" + stackeds.Count);
+			
+			
+			// これ、ノーティフケーションに使えるな。
+			// /*
+			// 	loadingからのみ、talkに遷移できるんじゃないかっていう。
+			// */
+			// if (context.auto.Contains(AutoConditions.Talk.Loading)) { 
+			// 	foreach (var stacked in stackeds) {
+			// 		var stackedName = stacked.ChangerName();
+					
+			// 		switch (stackedName) {
+			// 			case "TalkChanger": {
+			// 				context.auto = new Talk<PlayerContext, List<PlayerContext>>(clientFrame, context);
+			// 				break;
+			// 			}
+			// 			default: {
+			// 				Debug.LogError("なんか違うのきたぞ。:" + stackedName);
+			// 				break;
+			// 			}
+			// 		}
+			// 	}
+			// }
 		}
 		
 		/*
@@ -292,30 +303,83 @@ public class OnExecute : MonoBehaviour {
 		context.auto.Update(clientFrame, players);
 	}
 	
+	private KeyEnum inputKey;
 	private DirectionEnum inputDirection = DirectionEnum.None;
 	
 	private void ExecuteMyPlayer (PlayerContext context) {
-		if (inputDirection == DirectionEnum.None) return;
+		if (context.auto.Contains(AutoConditions.Talk.Talking)) {
+			// 対象と会話中なんで、会話ウィンドウと入力ウィンドウがあるはず。
+			
+			
+			// カメラを2人の中間点に移動、とか？Composerを追加すればいいのかな。真横からとる、とかは、、ああ、二人の間に綺麗にオブジェクトおけばいいんだ。でかいものをおけば、それだけでいい気がするぞ、、
+			
+			
+			
+			if (inputKey != KeyEnum.None) {
+				switch (inputKey) {
+					case KeyEnum.Send: {
+						Debug.LogError("会話対象に送信する。");
+						var targetPlayerId = context.talkingPlayerId;
+						StackPublish(new Commands.SendMessage(this.playerId, targetPlayerId, context.messageSend));
+						context.messageSend = string.Empty;
+						break;
+					}
+					default: {
+						Debug.LogError("まだ対処してない会話中の何か:" + inputKey);
+						break;
+					}
+				}
+			} 
+		} 
 		
-		// あー、、このへんswitchで書けるといいなあ。もしくはchangerか。
 		
-		
-		/*
-			会話中に移動したら、会話キャンセルしたいよね。
-		*/
-		if (context.auto.Contains(AutoConditions.Talk.Loading) || context.auto.Contains(AutoConditions.Talk.Talking)) {
-			// 会話を途切れさせる。っていうか歩く。
-			context.forward = inputDirection;
-			context.auto = context.auto.ChangeTo(new Walk<PlayerContext, List<PlayerContext>>(clientFrame, context));
+		// 方向キー操作受付
+		if (inputDirection != DirectionEnum.None) {
+			
+			// あー、、このへんswitchで書けるといいなあ。もしくはchangerか。
+			
+			
+			/*
+				会話中に移動したら、会話キャンセルしたいよね。
+			*/
+			if (context.auto.Contains(AutoConditions.Talk.Talking)) {
+				// 会話を途切れさせる。っていうか歩く。
+				LeftTalking();
+				
+				// 会話キーの消費
+				if (!string.IsNullOrEmpty(context.messageSend)) {
+					context.messageSend = string.Empty;
+				}
+				
+				context.forward = inputDirection;
+				context.auto = context.auto.ChangeTo(new Walk<PlayerContext, List<PlayerContext>>(clientFrame, context));
+			}
+			
+			if (context.auto.Contains(AutoConditions.Control.Contorllable)) {
+				context.forward = inputDirection;
+				context.auto = context.auto.ChangeTo(new Walk<PlayerContext, List<PlayerContext>>(clientFrame, context));
+			}
+			
+			// consume.
+			inputDirection = DirectionEnum.None;
 		}
+	}
+	
+	GameObject windowInstance;
+	
+	public void StartTalking (params string[] playerIds) {
+		// // ２者間の中間位置にオブジェクトをおく。
+		// var centeringObject =
 		
-		if (context.auto.Contains(AutoConditions.Control.Contorllable)) {
-			context.forward = inputDirection;
-			context.auto = context.auto.ChangeTo(new Walk<PlayerContext, List<PlayerContext>>(clientFrame, context));
-		}
+		//  会話ウィンドウを出す。
+		var windowPrefab = Resources.Load("TalkWindow") as GameObject;
+		windowInstance = Instantiate(windowPrefab);
 		
-		// consume.
-		inputDirection = DirectionEnum.None;
+		windowInstance.transform.SetParent(uiScreen.transform, false); 
+	}
+	
+	public void LeftTalking () {
+		Destroy(windowInstance);
 	}
 	
 	public void OnJoystickInput (Vector2 dir) {

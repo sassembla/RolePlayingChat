@@ -2,6 +2,12 @@ using System.Collections.Generic;
 using Automatine;
 using UnityEngine;
 
+public enum KeyEnum {
+	None,
+	Send
+}
+
+
 public enum DirectionEnum {
 	None,
 	North,
@@ -24,6 +30,8 @@ public class PlayerContext {
 	public string lastTalkedPlayerId = string.Empty;
 	
 	public string talkingPlayerId = string.Empty;
+	
+	public string messageSend = string.Empty;
 	
 	public PlayerContext (string playerId, Commands.StructVector3 pos) {
 		this.playerId = playerId;

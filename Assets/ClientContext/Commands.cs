@@ -26,11 +26,7 @@ public static class Commands {
         SpawnRequest,
 		Spawn,
 		
-        Action,
-        GameData,
-        FrameData,
-        PlayerPos,
-		
+		SendMessage,
 		
         Log,
     }
@@ -103,7 +99,16 @@ public static class Commands {
 		[SerializeField] public string message;
 		public Message (string playerId, string message) : base (CommandEnum.Message, playerId) {
 			this.message = message;
-		} 
+		}
+	}
+	
+	[Serializable] public class SendMessage : BaseData {
+		[SerializeField] public string message;
+		[SerializeField] public string targetPlayerId;
+		public SendMessage (string playerId, string targetPlayerId, string message) : base (CommandEnum.Message, playerId) {
+			this.targetPlayerId = targetPlayerId;
+			this.message = message;
+		}
 	}
 	
 	/**
