@@ -129,8 +129,6 @@ public class OnExecute : MonoBehaviour {
 					} 
 				}
 				
-				
-				
 				if (commandSourcePlayerId == this.playerId) {
 					Debug.LogError("自分がエントリーしたのでSpawnRequestを送る");
 					StackPublish(new Commands.SpawnRequest(playerId));
@@ -149,7 +147,6 @@ public class OnExecute : MonoBehaviour {
 			}
 			
 			case Commands.CommandEnum.WorldData: {
-				Debug.LogError("receiving world data.");
 				var worldData = Commands.FromData<Commands.WorldData>(data);
 				
 				var currentPlayersIds = players.Select(p => p.playerId).ToArray();
@@ -163,7 +160,7 @@ public class OnExecute : MonoBehaviour {
 					
 					var playerContext = NewPlayerContext(playerId, playerPos, playerDir);
 					
-					Debug.LogError("とりあえず適当に、default状態にしておく。");
+					Debug.LogError("とりあえず適当に、default状態にしておく。特に問題ないはず。");
 					playerContext.auto = new Default<PlayerContext, List<PlayerContext>>(clientFrame, playerContext);
 					
 					players.Add(playerContext);
@@ -180,7 +177,7 @@ public class OnExecute : MonoBehaviour {
 				
 				if (walkingPlayerId == this.playerId) {
 					// ignore.
-					Debug.LogError("自分が歩いてる");
+					// Debug.LogError("自分が歩いてる");
 					return;
 				}
 				

@@ -31,8 +31,11 @@ using System.IO;
 		
 		sContext = new ServerContext(settings.ClientToContextKey());
 		
-		EditorApplication.update += DetectCompileStart;
-		EditorApplication.playmodeStateChanged += DetectPlayStart;
+		var disqueConnectionCont = new DisqueConnectionController(SetupUpdater, settings.ClientToContextKey(), settings.DataMode());
+		disqueConnectionCont.SetContext(sContext);
+				
+		// EditorApplication.update += DetectCompileStart;
+		// EditorApplication.playmodeStateChanged += DetectPlayStart;
 	}
 	
 	
@@ -48,6 +51,24 @@ using System.IO;
 		if (!EditorApplication.isPlaying && EditorApplication.isPlayingOrWillChangePlaymode) {
 			if (sContext != null) sContext.Teardown();
 		}
+	}
+	
+	public static void SetupUpdater (string loopId, Func<bool> OnUpdate) {
+		
+		// #if UNITY_EDITOR
+		// {
+		// 	var settings = (StandardAssetsConnectorSettings)ScriptableObject.CreateInstance("StandardAssetsConnectorSettings");
+		// 	if (settings.use_unity_thread) {
+		// 		Action update = () => OnUpdate();
+		// 		var executor = new UnityEditorUpdateExecutor(update);
+		// 		EditorApplication.update += executor.Update;
+		// 		return;
+		// 	}
+		// }
+		// #endif
+		
+		// if not unity
+		new Updater("serverInitializer_" + loopId, OnUpdate);
 	}
 
 
