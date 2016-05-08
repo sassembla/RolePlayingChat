@@ -19,71 +19,71 @@ public class ServerContext {
 		
 		XrossPeer.Log("server generated! serverContextId:" + serverContextId + " serverQueueId:" + serverQueueId);
 		
-		Updater queueGetJobber = null;
+		// Updater queueGetJobber = null;
 		
 		var disqueId = Guid.NewGuid().ToString();
-		disquuun = new Disquuun(
-			disqueId,
-			"127.0.0.1", 
-			7711,
-			102400,
-			connectedConId => {
-				Action<string, byte[]> Send = (string connectionId, byte[] data) => {
-					disquuun.AddJob(connectionId, data);
-				};
+		// disquuun = new Disquuun(
+		// 	disqueId,
+		// 	"127.0.0.1", 
+		// 	7711,
+		// 	102400,
+		// 	connectedConId => {
+		// 		Action<string, byte[]> Send = (string connectionId, byte[] data) => {
+		// 			disquuun.AddJob(connectionId, data);
+		// 		};
 				
-				Setup(Send);
+		// 		Setup(Send);
 				
-				XrossPeer.Log("同期的にコンテキストの用意が終わったつもり。 ほんとはいろんな接続があるはず。");
-				queueGetJobber = new Updater(
-					"disquuunGetJobber", 
-					() => {
-						disquuun.GetJob(new string[]{serverQueueId}, "COUNT", 1000, "NOHANG");
-						return true;
-					}
-				);
+		// 		XrossPeer.Log("同期的にコンテキストの用意が終わったつもり。 ほんとはいろんな接続があるはず。");
+		// 		queueGetJobber = new Updater(
+		// 			"disquuunGetJobber", 
+		// 			() => {
+		// 				disquuun.GetJob(new string[]{serverQueueId}, "COUNT", 1000, "NOHANG");
+		// 				return true;
+		// 			}
+		// 		);
 				
-			},
-			(command, byteDatas) => {
-				switch (command) {
-					case Disquuun.DisqueCommand.INFO: {
-						var stringData = byteDatas[0];
-						var info = Encoding.UTF8.GetString(stringData.bytesArray[0], 0, stringData.bytesArray[0].Length);
-						XrossPeer.Log("info:" + info);
-						break;
-					}
-					case Disquuun.DisqueCommand.GETJOB: {
-						var jobIds = new List<string>();
-						foreach (var bytes in byteDatas) {
-							var jobId = Encoding.UTF8.GetString(bytes.bytesArray[0]);
-							jobIds.Add(jobId);
+		// 	},
+		// 	(command, byteDatas) => {
+		// 		switch (command) {
+		// 			case Disquuun.DisqueCommand.INFO: {
+		// 				var stringData = byteDatas[0];
+		// 				var info = Encoding.UTF8.GetString(stringData.bytesArray[0], 0, stringData.bytesArray[0].Length);
+		// 				XrossPeer.Log("info:" + info);
+		// 				break;
+		// 			}
+		// 			case Disquuun.DisqueCommand.GETJOB: {
+		// 				var jobIds = new List<string>();
+		// 				foreach (var bytes in byteDatas) {
+		// 					var jobId = Encoding.UTF8.GetString(bytes.bytesArray[0]);
+		// 					jobIds.Add(jobId);
 							
-							ParseData(bytes.bytesArray[1]);
-						}
+		// 					ParseData(bytes.bytesArray[1]);
+		// 				}
 						
-						if (jobIds.Any()) disquuun.FastAck(jobIds.ToArray());
-						break;
-					}
-					case Disquuun.DisqueCommand.FASTACK: {
-						// do nothing.
-						break;
-					}
-					default: {
-						break;
-					}
-				}
-			},
-			(failedCommand, reason) => {
-				XrossPeer.LogError("failedCommand:" + failedCommand + " reason:" + reason);
-			},
-			e => {
-				XrossPeer.LogError("Disque error:" + e);
-				if (queueGetJobber != null) queueGetJobber.Quit();
-			},
-			disconnectedConId => {
-				XrossPeer.Log("Disque disconnected:" + disqueId);
-			}
-		);
+		// 				if (jobIds.Any()) disquuun.FastAck(jobIds.ToArray());
+		// 				break;
+		// 			}
+		// 			case Disquuun.DisqueCommand.FASTACK: {
+		// 				// do nothing.
+		// 				break;
+		// 			}
+		// 			default: {
+		// 				break;
+		// 			}
+		// 		}
+		// 	},
+		// 	(failedCommand, reason) => {
+		// 		XrossPeer.LogError("failedCommand:" + failedCommand + " reason:" + reason);
+		// 	},
+		// 	e => {
+		// 		XrossPeer.LogError("Disque error:" + e);
+		// 		if (queueGetJobber != null) queueGetJobber.Quit();
+		// 	},
+		// 	disconnectedConId => {
+		// 		XrossPeer.Log("Disque disconnected:" + disqueId);
+		// 	}
+		// );
 	}
 	
 	private const char HEADER_STRING	= 's';
@@ -225,6 +225,7 @@ public class ServerContext {
 	
 	
 	public void OnConnected (string connectionId, byte[] data) {
+		XrossPeer.Log("OnConnected!");
 		/*
 			接続時にidentityを確立する手段が2つ考えられて、
 			1.接続時にconnectionServer側で予約と付き合わせてなんとかする
