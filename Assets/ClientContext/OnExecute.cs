@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using Cinemachine;
 using UnityEngine;
+using UnityEngine.UI;
 using WebSocketControl;
 
 public class OnExecute : MonoBehaviour {
@@ -89,6 +90,18 @@ public class OnExecute : MonoBehaviour {
 		ExecuteCommandFromBytes(commandSourcePlayerId, command, data);
 	}
 	
+	private PlayerContext NewPlayerContext (string playerId, Commands.StructVector3 pos, DirectionEnum dir) {
+		var playerContext = new PlayerContext(playerId, pos, dir);
+		var auto = new Spawning<PlayerContext, List<PlayerContext>>(clientFrame, playerContext);
+		
+		playerContext.auto = auto;
+		
+		var prefab = Resources.Load("Chara") as GameObject;
+		playerModels[playerId] = Instantiate(prefab, new Vector3(playerContext.x, playerContext.height, playerContext.z), Quaternion.identity) as GameObject;
+		
+		return playerContext;
+	}
+	
 	private void ExecuteCommandFromBytes (string commandSourcePlayerId, Commands.CommandEnum command, byte[] data) {
 		
 		switch (command) {
@@ -99,17 +112,12 @@ public class OnExecute : MonoBehaviour {
 				{
 					var entriedPlayerId = entriedData.playerId;
 					var pos = entriedData.pos;
+					var dir = entriedData.dir;
 					
 					// Debug.LogError("EntriedIdをサーバから受け取った entriedPlayerId:" + entriedPlayerId);
 					
-					var playerContext = new PlayerContext(entriedPlayerId, pos);
-					var auto = new Spawning<PlayerContext, List<PlayerContext>>(clientFrame, playerContext);
-					
-					playerContext.auto = auto;
+					var playerContext = NewPlayerContext(entriedPlayerId, pos, dir);
 					players.Add(playerContext);
-					
-					var prefab = Resources.Load("Chara") as GameObject;
-					playerModels[entriedPlayerId] = Instantiate(prefab, new Vector3(playerContext.x, playerContext.height, playerContext.z), Quaternion.identity) as GameObject;
 					
 					/*
 						カメラセッティング
@@ -133,25 +141,56 @@ public class OnExecute : MonoBehaviour {
 			case Commands.CommandEnum.Spawn: {
 				var spawnData = Commands.FromData<Commands.Spawn>(data);
 				var spawnPlayerId = spawnData.playerId;
-				// Debug.LogError("誰かspawnしたんで、Autoの状態を変更する。自分以外のspawnって意味あるのかな、、あー、入室とかか。spawnPlayerId:" + spawnPlayerId);
 				
-				players
-					.Where(p => p.playerId == spawnPlayerId)
-					.Select(p => p.auto = p.auto.ChangeTo(new Default<PlayerContext, List<PlayerContext>>(clientFrame, p))).ToArray();
+				// Debug.LogError("誰かspawnしたんで、Autoの状態を変更する。自分以外のspawnって意味あるのかな、、あー、入室とかか。spawnPlayerId:" + spawnPlayerId);
+				var targetPlayerContext = ChoosePlayerContext(spawnPlayerId);
+				targetPlayerContext.auto = targetPlayerContext.auto.ChangeTo(new Default<PlayerContext, List<PlayerContext>>(clientFrame, targetPlayerContext));
 				return;
 			}
 			
-			case Commands.CommandEnum.Message: {
-				try {
-					var messageData = Commands.FromData<Commands.Message>(data);
-					var message = messageData.message;
-					Debug.Log("message from server:" + message);
-				} catch (Exception e) {
-					Debug.LogError("e:" + e);
-					for (var i = 0; i < data.Length; i++) {
-						Debug.LogError("e:" + i + " data:" + data[i]);
-					}
+			case Commands.CommandEnum.WorldData: {
+				Debug.LogError("receiving world data.");
+				var worldData = Commands.FromData<Commands.WorldData>(data);
+				
+				var currentPlayersIds = players.Select(p => p.playerId).ToArray();
+				foreach (var playerData in worldData.players) {
+					if (playerData.playerId == this.playerId) continue;
+					if (currentPlayersIds.Contains(playerData.playerId)) continue;
+					
+					var playerId = playerData.playerId;
+					var playerPos = playerData.pos;
+					var playerDir = playerData.dir;
+					
+					var playerContext = NewPlayerContext(playerId, playerPos, playerDir);
+					
+					Debug.LogError("とりあえず適当に、default状態にしておく。");
+					playerContext.auto = new Default<PlayerContext, List<PlayerContext>>(clientFrame, playerContext);
+					
+					players.Add(playerContext);
 				}
+				return;
+			}
+			
+			case Commands.CommandEnum.Walk: {
+				var walkData = Commands.FromData<Commands.Walk>(data);
+				var walkingPlayerId = walkData.playerId;
+				var walkingDir = walkData.direction;
+				var walkBasePos = walkData.pos;
+				
+				
+				if (walkingPlayerId == this.playerId) {
+					// ignore.
+					Debug.LogError("自分が歩いてる");
+					return;
+				}
+				
+				var playerContext = ChoosePlayerContext(walkingPlayerId);
+				playerContext.x = walkBasePos.x;
+				playerContext.z = walkBasePos.z;
+				playerContext.height = walkBasePos.height;
+				playerContext.forward = walkingDir;
+				
+				playerContext.auto = new Walk<PlayerContext, List<PlayerContext>>(clientFrame, playerContext);
 				return;
 			}
 			
@@ -238,15 +277,16 @@ public class OnExecute : MonoBehaviour {
 				if (context.auto.Contains(AutoConditions.Talkable.Emittable)) {
 					Debug.LogError("自分のほうは話しかけることができる");
 					
-					var talkTargetContext = players.Where(p => p.playerId == targetPlayerId).FirstOrDefault();
+					var talkTargetContext = ChoosePlayerContext(targetPlayerId);
 					if (talkTargetContext.auto.Contains(AutoConditions.Talkable.Receivable)) {
 						Debug.LogError("相手のほうも話を受けることができる。この辺は、会話対象としてOn/Offとかも視野に入る気がする。sendを許すだけ。");
 						Debug.LogError("エンカウント、一方的に攻撃?ができる。相手側は別に返答しなければTalkingに入らない。");
+						context.talkingPlayerId = targetPlayerId;
 						context.auto = new Talk<PlayerContext, List<PlayerContext>>(clientFrame, context);
 						
 						StartTalking(this.playerId, targetPlayerId);
 					} else {
-						Debug.LogError("話しかけられなかったよ、、、");
+						Debug.LogError("話しかけられなかったよ、、、対象のautoは？ talkTargetContext.auto.autoName:" + talkTargetContext.auto.autoName);
 					}
 					
 				}
@@ -290,6 +330,7 @@ public class OnExecute : MonoBehaviour {
 			// これも一種のイベントだな。
 			
 			// このプレイヤーのこのAuto終わってるので、デフォルトに戻す。
+			
 			context.auto = new Default<PlayerContext, List<PlayerContext>>(clientFrame, context);
 		}
 		
@@ -303,25 +344,48 @@ public class OnExecute : MonoBehaviour {
 		context.auto.Update(clientFrame, players);
 	}
 	
+	private string inputMessage;
+	
+	public void InputMessage (string wholeMessage) {
+		inputMessage = wholeMessage;
+	}
+	
+	public void SendMessage () {
+		if (string.IsNullOrEmpty(inputMessage)) return;
+		
+		Debug.LogError("SendMessage inputMessage:" + inputMessage);
+		var playerContext = ChoosePlayerContext(this.playerId);
+		playerContext.messageSend = inputMessage;
+		
+		inputKey = KeyEnum.Send;
+	}
+	
+	public void InputDamaged () {
+		Debug.LogError("InputDamaged");
+		var playerContext = ChoosePlayerContext(this.playerId);
+		// playerContext.auto.StackChanger();// stackするだけにしとく。Changer作る素晴らしい口実ができた。
+	}
+	
+	public void InputHealed () {
+		Debug.LogError("InputHealed");
+		var playerContext = ChoosePlayerContext(this.playerId);
+		// playerContext.auto.StackChanger();
+	}
+	
 	private KeyEnum inputKey;
 	private DirectionEnum inputDirection = DirectionEnum.None;
 	
 	private void ExecuteMyPlayer (PlayerContext context) {
 		if (context.auto.Contains(AutoConditions.Talk.Talking)) {
-			// 対象と会話中なんで、会話ウィンドウと入力ウィンドウがあるはず。
-			
-			
-			// カメラを2人の中間点に移動、とか？Composerを追加すればいいのかな。真横からとる、とかは、、ああ、二人の間に綺麗にオブジェクトおけばいいんだ。でかいものをおけば、それだけでいい気がするぞ、、
-			
-			
-			
 			if (inputKey != KeyEnum.None) {
 				switch (inputKey) {
 					case KeyEnum.Send: {
-						Debug.LogError("会話対象に送信する。");
 						var targetPlayerId = context.talkingPlayerId;
+						Debug.LogError("talk targetPlayerId:" + targetPlayerId);
 						StackPublish(new Commands.SendMessage(this.playerId, targetPlayerId, context.messageSend));
 						context.messageSend = string.Empty;
+						
+						inputKey = KeyEnum.None;
 						break;
 					}
 					default: {
@@ -344,20 +408,22 @@ public class OnExecute : MonoBehaviour {
 			*/
 			if (context.auto.Contains(AutoConditions.Talk.Talking)) {
 				// 会話を途切れさせる。っていうか歩く。
-				LeftTalking();
+				EndTalking();
 				
-				// 会話キーの消費
-				if (!string.IsNullOrEmpty(context.messageSend)) {
-					context.messageSend = string.Empty;
-				}
+				// 会話した相手の情報の保持 あんまり厳格にやらなくていい感じがした。
+				// context.lastTalkedPlayerId = context.talkingPlayerId;
+				// context.talkingPlayerId = string.Empty;
+				// context.messageSend = string.Empty;
 				
 				context.forward = inputDirection;
 				context.auto = context.auto.ChangeTo(new Walk<PlayerContext, List<PlayerContext>>(clientFrame, context));
+				StackPublish(new Commands.Walk(this.playerId, inputDirection, new Commands.StructVector3((int)context.x, (int)context.z, (int)context.height)));
 			}
 			
 			if (context.auto.Contains(AutoConditions.Control.Contorllable)) {
 				context.forward = inputDirection;
 				context.auto = context.auto.ChangeTo(new Walk<PlayerContext, List<PlayerContext>>(clientFrame, context));
+				StackPublish(new Commands.Walk(this.playerId, inputDirection, new Commands.StructVector3((int)context.x, (int)context.z, (int)context.height)));
 			}
 			
 			// consume.
@@ -368,19 +434,30 @@ public class OnExecute : MonoBehaviour {
 	GameObject windowInstance;
 	
 	public void StartTalking (params string[] playerIds) {
-		// // ２者間の中間位置にオブジェクトをおく。
+		// // ２者間の中間位置にオブジェクトをおく。向きを設定することでカメラの調整ができると思う。Composerの調整でどうやればいいんだろう。
 		// var centeringObject =
 		
 		//  会話ウィンドウを出す。
 		var windowPrefab = Resources.Load("TalkWindow") as GameObject;
 		windowInstance = Instantiate(windowPrefab);
 		
-		windowInstance.transform.SetParent(uiScreen.transform, false); 
+		windowInstance.transform.SetParent(uiScreen.transform, false);
+		GameObject.Find("InputField").GetComponent<InputField>().onValueChanged.AddListener((string s) => InputMessage(s));
+		GameObject.Find("Send").GetComponent<Button>().onClick.AddListener(() => SendMessage());
+		GameObject.Find("Damaged").GetComponent<Button>().onClick.AddListener(() => InputDamaged());
+		GameObject.Find("Healed").GetComponent<Button>().onClick.AddListener(() => InputHealed()); 
 	}
 	
-	public void LeftTalking () {
+	public void EndTalking () {
 		Destroy(windowInstance);
 	}
+	
+	
+	
+	private PlayerContext ChoosePlayerContext (string playerId) {
+		return players.Where(p => p.playerId == playerId).FirstOrDefault();
+	}
+	
 	
 	public void OnJoystickInput (Vector2 dir) {
 		var degree = Math.Abs(Math.Atan2(dir.x, dir.y) * 180.0 / Math.PI);

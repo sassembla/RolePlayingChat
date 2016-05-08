@@ -14,6 +14,8 @@ using XrossPeerUtility;
 	XrossPeerに対しては、playerIdのみを露出させる。
 */
 public class GameContextLayer {
+	private World world;
+	
 	/**
 		playerId, connectionidとdataをパッケージにする
 	*/
@@ -93,6 +95,8 @@ public class GameContextLayer {
 	
 	public GameContextLayer (List<string> reservedPlayerIds, Action<string, byte[]> publish) {
 		gameLayerId = Guid.NewGuid().ToString();
+		
+		world = new World();
 		
 		/*
 			ready player's connection slot.
@@ -274,16 +278,19 @@ public class GameContextLayer {
 					このタイミングで、サーバへのプレイヤーのログインが完了してる。
 				*/
 				{
-					// var x = Convert.ToInt32(onConnectedPlayerId);
-					var pos = new Commands.StructVector3(0, 0, 30);
-					StackPublish(new Commands.EntriedId(onConnectedPlayerId, pos), AllConnectedIds());
+					// 適当な位置をでっち上げる
+					var x = Convert.ToInt32(onConnectedPlayerId)%20;
+					
+					var newPlayer = new PlayerInServer(onConnectedPlayerId, x, 0, 30, DirectionEnum.East);
+					world.AddPlayer(newPlayer);
+					StackPublish(new Commands.EntriedId(onConnectedPlayerId, newPlayer.pos, newPlayer.dir), AllConnectedIds());
 				}
 				
 				/*
 					ダミーを10人くらい降らせよう。
 				*/
 				if (AllConnectedIds().Length == 1) {
-					XrossPeer.Log("最初の接続者 onConnectedPlayerId:" + onConnectedPlayerId);
+					XrossPeer.Log("最初の接続者 onConnectedPlayerId:" + onConnectedPlayerId + " が来たので、ダミーを降らせる。ランダムシードがすげえーー怪しい時があるな。");
 					var xRand = new byte[10];
 					var zRand = new byte[10];
 					
@@ -295,14 +302,15 @@ public class GameContextLayer {
 					
 					for (var i = 0; i < 10; i++) {
 						var dummyPlayerId = Guid.NewGuid().ToString();
-						var dummyPos = new Commands.StructVector3(xRand[i]%40, zRand[i]%40, 30);
-						StackPublish(new Commands.EntriedId(dummyPlayerId, dummyPos), AllConnectedIds());
-						StackPublish(new Commands.Spawn(dummyPlayerId), AllConnectedIds());
+						var dir = DirectionEnum.South;
+						var dummyPlayer = new PlayerInServer(dummyPlayerId, xRand[i]%40, zRand[i]%40, 30, dir, true);
+						world.AddPlayer(dummyPlayer);
+						// StackPublish(new Commands.EntriedId(dummyPlayerId, dummyPlayer.pos, dummyPlayer.dir), AllConnectedIds());
 					}
-				} else {
-					XrossPeer.Log("後発の接続者、この時点で他のプレイヤーが存在してるはずなんだよな。それらの存在を受け取る必要があるな。");									
 				}
 				
+				var playersInfos = world.PlayersInfos();
+				StackPublish(new Commands.WorldData(onConnectedPlayerId, playersInfos), new string[]{ConnectionIdFromPlayerId(onConnectedPlayerId)});				
 				
 				return;
 			}
@@ -336,11 +344,26 @@ public class GameContextLayer {
 				return;
 			}
 			
-			case Commands.CommandEnum.Message: {
-				var messageData = Commands.FromData<Commands.Message>(data);
+			// 移動データとかを扱う。
+			case Commands.CommandEnum.Walk: {
+				var walkData = Commands.FromData<Commands.Walk>(data);
+				var walkingPlayerId = walkData.playerId;
+				var walkingDir = walkData.direction;
+				var walkBasePos = walkData.pos;
+				
+				StackPublish(new Commands.Walk(walkingPlayerId, walkingDir, walkBasePos), AllConnectedIds());
+				return;
+			}
+			case Commands.CommandEnum.SendMessage: {
+				var messageData = Commands.FromData<Commands.SendMessage>(data);
 				var senderPlayerId = messageData.playerId;
 				var message = messageData.message;
-				XrossPeer.Log("message:" + message + " from playerId:" + senderPlayerId);
+				var targetPlayerId = messageData.targetPlayerId;
+				
+				XrossPeer.Log("message:" + message + " from playerId:" + senderPlayerId + " to targetPlayerId:" + targetPlayerId);
+				
+				XrossPeer.Log("対象のユーザーに向けて送付する(CPUかどうかの判定がついに必要になってきたな、、適当なbot化をやってみるか。)");
+				
 				return;
 			}
 			default: {
@@ -363,5 +386,54 @@ public class GameContextLayer {
 		var index = Array.FindIndex(connections, connection => connection.connectionId == connectionId);
 		if (-1 < index) return connections[index].playerId;
 		return string.Empty;
+	}
+	
+	private string ConnectionIdFromPlayerId (string playerId) {
+		var index = Array.FindIndex(connections, connection => connection.playerId == playerId);
+		if (-1 < index) return connections[index].connectionId;
+		return string.Empty;
+	}
+}
+
+public class World {
+	public readonly string worldId;
+	private List<PlayerInServer> playersInServer;
+	
+	public World () {
+		this.worldId = Guid.NewGuid().ToString();
+		this.playersInServer = new List<PlayerInServer>();
+	}
+	
+	public void AddPlayer (PlayerInServer player) {
+		playersInServer.Add(player);
+	}
+	
+	public List<Commands.PlayerIdAndPos> PlayersInfos () {
+		var playerInfos = new List<Commands.PlayerIdAndPos>();
+		foreach (var playerInServer in playersInServer) {
+			var playerId = playerInServer.playerId;
+			var pos = playerInServer.pos;
+			var dir = playerInServer.dir;
+			playerInfos.Add(new Commands.PlayerIdAndPos(playerId, pos, dir));
+		}
+		return playerInfos;
+	}
+}
+
+public class PlayerInServer {
+	public readonly string playerId;
+	
+	public Commands.StructVector3 pos;
+	
+	public DirectionEnum dir;
+	
+	public readonly bool isDummy;
+	
+	public PlayerInServer (string playerId, int x, int z, int height, DirectionEnum dir, bool isDummy=false) {
+		this.playerId = playerId;
+		this.pos = new Commands.StructVector3(x, z, height);
+		this.dir = dir;
+		
+		this.isDummy = isDummy;
 	}
 }

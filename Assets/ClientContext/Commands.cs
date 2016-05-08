@@ -16,7 +16,6 @@ public static class Commands {
 		None,
 		
 		Datas,
-		Message,
 		
 		OnConnected,
 		OnDisconnected,
@@ -27,6 +26,10 @@ public static class Commands {
 		Spawn,
 		
 		SendMessage,
+		Walk,
+		
+		
+		WorldData,
 		
         Log,
     }
@@ -60,6 +63,18 @@ public static class Commands {
 		}
 	}
 	
+	[Serializable] public class PlayerIdAndPos {
+		[SerializeField] public string playerId;
+		[SerializeField] public StructVector3 pos;
+		[SerializeField] public DirectionEnum dir;
+		
+		public PlayerIdAndPos (string playerId, StructVector3 pos, DirectionEnum dir) {
+			this.playerId = playerId;
+			this.pos = pos;
+			this.dir = dir;
+		}
+	}
+	
 	
 	[Serializable] public class StructVector2 {
 		[SerializeField] public int x;
@@ -86,28 +101,39 @@ public static class Commands {
 	
 	[Serializable] public class EntriedId : BaseData {
 		[SerializeField] public StructVector3 pos;
+		[SerializeField] public DirectionEnum dir;
 		
-		public EntriedId (string playerId, StructVector3 pos) : base (CommandEnum.EntriedId, playerId) {
+		public EntriedId (string playerId, StructVector3 pos, DirectionEnum dir) : base (CommandEnum.EntriedId, playerId) {
 			this.pos = pos;
+			this.dir = dir;
 		}
 	}
-	
-	/**
-		意味を持たせない単なるメッセージ
-	*/
-	[Serializable] public class Message : BaseData {
-		[SerializeField] public string message;
-		public Message (string playerId, string message) : base (CommandEnum.Message, playerId) {
-			this.message = message;
-		}
-	}
+
 	
 	[Serializable] public class SendMessage : BaseData {
 		[SerializeField] public string message;
 		[SerializeField] public string targetPlayerId;
-		public SendMessage (string playerId, string targetPlayerId, string message) : base (CommandEnum.Message, playerId) {
+		public SendMessage (string playerId, string targetPlayerId, string message) : base (CommandEnum.SendMessage, playerId) {
 			this.targetPlayerId = targetPlayerId;
 			this.message = message;
+		}
+	}
+	
+	
+	[Serializable] public class Walk : BaseData {
+		[SerializeField] public DirectionEnum direction;
+		[SerializeField] public StructVector3 pos;
+		public Walk (string playerId, DirectionEnum direction, StructVector3 pos) : base (CommandEnum.Walk, playerId) {	
+			this.direction = direction;
+			this.pos = pos;
+		}
+	}
+	
+	[Serializable] public class WorldData : BaseData {
+		[SerializeField] public List<PlayerIdAndPos> players;
+		
+		public WorldData (string playerId, List<PlayerIdAndPos> players) : base (CommandEnum.WorldData, playerId) {	
+			this.players = players;
 		}
 	}
 	

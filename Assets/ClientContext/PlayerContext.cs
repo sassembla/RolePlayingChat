@@ -33,12 +33,13 @@ public class PlayerContext {
 	
 	public string messageSend = string.Empty;
 	
-	public PlayerContext (string playerId, Commands.StructVector3 pos) {
+	public PlayerContext (string playerId, Commands.StructVector3 pos, DirectionEnum dir) {
 		this.playerId = playerId;
 		this.forward = DirectionEnum.North;
-		this.x = pos.x * RolePlayingChatDefinitions.FloorUnit;
-		this.z = pos.z * RolePlayingChatDefinitions.FloorUnit;
+		this.x = (int)(pos.x * RolePlayingChatDefinitions.FloorUnit);
+		this.z = (int)(pos.z * RolePlayingChatDefinitions.FloorUnit);
 		this.height = pos.height;
+		this.forward = dir;
 	}
 	
 }
