@@ -190,6 +190,29 @@ public class OnExecute : MonoBehaviour {
 				playerContext.auto = new Walk<PlayerContext, List<PlayerContext>>(clientFrame, playerContext);
 				return;
 			}
+			case Commands.CommandEnum.Messaging: {
+				var messageData = Commands.FromData<Commands.Messaging>(data);
+				var messageTargetPlayer = messageData.targetPlayerId;
+				var messageSender = messageData.playerId;
+				
+				/*
+					自分宛だったら、表示する。
+				*/
+				if (messageTargetPlayer == this.playerId) {
+					var message = messageData.message;
+					if (windowInstance == null) {
+						StartTalking();
+					}
+					textView.text = textView.text + "\n\n" + message;
+				}
+				
+				var myContext = ChoosePlayerContext(this.playerId);
+				if (myContext.auto.Contains(AutoConditions.Talkable.Receivable)) {
+					myContext.talkingPlayerId = messageSender;
+					myContext.auto = new Talk<PlayerContext, List<PlayerContext>>(clientFrame, myContext);
+				} 
+				return;
+			}
 			
 			/*
 				unhandled
@@ -199,21 +222,6 @@ public class OnExecute : MonoBehaviour {
 				return;
 			}
 		}
-	}
-	
-	private List<Commands.BaseData> stackedCommands = new List<Commands.BaseData>();
-	
-	private void StackPublish (Commands.BaseData data) {
-		stackedCommands.Add(data);
-	}
-	
-	private void PublishStackedData () {
-		if (!stackedCommands.Any()) return;
-		 
-		foreach (var command in stackedCommands) {
-			WebSocketConnectionController.SendCommandAsync(command.ToData());
-		}
-		stackedCommands.Clear();
 	}
 	
 	int clientFrame = 0;
@@ -232,10 +240,8 @@ public class OnExecute : MonoBehaviour {
 		foreach (var playerContext in players) {
 			UpdatePlayerContext(playerContext);
 			
-			// キャラの位置とか向きをContextから取得、反映させる。
-			// 対象のgameObjectに対して、パラメータを反映させる。
 			/*
-				dir, pos, 
+				dir, posの同期
 			*/
 			playerModels[playerContext.playerId].transform.position = new Vector3(playerContext.x, playerModels[playerContext.playerId].transform.position.y, playerContext.z);
 			var targetAngle = new Vector3(0, 90 * ((int)playerContext.forward - 1), 0);
@@ -379,7 +385,7 @@ public class OnExecute : MonoBehaviour {
 					case KeyEnum.Send: {
 						var targetPlayerId = context.talkingPlayerId;
 						Debug.LogError("talk targetPlayerId:" + targetPlayerId);
-						StackPublish(new Commands.SendMessage(this.playerId, targetPlayerId, context.messageSend));
+						StackPublish(new Commands.Messaging(this.playerId, targetPlayerId, context.messageSend));
 						context.messageSend = string.Empty;
 						
 						inputKey = KeyEnum.None;
@@ -429,6 +435,7 @@ public class OnExecute : MonoBehaviour {
 	}
 	
 	GameObject windowInstance;
+	Text textView;
 	
 	public void StartTalking (params string[] playerIds) {
 		// // ２者間の中間位置にオブジェクトをおく。向きを設定することでカメラの調整ができると思う。Composerの調整でどうやればいいんだろう。
@@ -442,7 +449,8 @@ public class OnExecute : MonoBehaviour {
 		GameObject.Find("InputField").GetComponent<InputField>().onValueChanged.AddListener((string s) => InputMessage(s));
 		GameObject.Find("Send").GetComponent<Button>().onClick.AddListener(() => SendMessage());
 		GameObject.Find("Damaged").GetComponent<Button>().onClick.AddListener(() => InputDamaged());
-		GameObject.Find("Healed").GetComponent<Button>().onClick.AddListener(() => InputHealed()); 
+		GameObject.Find("Healed").GetComponent<Button>().onClick.AddListener(() => InputHealed());
+		textView = GameObject.Find("MessageText").GetComponent<Text>();
 	}
 	
 	public void EndTalking () {
@@ -468,6 +476,29 @@ public class OnExecute : MonoBehaviour {
 		else if (degree < (360.0 * 7f/8f)) inputDirection = DirectionEnum.West;
 		else inputDirection = DirectionEnum.North;
 	}
+	
+	
+	
+	
+	
+	private List<Commands.BaseData> stackedCommands = new List<Commands.BaseData>();
+	
+	private void StackPublish (Commands.BaseData data) {
+		stackedCommands.Add(data);
+	}
+	
+	private void PublishStackedData () {
+		if (!stackedCommands.Any()) return;
+		 
+		foreach (var command in stackedCommands) {
+			WebSocketConnectionController.SendCommandAsync(command.ToData());
+		}
+		stackedCommands.Clear();
+	}
+	
+	
+	
+	
 	
 	public void OnApplicationQuit () {
 		WebSocketConnectionController.CloseCurrentConnection();

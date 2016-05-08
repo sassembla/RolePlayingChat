@@ -239,7 +239,7 @@ public class ServerContext {
 		*/
 		var playerIdString = Encoding.UTF8.GetString(data);
 		
-		reservationLayer.EnqueueOnConnect(connectionId, playerIdString);
+		if (reservationLayer != null) reservationLayer.EnqueueOnConnect(connectionId, playerIdString);
 	}
 	
 	public void OnMessage (string connectionId, byte[] data) {
@@ -249,6 +249,6 @@ public class ServerContext {
 
 	public void OnDisconnected (string connectionId, byte[] data, string reason) {
 		var playerIdString = Encoding.UTF8.GetString(data);
-		reservationLayer.EnqueueOnDisconnect(connectionId, playerIdString, reason);
+		if (reservationLayer != null) reservationLayer.EnqueueOnDisconnect(connectionId, playerIdString, reason);
 	}
 }

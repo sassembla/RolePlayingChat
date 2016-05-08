@@ -25,7 +25,7 @@ public static class Commands {
         SpawnRequest,
 		Spawn,
 		
-		SendMessage,
+		Messaging,
 		Walk,
 		
 		
@@ -110,10 +110,10 @@ public static class Commands {
 	}
 
 	
-	[Serializable] public class SendMessage : BaseData {
+	[Serializable] public class Messaging : BaseData {
 		[SerializeField] public string message;
 		[SerializeField] public string targetPlayerId;
-		public SendMessage (string playerId, string targetPlayerId, string message) : base (CommandEnum.SendMessage, playerId) {
+		public Messaging (string playerId, string targetPlayerId, string message) : base (CommandEnum.Messaging, playerId) {
 			this.targetPlayerId = targetPlayerId;
 			this.message = message;
 		}

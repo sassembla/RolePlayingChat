@@ -305,10 +305,12 @@ public class GameContextLayer {
 						var dir = DirectionEnum.South;
 						var dummyPlayer = new PlayerInServer(dummyPlayerId, xRand[i]%40, zRand[i]%40, 30, dir, true);
 						world.AddPlayer(dummyPlayer);
-						// StackPublish(new Commands.EntriedId(dummyPlayerId, dummyPlayer.pos, dummyPlayer.dir), AllConnectedIds());
 					}
 				}
 				
+				/*
+					receive world info.
+				*/
 				var playersInfos = world.PlayersInfos();
 				StackPublish(new Commands.WorldData(onConnectedPlayerId, playersInfos), new string[]{ConnectionIdFromPlayerId(onConnectedPlayerId)});				
 				
@@ -354,16 +356,29 @@ public class GameContextLayer {
 				StackPublish(new Commands.Walk(walkingPlayerId, walkingDir, walkBasePos), AllConnectedIds());
 				return;
 			}
-			case Commands.CommandEnum.SendMessage: {
-				var messageData = Commands.FromData<Commands.SendMessage>(data);
+			case Commands.CommandEnum.Messaging: {
+				var messageData = Commands.FromData<Commands.Messaging>(data);
 				var senderPlayerId = messageData.playerId;
-				var message = messageData.message;
 				var targetPlayerId = messageData.targetPlayerId;
+				var message = messageData.message;
+				
+				// サーバまで届いているので、そのことの反射をする。
+				var senderConnectionId = ConnectionIdFromPlayerId(senderPlayerId);
+				StackPublish(new Commands.Messaging(senderPlayerId, senderPlayerId, "我:" + senderPlayerId + ":" + message), new string[]{senderConnectionId});
 				
 				XrossPeer.Log("message:" + message + " from playerId:" + senderPlayerId + " to targetPlayerId:" + targetPlayerId);
 				
-				XrossPeer.Log("対象のユーザーに向けて送付する(CPUかどうかの判定がついに必要になってきたな、、適当なbot化をやってみるか。)");
+				/*
+					is bot, message turns to "order".
+				*/
+				if (world.IsDummyPlayer(targetPlayerId)) {
+					XrossPeer.Log("ダミープレイヤーなので、即応答を返せる。");
+					StackPublish(new Commands.Messaging(targetPlayerId, senderPlayerId, "村人:" + targetPlayerId + ":" + message + " って何？"), new string[]{senderConnectionId});
+					return;
+				}
 				
+				var connectionId = ConnectionIdFromPlayerId(targetPlayerId);
+				StackPublish(new Commands.Messaging(senderPlayerId, targetPlayerId, "相手:" + senderPlayerId + ":" + message), new string[]{connectionId});
 				return;
 			}
 			default: {
@@ -417,6 +432,11 @@ public class World {
 			playerInfos.Add(new Commands.PlayerIdAndPos(playerId, pos, dir));
 		}
 		return playerInfos;
+	}
+	
+	public bool IsDummyPlayer (string playerId) {
+		var playerInServer = playersInServer.Where(p => p.playerId == playerId).FirstOrDefault();
+		return playerInServer.isDummy;
 	}
 }
 
