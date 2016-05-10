@@ -28,10 +28,9 @@ using System.IO;
 		
 		var settings = (StandardAssetsConnectorSettings)ScriptableObject.CreateInstance("StandardAssetsConnectorSettings");
 		
-		
 		sContext = new ServerContext(settings.ClientToContextKey());
 		
-		var disqueConnectionCont = new DisqueConnectionController(SetupUpdater, settings.ClientToContextKey(), settings.DataMode());
+		var disqueConnectionCont = new DisqueConnectionController(SetupUpdater, settings.ClientToContextKey());
 		disqueConnectionCont.SetContext(sContext);
 				
 		// EditorApplication.update += DetectCompileStart;

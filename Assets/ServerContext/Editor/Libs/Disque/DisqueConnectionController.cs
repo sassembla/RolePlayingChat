@@ -2,7 +2,6 @@ using XrossPeerUtility;
 
 using System;
 using System.IO;
-using System.Threading;
 using System.Text;
 using System.Linq;
 using System.Collections.Generic;
@@ -41,40 +40,11 @@ public class DisqueConnectionController : IDisposable {
 	private readonly string[] getJobOptions;
 	private readonly string[] addJobOptions;
 
-	// header of data.
-	private const char HEADER_STRING	= 's';
-	private const char HEADER_BINARY	= 'b';
-	private const char HEADER_CONTROL	= 'c';
-
-	// webSocket server state for each connection. syncronized to nginx-lua client.lua code.
-	private const char STATE_CONNECT			= '1';
-	private const char STATE_STRING_MESSAGE		= '2';
-	private const char STATE_BINARY_MESSAGE		= '3';
-	private const char STATE_DISCONNECT_INTENT	= '4';
-	private const char STATE_DISCONNECT_ACCIDT	= '5';
-	private const char STATE_DISCONNECT_DISQUE_ACKFAILED = '6';
-	private const char STATE_DISCONNECT_DISQUE_ACCIDT_SENDFAILED = '7';
-
-
-	private const int CONNECTION_ID_LEN = 36;// 65D76DEE-0E68-424E-A18F-6D2CC9656FB3
-
-	private readonly DisqueDataMode dataMode;
-	public enum DisqueDataMode {
-		disque_binary,
-		disque_string
-	};
 	
-	public DisqueConnectionController (Action<string, Func<bool>> Updater, string contextQueueIdentity, string dataMode) {
-		// this.contextQueueIdentity = contextQueueIdentity;
-		
-		disqueId = Guid.NewGuid().ToString();
-		XrossPeer.Log("disqueのタイムアウト、全く指定してないので困る。");
-
+	public DisqueConnectionController (Action<string, Func<bool>> Updater, string contextQueueIdentity) {
 		// only from client-connection to this context queue name is predefined. connection queue names are not defined in code. these are connection-id of connection.
 		this.getJobOptions = new string[]{"count", "1000", "from", contextQueueIdentity};
 		this.addJobOptions = new string[]{"0"};
-
-		this.dataMode = (DisqueDataMode)Enum.Parse(typeof(DisqueDataMode), dataMode);
 
 		// start addjob-connection
 		addStream = new DisqueConnectionSocket("addOnlySocket", host, port, timeout);
@@ -87,11 +57,10 @@ public class DisqueConnectionController : IDisposable {
 
 		// (Develop.TIME_ASSERT).TimeAssert("切断からの復帰を自動的に行うのを考えたら、これじゃまずい。");
 		XrossPeer.Log("DisqueConnectionController: succeded to connect disque @:" + host + ":" + port);
-		Updater("disque_" + disqueId, GetJobsOnUpdate);
+		Updater("disque_" + disqueId, GetJobsOnUpdate);//消せる。
 		
-		フィルタとそれ以外に分ける
-		スロットの概念導入する
-		実行用のAPIのデザインする(先にテストかけそう)
+		// スロットの概念導入する
+		// 実行用のAPIのデザインする(先にテストかけそう)
 	}
 
 	public void SetContext (ServerContext context) {
@@ -110,17 +79,13 @@ public class DisqueConnectionController : IDisposable {
 	*/
 	private void AddJob (byte[] messageObj, string targetConnectionId) {
 		XrossPeer.TimeAssert(Develop.TIME_ASSERT, "非同期を目指したほうがいい。");
-		Func<string, int> Send = (string connectionId) => {
-			return addStream.SendByteCommand(DISQUE_COMMAND_ADDJOB, connectionId, messageObj, addJobOptions);
-			// return addStream.SendStringCommand(DISQUE_COMMAND_ADDJOB, connectionId, messageObj.ToString(), addJobOptions);
-		};
-
+		
 		/*
 			send data to target queue.
 			by queueId, message, options.
 		*/
 		
-		var result = Send(targetConnectionId);
+		var result = addStream.SendBytesSync(DISQUE_COMMAND_ADDJOB, targetConnectionId, messageObj, addJobOptions);
 		if (0 < result) {
 			
 			var firstByte = addStream.ReadFirstByte();
@@ -150,7 +115,180 @@ public class DisqueConnectionController : IDisposable {
 		}
 	}
 
+	/*
+		メッセージIDとメッセージ自体を運ぶコンテナ
+	*/
+	List<string> receivedMessageIds = new List<string>();
+	List<byte[]> receivedDatas = new List<byte[]>();
 
+	public bool GetJobsOnUpdate () {
+		while (true) {
+			var retBytesLen = getStream.SendBytesSync(DISQUE_COMMAND_GETJOB, string.Empty, Encoding.UTF8.GetBytes(string.Empty), getJobOptions);
+			if (retBytesLen == 0) break;
+			
+			// sock.Receive(buf, 0, buf.Length, SocketFlags.None);
+			var firstByte = getStream.ReadFirstByte();
+
+			// check contains error signal or not.
+			switch (firstByte) {
+				case 45: {// '-' error
+					var errorStr = Encoding.UTF8.GetString(getStream.ReadLineBytes());
+					XrossPeer.Log("GetJobs error:" + errorStr);
+					continue;
+				}
+				case 42: {// '*' bulk read
+					
+					// 1st line is data count.
+					var dataCountLine = getStream.ReadLineBytes();
+					var count = Encoding.UTF8.GetString(dataCountLine);
+					var countNum = Convert.ToInt32(count);
+					// XrossPeer.Log("countNum:" + countNum);// 複数件が入っていて、getjobのcountにNを指定しても、1 ~ N件の間を彷徨う。よくわからんが、まあ気にしないでいいや。キューだし。
+
+					/*
+						receive messages.
+					*/
+					for (int i = 0; i < countNum; i++) {
+						// get count of this contents. ignore '*'
+						getStream.ReadFirstByte();
+						// var elementCountLine = 
+							getStream.ReadLineBytes();
+						// var elememtCount = Encoding.UTF8.GetString(elementCountLine);
+						// XrossPeer.Log("elememtCount:" + elememtCount);
+						
+						// get queueNameLength, ignore '$'
+						getStream.ReadFirstByte();
+						// var queueNameLenLine = 
+							getStream.ReadLineBytes();
+						// var queueNameLength = Encoding.UTF8.GetString(queueNameLenLine);
+						// XrossPeer.Log("queueNameLength:" + queueNameLength);
+
+						// get queueName
+						// var queueNameLine = 
+							getStream.ReadLineBytes();
+						// var queueName = Encoding.UTF8.GetString(queueNameLine);
+						// XrossPeer.Log("queueName:" + queueName);
+
+						// get messageIdLen, ignore '$'
+						getStream.ReadFirstByte();
+						// var messageIdLenLine = 
+							getStream.ReadLineBytes();
+						// var messageIdLen = Encoding.UTF8.GetString(messageIdLenLine);
+						// XrossPeer.Log("messageIdLen:" + messageIdLen);
+
+						// get messageId
+						var messagIdLine = getStream.ReadLineBytes();
+						var messageId = Encoding.UTF8.GetString(messagIdLine);
+						// XrossPeer.Log("messageId:" + messageId);						
+						
+						// append ids to messageId list.
+						receivedMessageIds.Add(messageId);
+					
+						// get messageLen, ignore $
+						getStream.ReadFirstByte();
+						var messageLenLine = 
+							getStream.ReadLineBytes();
+						var messageLen = Int32.Parse(Encoding.UTF8.GetString(messageLenLine));
+						// XrossPeer.Log("messageLen:" + messageLen);
+
+						// get message
+						var message = getStream.ReadBytes(messageLen);
+						// var message = Encoding.UTF8.GetString(messageLine);
+						// XrossPeer.Log("message:" + message);
+
+						// append messageDataArray to messageDataArray list.
+						receivedDatas.Add(message);
+					}
+					break;
+				}
+
+				default: {
+					XrossPeer.Log("getjob unknown operator:" + firstByte + " char:" + Convert.ToChar(firstByte));
+					continue;
+				}
+			}
+		}
+
+		// no data left in stream. proceed 
+		if (receivedMessageIds.Any()) {
+			// XrossPeer.Log("receivedMessageIds.Count:" + receivedMessageIds.Count);
+
+			// send fastack for all message which are completely received, to disque node.
+			
+			var resultLen = ackStream.SendBytesSync(DISQUE_COMMAND_FASTACK, string.Empty, Encoding.UTF8.GetBytes(string.Empty), receivedMessageIds.ToArray());
+			if (0 < resultLen) {
+				var firstByte = ackStream.ReadFirstByte();
+				switch (firstByte) {
+					case 45: {// '-' error
+						var errorStr = Encoding.UTF8.GetString(ackStream.ReadLineBytes());
+						XrossPeer.Log("fastack error:" + errorStr);
+						break;
+					}
+					case 58: {// ':' integer
+						var resultStr = Encoding.UTF8.GetString(ackStream.ReadLineBytes());
+						// XrossPeer.Log("fastack int result:" + resultStr);
+						break;
+					}
+					default: {
+						XrossPeer.Log("fastack unkwnown result:" + firstByte + " char:" + Convert.ToChar(firstByte));
+						break;
+					}
+				}
+			}
+			
+			receivedMessageIds.Clear();
+
+			// input datas to act.
+			InputDatasToContext(receivedDatas);
+			receivedDatas.Clear();
+		}
+		return true;
+	}
+
+	
+	public void Dispose () {
+		addStream.Close();
+		addStream = null;
+
+		getStream.Close();
+		getStream = null;
+
+		ackStream.Close();
+		ackStream = null;
+
+		XrossPeer.Log("disque connections disposed");
+	}
+
+	public class ResponseException : Exception {
+		public ResponseException (string code) : base ("Response error") {
+			Code = code;
+		}
+
+		public string Code { get; private set; }
+	}
+	
+	
+	
+	
+	// こっからフィルタ。
+
+
+	// header of data.
+	public const char HEADER_STRING	= 's';
+	public const char HEADER_BINARY	= 'b';
+	public const char HEADER_CONTROL	= 'c';
+
+	// webSocket server state for each connection. syncronized to nginx-lua client.lua code.
+	public const char STATE_CONNECT			= '1';
+	public const char STATE_STRING_MESSAGE		= '2';
+	public const char STATE_BINARY_MESSAGE		= '3';
+	public const char STATE_DISCONNECT_INTENT	= '4';
+	public const char STATE_DISCONNECT_ACCIDT	= '5';
+	public const char STATE_DISCONNECT_DISQUE_ACKFAILED = '6';
+	public const char STATE_DISCONNECT_DISQUE_ACCIDT_SENDFAILED = '7';
+
+
+	public const int CONNECTION_ID_LEN = 36;// 65D76DEE-0E68-424E-A18F-6D2CC9656FB3
+	
 	/**
 		受け取ったjobを解釈、contextへと入力する。APIレイヤーはserverContext側にあるので、データを扱うこの辺は変更なしで行けるはず。
 	*/
@@ -265,163 +403,15 @@ public class DisqueConnectionController : IDisposable {
 			}
 		}
 	}
-
-
-	/*
-		メッセージIDとメッセージ自体を運ぶコンテナ
-	*/
-	List<string> receivedMessageIds = new List<string>();
-	List<byte[]> receivedDatas = new List<byte[]>();
-
-	public bool GetJobsOnUpdate () {
-		while (true) {
-			var retBytesLen = getStream.SendStringCommand(DISQUE_COMMAND_GETJOB, string.Empty, string.Empty, getJobOptions);
-			if (retBytesLen == 0) break;
-			
-			// sock.Receive(buf, 0, buf.Length, SocketFlags.None);
-			var firstByte = getStream.ReadFirstByte();
-
-			// check contains error signal or not.
-			switch (firstByte) {
-				case 45: {// '-' error
-					var errorStr = Encoding.UTF8.GetString(getStream.ReadLineBytes());
-					XrossPeer.Log("GetJobs error:" + errorStr);
-					continue;
-				}
-				case 42: {// '*' bulk read
-					
-					// 1st line is data count.
-					var dataCountLine = getStream.ReadLineBytes();
-					var count = Encoding.UTF8.GetString(dataCountLine);
-					var countNum = Convert.ToInt32(count);
-					// XrossPeer.Log("countNum:" + countNum);// 複数件が入っていて、getjobのcountにNを指定しても、1 ~ N件の間を彷徨う。よくわからんが、まあ気にしないでいいや。キューだし。
-
-					/*
-						receive messages.
-					*/
-					for (int i = 0; i < countNum; i++) {
-						// get count of this contents. ignore '*'
-						getStream.ReadFirstByte();
-						// var elementCountLine = 
-							getStream.ReadLineBytes();
-						// var elememtCount = Encoding.UTF8.GetString(elementCountLine);
-						// XrossPeer.Log("elememtCount:" + elememtCount);
-						
-						// get queueNameLength, ignore '$'
-						getStream.ReadFirstByte();
-						// var queueNameLenLine = 
-							getStream.ReadLineBytes();
-						// var queueNameLength = Encoding.UTF8.GetString(queueNameLenLine);
-						// XrossPeer.Log("queueNameLength:" + queueNameLength);
-
-						// get queueName
-						// var queueNameLine = 
-							getStream.ReadLineBytes();
-						// var queueName = Encoding.UTF8.GetString(queueNameLine);
-						// XrossPeer.Log("queueName:" + queueName);
-
-						// get messageIdLen, ignore '$'
-						getStream.ReadFirstByte();
-						// var messageIdLenLine = 
-							getStream.ReadLineBytes();
-						// var messageIdLen = Encoding.UTF8.GetString(messageIdLenLine);
-						// XrossPeer.Log("messageIdLen:" + messageIdLen);
-
-						// get messageId
-						var messagIdLine = getStream.ReadLineBytes();
-						var messageId = Encoding.UTF8.GetString(messagIdLine);
-						// XrossPeer.Log("messageId:" + messageId);						
-						
-						// append ids to messageId list.
-						receivedMessageIds.Add(messageId);
-					
-						// get messageLen, ignore $
-						getStream.ReadFirstByte();
-						var messageLenLine = 
-							getStream.ReadLineBytes();
-						var messageLen = Int32.Parse(Encoding.UTF8.GetString(messageLenLine));
-						// XrossPeer.Log("messageLen:" + messageLen);
-
-						// get message
-						var message = getStream.ReadBytes(messageLen);
-						// var message = Encoding.UTF8.GetString(messageLine);
-						// XrossPeer.Log("message:" + message);
-
-						// append messageDataArray to messageDataArray list.
-						receivedDatas.Add(message);
-					}
-					break;
-				}
-
-				default: {
-					XrossPeer.Log("getjob unknown operator:" + firstByte + " char:" + Convert.ToChar(firstByte));
-					continue;
-				}
-			}
-		}
-
-		// no data left in stream. proceed 
-		if (receivedMessageIds.Any()) {
-			// XrossPeer.Log("receivedMessageIds.Count:" + receivedMessageIds.Count);
-
-			// send fastack for all message which are completely received, to disque node.
-			
-			var resultLen = ackStream.SendStringCommand(DISQUE_COMMAND_FASTACK, string.Empty, string.Empty, receivedMessageIds.ToArray());
-			if (0 < resultLen) {
-				var firstByte = ackStream.ReadFirstByte();
-				switch (firstByte) {
-					case 45: {// '-' error
-						var errorStr = Encoding.UTF8.GetString(ackStream.ReadLineBytes());
-						XrossPeer.Log("fastack error:" + errorStr);
-						break;
-					}
-					case 58: {// ':' integer
-						var resultStr = Encoding.UTF8.GetString(ackStream.ReadLineBytes());
-						// XrossPeer.Log("fastack int result:" + resultStr);
-						break;
-					}
-					default: {
-						XrossPeer.Log("fastack unkwnown result:" + firstByte + " char:" + Convert.ToChar(firstByte));
-						break;
-					}
-				}
-			}
-			
-			receivedMessageIds.Clear();
-
-			// input datas to act.
-			InputDatasToContext(receivedDatas);
-			receivedDatas.Clear();
-		}
-		return true;
-	}
-
-	
-	public void Dispose () {
-		addStream.Close();
-		addStream = null;
-
-		getStream.Close();
-		getStream = null;
-
-		ackStream.Close();
-		ackStream = null;
-
-		XrossPeer.Log("disque connections disposed");
-	}
-
-	public class ResponseException : Exception {
-		public ResponseException (string code) : base ("Response error") {
-			Code = code;
-		}
-
-		public string Code { get; private set; }
-	}
-
 }
 
+
+// このへんに、contextをぶったたくレイヤ。
+
+
 /**
-	disque接続用のnetwork stream
+	disque接続用のnetwork stream.
+	この単位を維持するわけではない。
 */
 public class DisqueConnectionSocket {
 	private readonly string info;
@@ -431,9 +421,9 @@ public class DisqueConnectionSocket {
 
 	private Socket sock;
 
-	private readonly byte[] bytes_aster;
-	private readonly byte[] bytes_r_n;
-	private readonly byte[] bytes_dollar;
+	private static byte[] bytes_aster;
+	private static byte[] bytes_r_n;
+	private static byte[] bytes_dollar;
 	
 	/**
 		コンストラクタ
@@ -446,9 +436,9 @@ public class DisqueConnectionSocket {
 		this.sock.NoDelay = true;
 		this.sock.SendTimeout = timeout;
 
-		this.bytes_aster = Encoding.UTF8.GetBytes("*");
-		this.bytes_r_n = Encoding.UTF8.GetBytes("\r\n");
-		this.bytes_dollar = Encoding.UTF8.GetBytes("$");
+		bytes_aster = Encoding.UTF8.GetBytes("*");
+		bytes_r_n = Encoding.UTF8.GetBytes("\r\n");
+		bytes_dollar = Encoding.UTF8.GetBytes("$");
 
 		try {
 			var dns = new IPEndPoint(IPAddress.Parse(host), port);
@@ -472,9 +462,9 @@ public class DisqueConnectionSocket {
 	}
 
 	/**
-		send byte data to server with disque format.
+		send byte data to server with disque format. sync.
 	*/
-	public int SendByteCommand (string cmd, string queueId, byte[] data, params string[] options) {
+	public int SendBytesSync (string cmd, string queueId, byte[] data, params string[] options) {
 		if (sock == null) return 0;
 
 		var byteBuffer = new MemoryStream();
@@ -565,12 +555,6 @@ public class DisqueConnectionSocket {
 		return 0;
 	}
 
-	/**
-		send string data to server with disque format.
-	*/
-	public int SendStringCommand (string cmd, string queueId, string data, params string[] options) {
-		return SendByteCommand(cmd, queueId, Encoding.UTF8.GetBytes(data), options);
-	}
 	
 	public byte ReadFirstByte () {
 		byte[] b = new byte[1];
