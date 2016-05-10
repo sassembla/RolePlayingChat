@@ -197,6 +197,7 @@ public class OnExecute : MonoBehaviour {
 				
 				/*
 					自分宛だったら、表示する。
+					GUIつくるところが重いな、、最初から生成しとくか、、
 				*/
 				if (messageTargetPlayer == this.playerId) {
 					var message = messageData.message;
@@ -206,8 +207,15 @@ public class OnExecute : MonoBehaviour {
 					textView.text = textView.text + "\n\n" + message;
 				}
 				
+				/*
+					強制的に、会話をしてきた人との会話になってる。
+					現在会話している人がすでに存在する場合、そのへんを加味して吹き出し化とかするかな。
+				*/
 				var myContext = ChoosePlayerContext(this.playerId);
 				if (myContext.auto.Contains(AutoConditions.Talkable.Receivable)) {
+					Debug.LogError("receiver(me)'s talkingPlayerIdd:" + myContext.talkingPlayerId);
+					// マッチしなかったら、だれか別の人と喋ってる。
+					
 					myContext.talkingPlayerId = messageSender;
 					myContext.auto = new Talk<PlayerContext, List<PlayerContext>>(clientFrame, myContext);
 				} 
@@ -277,7 +285,7 @@ public class OnExecute : MonoBehaviour {
 			
 			if (!string.IsNullOrEmpty(context.talkablePlayerId) && context.talkablePlayerId != context.lastTalkedPlayerId) {
 				var targetPlayerId = context.talkablePlayerId;
-				if (context.auto.Contains(AutoConditions.Talkable.Emittable)) {
+				if (context.auto.Contains(AutoConditions.TalkEmittable.Emittable)) {
 					Debug.LogError("自分のほうは話しかけることができる");
 					
 					var talkTargetContext = ChoosePlayerContext(targetPlayerId);
