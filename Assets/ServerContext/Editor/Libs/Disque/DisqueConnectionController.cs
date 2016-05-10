@@ -88,6 +88,10 @@ public class DisqueConnectionController : IDisposable {
 		// (Develop.TIME_ASSERT).TimeAssert("切断からの復帰を自動的に行うのを考えたら、これじゃまずい。");
 		XrossPeer.Log("DisqueConnectionController: succeded to connect disque @:" + host + ":" + port);
 		Updater("disque_" + disqueId, GetJobsOnUpdate);
+		
+		フィルタとそれ以外に分ける
+		スロットの概念導入する
+		実行用のAPIのデザインする(先にテストかけそう)
 	}
 
 	public void SetContext (ServerContext context) {
