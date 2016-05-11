@@ -2,11 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace DisquuunCore.Deserialize {
+namespace DisquuunCoreOld.Deserialize {
 	
 	public static class DisquuunDeserializer {
 		
-		public static string AddJob (Disquuun.ByteDatas[] data) {
+		public static string AddJob (DisquuunOld.ByteDatas[] data) {
 			var idStrBytes = data[0].bytesArray[0];
 			return Encoding.UTF8.GetString(idStrBytes);
 		}
@@ -18,7 +18,7 @@ namespace DisquuunCore.Deserialize {
 			public readonly int nackCount;
 			public readonly int additionalDeliveriesCount;
 			
-			public JobData (Disquuun.ByteDatas dataSourceBytes) {
+			public JobData (DisquuunOld.ByteDatas dataSourceBytes) {
 				this.jobId = Encoding.UTF8.GetString(dataSourceBytes.bytesArray[0]);
 				this.jobData = dataSourceBytes.bytesArray[1];
 				if (dataSourceBytes.bytesArray.Length < 3) {
@@ -31,7 +31,7 @@ namespace DisquuunCore.Deserialize {
 			}
 		}
 		
-		public static JobData[] GetJob (Disquuun.ByteDatas[] data) {
+		public static JobData[] GetJob (DisquuunOld.ByteDatas[] data) {
 			var jobDatas = new JobData[data.Length];
 			for (var i = 0; i < data.Length; i++) {
 				var jobDataSource = data[i];
@@ -40,25 +40,25 @@ namespace DisquuunCore.Deserialize {
 			return jobDatas;
 		}
 	
-		public static int DeserializeInt (Disquuun.ByteDatas[] data) {
+		public static int DeserializeInt (DisquuunOld.ByteDatas[] data) {
 			var valStr = Encoding.UTF8.GetString(data[0].bytesArray[0]);
 			return Convert.ToInt32(valStr);
 		}
-		public static int AckJob (Disquuun.ByteDatas[] data) {
+		public static int AckJob (DisquuunOld.ByteDatas[] data) {
 			return DeserializeInt(data);
 		}
-		public static int FastAck (Disquuun.ByteDatas[] data) {
+		public static int FastAck (DisquuunOld.ByteDatas[] data) {
 			return DeserializeInt(data);
 		}
-		public static int Working (Disquuun.ByteDatas[] data) {
-			return DeserializeInt(data);
-		}
-		
-		public static int Nack (Disquuun.ByteDatas[] data) {
+		public static int Working (DisquuunOld.ByteDatas[] data) {
 			return DeserializeInt(data);
 		}
 		
-		public static string Info (Disquuun.ByteDatas[] data) {
+		public static int Nack (DisquuunOld.ByteDatas[] data) {
+			return DeserializeInt(data);
+		}
+		
+		public static string Info (DisquuunOld.ByteDatas[] data) {
 			return Encoding.UTF8.GetString(data[0].bytesArray[0]);
 		}
 		
@@ -85,7 +85,7 @@ namespace DisquuunCore.Deserialize {
 			}
 		}
 		
-		public static HelloData Hello (Disquuun.ByteDatas[] data) {
+		public static HelloData Hello (DisquuunOld.ByteDatas[] data) {
 			var version = Encoding.UTF8.GetString(data[0].bytesArray[0]);
 			var sourceNodeId = Encoding.UTF8.GetString(data[0].bytesArray[1]);
 			var nodeDatas = new List<NodeData>();
@@ -100,7 +100,7 @@ namespace DisquuunCore.Deserialize {
 			return helloData;
 		}
 		
-		public static int Qlen (Disquuun.ByteDatas[] data) {
+		public static int Qlen (DisquuunOld.ByteDatas[] data) {
 			var qLenStr = Encoding.UTF8.GetString(data[0].bytesArray[0]);
 			return Convert.ToInt32(qLenStr);
 		}

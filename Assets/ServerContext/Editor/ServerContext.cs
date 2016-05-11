@@ -2,7 +2,7 @@ using XrossPeerUtility;
 
 using System;
 using System.Text;
-using DisquuunCore;
+using DisquuunCoreOld;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -12,7 +12,7 @@ public class ServerContext {
 
 	private ReservationLayer reservationLayer;
 	
-	private Disquuun disquuun;
+	private DisquuunOld disquuun;
 
 	public ServerContext (string serverQueueId) {
 		serverContextId = Guid.NewGuid().ToString();

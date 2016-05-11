@@ -270,6 +270,9 @@ public class DisqueConnectionController : IDisposable {
 	
 	
 	// こっからフィルタ。
+	/*
+		フィルタは、staticでいいんで、どっかにコピーして成立させよう。
+	*/
 
 
 	// header of data.
@@ -406,13 +409,7 @@ public class DisqueConnectionController : IDisposable {
 }
 
 
-// このへんに、contextをぶったたくレイヤ。
 
-
-/**
-	disque接続用のnetwork stream.
-	この単位を維持するわけではない。
-*/
 public class DisqueConnectionSocket {
 	private readonly string info;
 
