@@ -14,101 +14,68 @@ public class DisquuunTests {
 	}
 	
 	public static void Stop () {
-		if (tests != null) tests.Teardown();
 		tests = null;
 	}
 }
 
 
 public partial class Tests {
-	public Disquuun disquuun;
-	
 	public void RunTests () {
 		
-		var tests = new List<Action>();
+		var tests = new List<Action<Disquuun>>();
 		tests.Add(_0_0_InitWith2Connection);
-		tests.Add(_0_1_AddLoopSlot);
+		// tests.Add(not yet tested.);
+		
+		
+		TestLogger.Log("tests started.");
+		
 		
 		foreach (var test in tests) {
-			Setup();
-			test();
-			Teardown();
-		}
-	}
-	
-	public void Setup () {
-		disquuun = new Disquuun("127.0.0.1", 7711, 10240, 2);
-	}
-	
-	public void Teardown () {
-		if (disquuun != null) disquuun.Disconnect();
-	}
-	
-	
-	
-	public class WaitThreadClass {
-		public ManualResetEvent e;
-		public readonly Func<bool> Until;
-		public readonly string methodName;
-		
-		public readonly int timeout;
-		
-		
-		public WaitThreadClass (Func<bool> Until, string methodName, int timeout) {
-			this.Until = Until;
-			this.methodName = methodName;
-			this.timeout = timeout;	
-			e = new ManualResetEvent(false);
-		}
-		
-		public void Exec () {
-			e.Reset();
-			
-			int count = 0;
-			var startTime = DateTime.Now;
-			
-			
-			try {
-				while (!Until()) {
-					var current = DateTime.Now;
-					var distanceSeconds = (current - startTime).Seconds;
-					
-					if (timeout < distanceSeconds) {
-						Debug.LogError("timeout:" + methodName);
-						break;
-					}
-					
-					System.Threading.Thread.Sleep(10);
-					
-					count++;
-				}
-			} catch (Exception e2) {
-				Debug.LogError("e2:" + e2);
+			var disquuun = new Disquuun("127.0.0.1", 7711, 10240, 2);
+			test(disquuun);
+			if (disquuun != null) {
+				disquuun.Disconnect(true);
+				disquuun = null;
 			}
-			
-			e.Set();
 		}
+		
+		TestLogger.Log("all tests over.");
 	}
 	
-	public void WaitFor (Func<bool> waitFor, int timeoutSec) {
+	
+	public void WaitUntil (Func<bool> WaitFor, int timeoutSec) {
 		System.Diagnostics.StackTrace stack  = new System.Diagnostics.StackTrace(false);
 		var methodName = stack.GetFrame(1).GetMethod().Name;
-		
-		var waitThreadClass = new WaitThreadClass(waitFor, methodName, timeoutSec);
+		var resetEvent = new ManualResetEvent(false);
 		
 		var waitingThread = new Thread(
-			new ThreadStart(waitThreadClass.Exec)
+			() => {
+				resetEvent.Reset();
+				var startTime = DateTime.Now;
+				
+				try {
+					while (!WaitFor()) {
+						var current = DateTime.Now;
+						var distanceSeconds = (current - startTime).Seconds;
+						
+						if (timeoutSec < distanceSeconds) {
+							TestLogger.Log("timeout:" + methodName);
+							break;
+						}
+						
+						System.Threading.Thread.Sleep(10);
+					}
+				} catch (Exception e) {
+					TestLogger.Log("methodName:" + methodName + " error:" + e);
+				}
+				
+				resetEvent.Set();
+			}
 		);
-		waitingThread.Start();
-		waitThreadClass.e.WaitOne();
-	}
-	
-	
-	public static void TestLog (string message) {
-		System.Diagnostics.StackTrace stack  = new System.Diagnostics.StackTrace(false);
-		var methodName = stack.GetFrame(3).GetMethod().Name;
 		
-		TestLogger.Log("failed:" + methodName + " message:" + message);
+		waitingThread.Start();
+		
+		resetEvent.WaitOne();
 	}
 }
 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using UnityEngine;
 
 namespace DisquuunCore {
     public enum DisqueCommand {		
@@ -92,33 +93,37 @@ namespace DisquuunCore {
 				if (ConnectionFailed != null) ConnectionFailed(e); 
 			}
 			
-			State();
+			UpdateState();
 		}
 		
-		public ConnectionState State () {
+		public void UpdateState () {
 			lock (socketPool) {
 				var connectionCount = socketPool
-					.Where(
-						s => 
-							s.State() == SocketObject.SocketState.OPENED || 
-							s.State() == SocketObject.SocketState.OPENING
-					).ToArray().Length;
+					.Where(s => s.State() == SocketObject.SocketState.OPENED)
+					.ToArray().Length;
 				
 				switch (connectionCount) {
 					case 0: {
 						connectionState = ConnectionState.ALLCLOSED;
 						break;
 					}
+					default: {// 1 or more socket opened.
+						connectionState = ConnectionState.OPENED;
+						break;
+					}
 				}
 			}
-			
+		}
+		
+		public ConnectionState State () {
+			UpdateState();
 			return connectionState;
 		}
 		
 		
-		public void Disconnect () {
+		public void Disconnect (bool force=false) {
 			connectionState = ConnectionState.ALLCLOSING;
-			foreach (var socket in socketPool) socket.Disconnect();
+			foreach (var socket in socketPool) socket.Disconnect(force);
 		}
 		
 		
@@ -177,7 +182,7 @@ namespace DisquuunCore {
 		
 		
 		public static void Log (string message) {
-			// TestLogger.Log(message);
+			TestLogger.Log(message);
 		}
 		
 		
@@ -194,9 +199,12 @@ namespace DisquuunCore {
 				エラーは、接続状態の切断 = 死を取得できるようにして、
 			*/
 			private SocketToken socketToken;
+			private System.Object lockObj;
 			
 			public SocketState State () {
-				return socketToken.socketState;
+				lock (socketToken) {
+					return socketToken.socketState;
+				}
 			}
 			
 			public enum SocketState {
@@ -207,7 +215,7 @@ namespace DisquuunCore {
 				CLOSED
 			}
 			
-			public struct SocketToken {
+			public class SocketToken {
 				public SocketState socketState;
 				
 				public readonly Socket socket;
@@ -235,6 +243,8 @@ namespace DisquuunCore {
 			}
 			
 			public SocketObject (IPEndPoint endPoint, long bufferSize, Action<SocketObject, Exception> ConnectionFailed) {
+				this.lockObj = new System.Object();
+				
 				this.ConnectionFailed = ConnectionFailed;
 				
 				var clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -287,28 +297,24 @@ namespace DisquuunCore {
 			private void OnConnected (object unused, SocketAsyncEventArgs args) {
 				var token = (SocketToken)args.UserToken;
 				switch (token.socketState) {
-					
 					case SocketState.OPENING: {
 						if (args.SocketError != SocketError.Success) {
 							token.socketState = SocketState.CLOSED;
 							var error = new Exception("connect error:" + args.SocketError.ToString());
 							
-							Disquuun.Log("まだいろいろハンドルしてない。このソケットでの単体の失敗なんで、Disquuun自体の失敗なのか。ハンドラいるな、、AddSlotとかで露出させたほうが楽か。");
+							Log("まだいろいろハンドルしてない。このソケットでの単体の失敗なんで、Disquuun自体の失敗なのか。ハンドラいるな、、AddSlotとかで露出させたほうが楽か。");
 							ConnectionFailed(this, error);
 							return;
 						}
 						
 						token.socketState = SocketState.OPENED;
 						
-						// ready receive data.
-						token.socket.ReceiveAsync(token.receiveArgs);
-						
-						Disquuun.Log("まだConnectedハンドルしてない");
-						// if (Connected != null) Connected(connectionId); 
+						// // ready receive data.
+						// token.socket.ReceiveAsync(token.receiveArgs);// この行の内容を、Loop設定時にすれば良い。
 						return;
 					}
 					default: {
-						throw new Exception("unknown connect error:" + token.socketState);
+						throw new Exception("socket state does not correct:" + token.socketState);
 					}
 				}
 			}
@@ -322,7 +328,7 @@ namespace DisquuunCore {
 					}
 					default: {
 						token.socketState = SocketState.CLOSED;
-						Disquuun.Log("まだCloseハンドルしてない");
+						Log("まだCloseハンドルしてない");
 						// if (Closed != null) Closed(this.connectionId);
 						break;
 					}
@@ -408,7 +414,16 @@ namespace DisquuunCore {
 			}
 			
 			
-			public void Disconnect () {
+			public void Disconnect (bool force=false) {
+				if (force) {
+					try {
+						socketToken.socket.Close();
+					} catch (Exception e) {
+						Log("e:" + e);
+					}
+					return;
+				}
+				
 				switch (socketToken.socketState) {
 					case SocketState.CLOSING:
 					case SocketState.CLOSED: {
@@ -428,6 +443,8 @@ namespace DisquuunCore {
 					}
 				}
 			}
+			
+			
 			
 			
 			/*
