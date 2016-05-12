@@ -1,5 +1,6 @@
 using System;
 using DisquuunCore;
+using DisquuunCore.Deserialize;
 
 public partial class Tests {
 	public void _0_0_InitWith2Connection (Disquuun disquuun) {
@@ -19,5 +20,11 @@ public partial class Tests {
 		WaitUntil(() => (e != null), 1);
 	}
 	
+	public void _0_2_SyncInfo (Disquuun disquuun) {
+		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		var data = disquuun.Info().Sync();
+		var infoStr = DisquuunDeserializer.Info(data);
+		TestLogger.Log("infoStr:" + infoStr.Substring(0, 10));
+	}
 	
 }

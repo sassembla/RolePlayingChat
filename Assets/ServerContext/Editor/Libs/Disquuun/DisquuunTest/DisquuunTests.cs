@@ -25,6 +25,7 @@ public partial class Tests {
 		var tests = new List<Action<Disquuun>>();
 		tests.Add(_0_0_InitWith2Connection);
 		tests.Add(_0_1_ConnectionFailedWithNoDisqueServer);
+		tests.Add(_0_2_SyncInfo);
 		
 		
 		TestLogger.Log("tests started.");

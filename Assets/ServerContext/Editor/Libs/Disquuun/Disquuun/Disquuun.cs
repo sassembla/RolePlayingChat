@@ -28,12 +28,27 @@ namespace DisquuunCore {
 	}
 	
 	/**
-		data structure for vector.
+		data structure for input.
 	*/
-	public struct ByteDatas {
+	public class DisquuunInput	{
+		public readonly DisqueCommand command;
+		public readonly byte[] data;
+		public readonly DisquuunSocket socket;
+		
+		public DisquuunInput (DisqueCommand command, byte[] data, DisquuunSocket socket) {
+			this.command = command;
+			this.data = data;
+			this.socket = socket;
+		}
+	}
+	
+	/**
+		data structure for result.
+	*/
+	public struct DisquuunResult {
 		public byte[][] bytesArray;
 		
-		public ByteDatas (params byte[][] bytesArray) {
+		public DisquuunResult (params byte[][] bytesArray) {
 			this.bytesArray = bytesArray;
 		}
 	}
@@ -49,7 +64,7 @@ namespace DisquuunCore {
 		
 		private readonly Action<Exception> ConnectionFailed;
 		
-		private List<SocketObject> socketPool;
+		private List<DisquuunSocket> socketPool;
 		
 		public enum ConnectionState {
 			OPENED,
@@ -78,15 +93,15 @@ namespace DisquuunCore {
 			*/
 			this.ConnectionFailed = ConnectionFailed;
 			
-			socketPool = new List<SocketObject>();
+			socketPool = new List<DisquuunSocket>();
 			for (var i = 0; i < maxConnectionCount; i++) {
-				var socketObj = new SocketObject(endPoint, bufferSize, OnSocketConnectionFailed);
+				var socketObj = new DisquuunSocket(endPoint, bufferSize, OnSocketConnectionFailed);
 				socketPool.Add(socketObj);
 			}
 		}
 		
 		
-		private void OnSocketConnectionFailed (SocketObject source, Exception e) {
+		private void OnSocketConnectionFailed (DisquuunSocket source, Exception e) {
 			lock (socketPool) {
 				socketPool.Remove(source);
 				if (ConnectionFailed != null) ConnectionFailed(e); 
@@ -98,7 +113,7 @@ namespace DisquuunCore {
 		public void UpdateState () {
 			lock (socketPool) {
 				var connectionCount = socketPool
-					.Where(s => s.State() == SocketObject.SocketState.OPENED)
+					.Where(s => s.State() == DisquuunSocket.SocketState.OPENED)
 					.ToArray().Length;
 				
 				switch (connectionCount) {
@@ -125,44 +140,56 @@ namespace DisquuunCore {
 			foreach (var socket in socketPool) socket.Disconnect(force);
 		}
 		
-		
 		/*
 			API gateway
 		*/
-		public byte[] AddJob (string queueName, byte[] data, int timeout=0, params object[] args) {
-			return DisquuunAPI.AddJob(queueName, data, timeout, args);
+		public DisquuunInput AddJob (string queueName, byte[] data, int timeout=0, params object[] args) {
+			var bytes = DisquuunAPI.AddJob(queueName, data, timeout, args);
+			return null;
 		}
 		
-		public byte[] GetJob (string[] queueIds, params object[] args) {
-			return DisquuunAPI.GetJob(queueIds, args);
+		public DisquuunInput GetJob (string[] queueIds, params object[] args) {
+			// return DisquuunAPI.GetJob(queueIds, args);
+			return null;
 		}
 		
-		public byte[] AckJob (string[] jobIds) {
-			return DisquuunAPI.AckJob(jobIds);
+		public DisquuunInput AckJob (string[] jobIds) {
+			// return DisquuunAPI.AckJob(jobIds);
+			return null;
 		}
 
-		public byte[] FastAck (string[] jobIds) {
-			return DisquuunAPI.FastAck(jobIds);
+		public DisquuunInput FastAck (string[] jobIds) {
+			// return DisquuunAPI.FastAck(jobIds);
+			return null;
 		}
 
-		public byte[] Working (string jobId) {
-			return DisquuunAPI.Working(jobId);
+		public DisquuunInput Working (string jobId) {
+			// return DisquuunAPI.Working(jobId);
+			return null;
 		}
 
-		public byte[] Nack (string[] jobIds) {
-			return DisquuunAPI.Nack(jobIds);
+		public DisquuunInput Nack (string[] jobIds) {
+			// return DisquuunAPI.Nack(jobIds);
+			return null;
 		}
 		
-		public byte[] Info () {
-			return DisquuunAPI.Info();
+		public DisquuunInput Info () {
+			var data = DisquuunAPI.Info();
+			
+			// busyじゃないSocketを探して渡す。この部分が重そうだな〜〜ガトリングガンみたいな感じに次を用意しとくか。まあ無理か。
+			var socket = socketPool[0];
+			
+			return new DisquuunInput(DisqueCommand.INFO, data, socket);
 		}
 		
-		public byte[] Hello () {
-			return DisquuunAPI.Hello();
+		public DisquuunInput Hello () {
+			// return DisquuunAPI.Hello();
+			return null;
 		}
 		
-		public byte[] Qlen (string queueId) {
-			return DisquuunAPI.Qlen(queueId);
+		public DisquuunInput Qlen (string queueId) {
+			// return DisquuunAPI.Qlen(queueId);
+			return null;
 		}
 		
 		/*
@@ -179,284 +206,8 @@ namespace DisquuunCore {
 		
 		
 		
-		
 		public static void Log (string message) {
 			TestLogger.Log(message);
-		}
-		
-		
-		// socketPoolを用意して、そこにいろいろやらせるスタイル。
-		
-		
-		public class SocketObject {
-			private Action<SocketObject, Exception> ConnectionFailed;
-			
-			/*
-				tokenとかもなんかsocketPoolに分離する必要がある。
-				DisquuunSocketクラス作ろう。
-				
-				エラーは、接続状態の切断 = 死を取得できるようにして、
-			*/
-			private SocketToken socketToken;
-			private System.Object lockObj;
-			
-			public SocketState State () {
-				lock (socketToken) {
-					return socketToken.socketState;
-				}
-			}
-			
-			public enum SocketState {
-				OPENING,
-				OPENED,
-				BUSY,
-				CLOSING,
-				CLOSED
-			}
-			
-			public class SocketToken {
-				public SocketState socketState;
-				
-				public readonly Socket socket;
-				
-				public readonly SocketAsyncEventArgs connectArgs;
-				public readonly SocketAsyncEventArgs sendArgs;
-				public readonly SocketAsyncEventArgs receiveArgs;
-				
-				public Queue<DisqueCommand> stack;
-				
-				public SocketToken (Socket socket, SocketAsyncEventArgs connectArgs, SocketAsyncEventArgs sendArgs, SocketAsyncEventArgs receiveArgs) {
-					this.socketState = SocketState.OPENING;
-					this.socket = socket;
-					
-					this.connectArgs = connectArgs;
-					this.sendArgs = sendArgs;
-					this.receiveArgs = receiveArgs;
-					
-					this.stack = new Queue<DisqueCommand>();
-					
-					this.connectArgs.UserToken = this;
-					this.sendArgs.UserToken = this;
-					this.receiveArgs.UserToken = this;
-				}
-			}
-			
-			public SocketObject (IPEndPoint endPoint, long bufferSize, Action<SocketObject, Exception> ConnectionFailed) {
-				this.lockObj = new System.Object();
-				
-				this.ConnectionFailed = ConnectionFailed;
-				
-				var clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-				
-				var connectArgs = new SocketAsyncEventArgs();
-				connectArgs.AcceptSocket = clientSocket;
-				connectArgs.RemoteEndPoint = endPoint;
-				connectArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnConnected);
-				
-				var sendArgs = new SocketAsyncEventArgs();
-				sendArgs.AcceptSocket = clientSocket;
-				sendArgs.RemoteEndPoint = endPoint;
-				sendArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnSend);
-				
-				var receiveArgs = new SocketAsyncEventArgs();
-				byte[] receiveBuffer = new byte[bufferSize];
-				receiveArgs.SetBuffer(receiveBuffer, 0, receiveBuffer.Length);
-				receiveArgs.AcceptSocket = clientSocket;
-				receiveArgs.RemoteEndPoint = endPoint;
-				receiveArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnReceived);
-							
-				socketToken = new SocketToken(clientSocket, connectArgs, sendArgs, receiveArgs);
-				
-				// start connect.
-				if (!clientSocket.ConnectAsync(socketToken.connectArgs)) OnConnected(clientSocket, connectArgs);
-			}
-			
-			
-			/*
-				handlers
-				
-				SyncとAsyncとLoopに分ける必要がある。先にテスト書きたいな。
-				
-				んーーー実際にはどんな実装になるんだろう。データの放り込み方が異なるだけだ。
-			*/
-			public ByteDatas[] Sync (byte[] data) {
-				Log("同期なんで、送り込んでデータが帰ってくるまで待つ。うむうむ。");
-				var data2 = new ByteDatas[10];
-				socketToken.socketState = SocketState.OPENED;
-				return data2;
-			}
-			
-			public void Async (byte[] data) {
-				Log("このソケットへとAsyncでデータを送り込む。前提として、BUSYでない必要があるが、そのへんはもう果たしておけるはず。");
-			}
-			
-			
-			
-			
-			private void OnConnected (object unused, SocketAsyncEventArgs args) {
-				var token = (SocketToken)args.UserToken;
-				switch (token.socketState) {
-					case SocketState.OPENING: {
-						if (args.SocketError != SocketError.Success) {
-							token.socketState = SocketState.CLOSED;
-							var error = new Exception("connect error:" + args.SocketError.ToString());
-							
-							ConnectionFailed(this, error);
-							return;
-						}
-						
-						token.socketState = SocketState.OPENED;
-						
-						// // ready receive data.
-						// token.socket.ReceiveAsync(token.receiveArgs);// この行の内容を、Loop設定時にすれば良い。
-						return;
-					}
-					default: {
-						throw new Exception("socket state does not correct:" + token.socketState);
-					}
-				}
-			}
-			
-			private void OnClosed (object unused, SocketAsyncEventArgs args) {
-				var token = (SocketToken)args.UserToken;
-				switch (token.socketState) {
-					case SocketState.CLOSED: {
-						// do nothing.
-						break;
-					}
-					default: {
-						token.socketState = SocketState.CLOSED;
-						Log("まだCloseハンドルしてない");
-						// if (Closed != null) Closed(this.connectionId);
-						break;
-					}
-				}
-			}
-			
-			private void OnSend (object unused, SocketAsyncEventArgs args) {
-				var socketError = args.SocketError;
-				switch (socketError) {
-					case SocketError.Success: {
-						// do nothing.
-						break;
-					}
-					default: {
-						Disquuun.Log("まだエラーハンドルしてない");
-						// if (Error != null) {
-						// 	var error = new Exception("send error:" + socketError.ToString());
-						// 	Error(error);
-						// }
-						break;
-					}
-				}
-			}
-			
-			/*
-				ReceiveはSocket単位になるはず。Syncかそれ以外で挙動が異なり、Syncの場合はそもそもここに来ない。
-			*/
-			private void OnReceived (object unused, SocketAsyncEventArgs args) {
-			
-				var token = (SocketToken)args.UserToken;
-				if (args.SocketError != SocketError.Success) { 
-					switch (token.socketState) {
-						case SocketState.CLOSING:
-						case SocketState.CLOSED: {
-							// already closing, ignore.
-							return;
-						}
-						default: {
-							// show error, then close or continue receiving.
-							
-							Disquuun.Log("まだエラーハンドルしてない");
-							// if (Error != null) {
-							// 	var error = new Exception("receive error:" + args.SocketError.ToString() + " size:" + args.BytesTransferred);
-							// 	Error(error);
-							// }
-							
-							// connection is already closed.
-							if (!IsSocketConnected(token.socket)) {
-								Disconnect();
-								return;
-							}
-							
-							// continue receiving data. go to below.
-							break;
-						}
-					}
-				}
-				
-				if (0 < args.BytesTransferred) {
-					if (0 < token.stack.Count) { 
-						var dataSource = args.Buffer;
-						var bytesAmount = args.BytesTransferred;
-						
-						var rest = args.AcceptSocket.Available;
-						if (0 < rest) {
-							var restBuffer = new byte[rest];
-							var additionalReadResult = token.socket.Receive(restBuffer, SocketFlags.None);
-							
-							var baseLength = dataSource.Length;
-							Array.Resize(ref dataSource, baseLength + rest);
-							
-							for (var i = 0; i < rest; i++) dataSource[baseLength + i] = restBuffer[i];
-							bytesAmount = dataSource.Length;
-						}
-						
-						Disquuun.Log("まだフィルタ通してない。");
-						// DisquuunAPI.Evaluate(token.stack, bytesAmount, dataSource, Received, Failed);
-					}
-				}
-				
-				// continue to receive.
-				if (!token.socket.ReceiveAsync(args)) OnReceived(null, args);
-			}
-			
-			
-			public void Disconnect (bool force=false) {
-				if (force) {
-					try {
-						socketToken.socket.Close();
-					} catch (Exception e) {
-						Log("e:" + e);
-					}
-					return;
-				}
-				
-				switch (socketToken.socketState) {
-					case SocketState.CLOSING:
-					case SocketState.CLOSED: {
-						// do nothing
-						break;
-					}
-					default: {
-						socketToken.socketState = SocketState.CLOSING;
-						
-						var closeEventArgs = new SocketAsyncEventArgs();
-						closeEventArgs.UserToken = socketToken;
-						closeEventArgs.AcceptSocket = socketToken.socket;
-						closeEventArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnClosed);
-						
-						if (!socketToken.socket.DisconnectAsync(closeEventArgs)) OnClosed(socketToken.socket, closeEventArgs);
-						break;
-					}
-				}
-			}
-			
-			
-			
-			
-			/*
-				utils
-			*/
-			
-			private static bool IsSocketConnected (Socket s) {
-				bool part1 = s.Poll(1000, SelectMode.SelectRead);
-				bool part2 = (s.Available == 0);
-				
-				if (part1 && part2) return false;
-				
-				return true;
-			}
 		}
 	}
 }
