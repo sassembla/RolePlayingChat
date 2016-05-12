@@ -5,7 +5,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 
-namespace DisquuunCoreOld {
+namespace DisquuunCore {
 	public enum DisqueCommand {		
 		ADDJOB,// queue_name job <ms-timeout> [REPLICATE <count>] [DELAY <sec>] [RETRY <sec>] [TTL <sec>] [MAXLEN <count>] [ASYNC]
 		GETJOB,// [NOHANG] [TIMEOUT <ms-timeout>] [COUNT <count>] [WITHCOUNTERS] FROM queue1 queue2 ... queueN
@@ -27,18 +27,6 @@ namespace DisquuunCoreOld {
 		PAUSE,// <queue-name> option1 [option2 ... optionN]
 	}
 	
-	/*
-		disque protocol symbols
-	*/
-	public enum CommandString {
-		Error = '-',
-		Status = '+',
-		Bulk = '$',
-		MultiBulk = '*',
-		Int = ':'
-	}
-	
-	
 	/**
 		data structure for vector.
 	*/
@@ -52,7 +40,7 @@ namespace DisquuunCoreOld {
 	
 	
 	
-    public class DisquuunOld {
+    public class Disquuun {
 		public readonly string connectionId;
 		
 		private readonly Action<string> Connected;
@@ -62,6 +50,7 @@ namespace DisquuunCoreOld {
 		private readonly Action<string> Closed;
 		
 		public readonly long BufferSize;
+		public readonly IPEndPoint endPoint;
 		
 		public enum ConnectionState {
 			OPENING,
@@ -71,7 +60,107 @@ namespace DisquuunCoreOld {
 		}
 		
 		
+		public Disquuun (
+			string connectionId,
+			string host,
+			int port,
+			long bufferSize,
+			Action<string> Connected=null,
+			Action<DisqueCommand, ByteDatas[]> Received=null,
+			Action<DisqueCommand, string> Failed=null,
+			Action<Exception> Error=null,
+			Action<string> Closed=null
+		) {
+			this.connectionId = connectionId;
+			
+			this.BufferSize = bufferSize;
+			
+			this.Connected = Connected;
+			this.Received = Received;
+			this.Failed = Failed;
+			this.Error = Error;
+			this.Closed = Closed;
+			
+			endPoint = new IPEndPoint(IPAddress.Parse(host), port);
+			
+			
+			/*
+				endpointまでは共有できるんだけど、
+				ここから先はsocketPoolを実装する話になりそう。
+			*/
+			AddSocket(endPoint, bufferSize);
+		}
 		
+		/*
+			上のコンストラクタ以外に、ソケットプールを保持してるコンストラクタが必要。
+		*/
+		
+		
+		
+		/*
+			API gate
+		*/
+		
+		/*
+			Disque APIs.
+			一時的にstaticにしておくが、disquuunインスタンスから叩けるようにしておくのが理想。
+			
+			connectedとかconnect failedとかをどう隠蔽するのかっていうのは考えものだな、、
+		*/
+		public byte[] AddJob (string queueName, byte[] data, int timeout=0, params object[] args) {
+			return DisquuunAPI.AddJob(queueName, data, timeout, args);
+		}
+		
+		public byte[] GetJob (string[] queueIds, params object[] args) {
+			return DisquuunAPI.GetJob(queueIds, args);
+		}
+		
+		public byte[] AckJob (string[] jobIds) {
+			return DisquuunAPI.AckJob(jobIds);
+		}
+
+		public byte[] FastAck (string[] jobIds) {
+			return DisquuunAPI.FastAck(jobIds);
+		}
+
+		public byte[] Working (string jobId) {
+			return DisquuunAPI.Working(jobId);
+		}
+
+		public byte[] Nack (string[] jobIds) {
+			return DisquuunAPI.Nack(jobIds);
+		}
+		
+		public byte[] Info () {
+			return DisquuunAPI.Info();
+		}
+		
+		public byte[] Hello () {
+			return DisquuunAPI.Hello();
+		}
+		
+		public byte[] Qlen (string queueId) {
+			return DisquuunAPI.Qlen(queueId);
+		}
+		
+		/*
+			QSTAT,// <queue-name>
+			QPEEK,// <queue-name> <count>
+			ENQUEUE,// <job-id> ... <job-id>
+			DEQUEUE,// <job-id> ... <job-id>
+			DELJOB,// <job-id> ... <job-id>
+			SHOW,// <job-id>
+			QSCAN,// [COUNT <count>] [BUSYLOOP] [MINLEN <len>] [MAXLEN <len>] [IMPORTRATE <rate>]
+			JSCAN,// [<cursor>] [COUNT <count>] [BUSYLOOP] [QUEUE <queue>] [STATE <state1> STATE <state2> ... STATE <stateN>] [REPLY all|id]
+			PAUSE,// <queue-name> option1 [option2 ... optionN]
+		*/
+		
+		
+		
+		
+		/*
+			tokenとかもなんかsocketPoolに分離する必要がある。
+		*/
 		private SocketToken socketToken;
 		
 		public class SocketToken {
@@ -101,28 +190,7 @@ namespace DisquuunCoreOld {
 			}
 		}
 		
-		public DisquuunOld (
-			string connectionId,
-			string host,
-			int port,
-			long bufferSize,
-			Action<string> Connected=null,
-			Action<DisqueCommand, ByteDatas[]> Received=null,
-			Action<DisqueCommand, string> Failed=null,
-			Action<Exception> Error=null,
-			Action<string> Closed=null
-		) {
-			this.connectionId = connectionId;
-			
-			this.BufferSize = bufferSize;
-			
-			this.Connected = Connected;
-			this.Received = Received;
-			this.Failed = Failed;
-			this.Error = Error;
-			this.Closed = Closed;
-			
-			var endPoint = new IPEndPoint(IPAddress.Parse(host), port);
+		private void AddSocket (IPEndPoint endPoint, long bufferSize) {
 			var clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 			
 			{
@@ -149,8 +217,9 @@ namespace DisquuunCoreOld {
 			}
 		}
 		
+		
 		/*
-			handlers
+			handlers このへんは外部へと逃がす必要がある。socketpoolかな。
 		*/
 		
 		private void OnConnected (object unused, SocketAsyncEventArgs args) {
@@ -265,151 +334,6 @@ namespace DisquuunCoreOld {
 			// continue to receive.
 			if (!token.socket.ReceiveAsync(args)) OnReceived(null, args);
 		}
-		
-		
-		
-		
-		
-		/*
-			chars
-		*/
-		public const char CharError = (char)CommandString.Error;
-		public const char CharStatus = (char)CommandString.Status;
-		public const char CharBulk = (char)CommandString.Bulk;
-		public const char CharMultiBulk = (char)CommandString.MultiBulk;
-		public const char CharInt = (char)CommandString.Int;
-		public const string CharEOL = "\r\n";
-		
-		public const string DISQUE_GETJOB_KEYWORD_FROM = "FROM";
-		
-		
-		
-		
-		
-		/*
-			Disque commands.
-		*/
-		public void AddJob (string queueName, byte[] data, int timeout=0, params object[] args) {
-			// ADDJOB queue_name job <ms-timeout> 
-			// [REPLICATE <count>] [DELAY <sec>] [RETRY <sec>] [TTL <sec>] [MAXLEN <count>] [ASYNC]
-			
-			// byteをそのまま送りたいんだが、っていうやつ。byteArrayをそのままではうまく変形できない。
-			// あと、いろいろ配列で渡さないといけないんだけど、それも辛い。
-			// この段階で
-			var dataStr = Encoding.UTF8.GetString(data);
-			// var newArgs = new object[1 + args.Length];
-			// newArgs[0] = timeout;
-			// for (var i = 1; i < newArgs.Length; i++) newArgs[i] = args[i-1];
-			SendBytes(DisqueCommand.ADDJOB, queueName, dataStr, timeout);
-		}
-		
-		public void GetJob (string[] queueIds, params object[] args) {
-			// [NOHANG] [TIMEOUT <ms-timeout>] [COUNT <count>] [WITHCOUNTERS] 
-			// FROM queue1 queue2 ... queueN
-			var parameters = new object[args.Length + 1 + queueIds.Length];
-			for (var i = 0; i < parameters.Length; i++) {
-				if (i < args.Length) {
-					parameters[i] = args[i];
-					continue;
-				}
-				if (i == args.Length) {
-					parameters[i] = DISQUE_GETJOB_KEYWORD_FROM;
-					continue;
-				}
-				parameters[i] = queueIds[i - (args.Length + 1)];
-			}
-			// foreach (var i in parameters) {
-			// 	Log("i:" + i);
-			// }
-			SendBytes(DisqueCommand.GETJOB, parameters);
-		}
-		
-		public void AckJob (string[] jobIds) {
-			// jobid1 jobid2 ... jobidN
-			SendBytes(DisqueCommand.ACKJOB, jobIds);
-		}
-
-		public void FastAck (string[] jobIds) {
-			// jobid1 jobid2 ... jobidN
-			SendBytes(DisqueCommand.FASTACK, jobIds);
-		}
-
-		public void Working (string jobId) {
-			// jobid
-			SendBytes(DisqueCommand.WORKING, jobId);
-		}
-
-		public void Nack (string[] jobIds) {
-			// <job-id> ... <job-id>
-			SendBytes(DisqueCommand.NACK, jobIds);
-		}
-		
-		public void Info () {
-			SendBytes(DisqueCommand.INFO);
-		}
-		
-		public void Hello () {
-			SendBytes(DisqueCommand.HELLO);
-		}
-		
-		public void Qlen (string queueId) {
-			// QLEN,// <queue-name>
-			SendBytes(DisqueCommand.QLEN, queueId);
-		}
-		
-		/*
-			QSTAT,// <queue-name>
-			QPEEK,// <queue-name> <count>
-			ENQUEUE,// <job-id> ... <job-id>
-			DEQUEUE,// <job-id> ... <job-id>
-			DELJOB,// <job-id> ... <job-id>
-			SHOW,// <job-id>
-			QSCAN,// [COUNT <count>] [BUSYLOOP] [MINLEN <len>] [MAXLEN <len>] [IMPORTRATE <rate>]
-			JSCAN,// [<cursor>] [COUNT <count>] [BUSYLOOP] [QUEUE <queue>] [STATE <state1> STATE <state2> ... STATE <stateN>] [REPLY all|id]
-			PAUSE,// <queue-name> option1 [option2 ... optionN]
-		*/
-		
-		
-		/*
-			API core
-		*/
-		private void SendBytes (DisqueCommand commandEnum, params object[] args) {
-			int length = 1 + args.Length;
-			
-			var command = commandEnum.ToString();
-			string strCommand;
-			
-			// 自前のbyte memory streamを使うかな。StringBuilder 重たいんで使いたくない。あとでベンチ。
-			{
-				StringBuilder sb = new StringBuilder();
-				sb.Append(CharMultiBulk).Append(length).Append(CharEOL);
-				
-				sb.Append(CharBulk).Append(Encoding.UTF8.GetByteCount(command)).Append(CharEOL).Append(command).Append(CharEOL);
-				
-				foreach (var arg in args) {
-					var str = String.Format(CultureInfo.InvariantCulture, "{0}", arg);
-					sb.Append(CharBulk)
-						.Append(Encoding.UTF8.GetByteCount(str))
-						.Append(CharEOL)
-						.Append(str)
-						.Append(CharEOL);
-				}
-				strCommand = sb.ToString();
-			}
-			// Log("strCommand:" + strCommand);
-			
-			// 結局byteに変換してるんだよな~ なので
-			
-			byte[] bytes = Encoding.UTF8.GetBytes(strCommand.ToCharArray());
-			
-			socketToken.stack.Enqueue(commandEnum);
-			socketToken.sendArgs.SetBuffer(bytes, 0, bytes.Length);
-			
-			if (!socketToken.socket.SendAsync(socketToken.sendArgs)) OnSend(socketToken.socket, socketToken.sendArgs);
-		}
-		
-		
-		
 		
 		
 		public void Disconnect () {
