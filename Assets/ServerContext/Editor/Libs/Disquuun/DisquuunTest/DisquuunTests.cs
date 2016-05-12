@@ -26,6 +26,8 @@ public partial class Tests {
 		tests.Add(_0_0_InitWith2Connection);
 		tests.Add(_0_1_ConnectionFailedWithNoDisqueServer);
 		tests.Add(_0_2_SyncInfo);
+		tests.Add(_0_3_SyncInfoTwice);
+		tests.Add(_0_4_AsyncInfo);
 		
 		
 		TestLogger.Log("tests started.");

@@ -97,12 +97,19 @@ namespace DisquuunCore {
 			return DisquuunAPI.EvaluateSingleCommand(command, available+1, buffer);
 		}
 		
-		public void Async (byte[] data, Func<DisquuunResult[]> Callback) {
-			Disquuun.Log("このソケットへとAsyncでデータを送り込む。前提として、BUSYでない必要があるが、そのへんはもう果たしておけるはず。");
+		public void Async (DisqueCommand command, byte[] data, Action<DisqueCommand, DisquuunResult[]> Callback) {
+			socketToken.socketState = SocketState.BUSY;
+			socketToken.sendArgs.SetBuffer(data, 0, data.Length);
+			
+			// ready for receive.
+			if (!socketToken.socket.ReceiveAsync(socketToken.receiveArgs)) OnReceived(socketToken.socket, socketToken.receiveArgs);
+			
+			// enqueue地獄再び。
+			if (!socketToken.socket.SendAsync(socketToken.sendArgs)) OnSend(socketToken.socket, socketToken.sendArgs);
 		}
 		
 		public void Loop () {
-			
+			// 
 		}
 		
 		
@@ -277,8 +284,12 @@ namespace DisquuunCore {
 	public static class DisquuunExtension {
 		public static DisquuunResult[] Sync (this DisquuunInput input) {	
 			var socket = input.socket;
-			
 			return socket.Sync(input.command, input.data);
+		}
+		
+		public static void Async (this DisquuunInput input, Action<DisqueCommand, DisquuunResult[]> Callback) {	
+			var socket = input.socket;
+			socket.Async(input.command, input.data, Callback);
 		}
 	}
 }
