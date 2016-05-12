@@ -19,6 +19,7 @@ public class ServerContext {
 		
 		// Updater queueGetJobber = null;
 		
+		// ちょうどDisqueConnectionControllerとDisquuunのあいだをいったりきたりしてるんで齟齬がある。
 		var disqueId = Guid.NewGuid().ToString();
 		// disquuun = new Disquuun(
 		// 	disqueId,
@@ -214,10 +215,6 @@ public class ServerContext {
 		ServerContextの終了手続き
 	*/
 	public void Teardown () {
-		if (disquuun != null) {
-			XrossPeer.Log("disconnect disquuun.");
-			disquuun.Disconnect();
-		}
 		XrossPeer.TimeAssert(Develop.TIME_ASSERT, "ContextのTeardown処理、なんか必要かな、、");
 	}
 	

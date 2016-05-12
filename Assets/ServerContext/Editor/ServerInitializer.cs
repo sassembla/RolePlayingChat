@@ -18,7 +18,18 @@ using System.IO;
 	static ServerInitializer () {
 		XrossPeer.SetupLog(Path.Combine(Directory.GetParent(Application.dataPath).ToString(), "server.log"));
 		Setup();
+		
+		DisquuunTests.Start();
+		EditorApplication.update += DetectCompileStart;
 	}
+	
+	private static void DetectCompileStart () {
+		if (EditorApplication.isCompiling) {
+			EditorApplication.update -= DetectCompileStart;
+			DisquuunTests.Stop();
+		}
+	}
+	
 	
 	public static void Setup () {
 		XrossPeer.Log("\n\n");
@@ -30,46 +41,8 @@ using System.IO;
 		
 		sContext = new ServerContext(settings.ClientToContextKey());
 		
-		var disqueConnectionCont = new DisqueConnectionController(SetupUpdater, settings.ClientToContextKey());
+		// この辺がDisquuunになればもうちょい整理できると思う。
+		var disqueConnectionCont = new DisqueConnectionController(settings.ClientToContextKey());
 		disqueConnectionCont.SetContext(sContext);
-				
-		// EditorApplication.update += DetectCompileStart;
-		// EditorApplication.playmodeStateChanged += DetectPlayStart;
 	}
-	
-	
-	private static void DetectCompileStart () {
-		if (EditorApplication.isCompiling) {
-			EditorApplication.update -= DetectCompileStart;
-			DisquuunTests.StopTests();
-			if (sContext != null) sContext.Teardown();
-		}
-	}
-	
-	private static void DetectPlayStart () {
-		if (!EditorApplication.isPlaying && EditorApplication.isPlayingOrWillChangePlaymode) {
-			if (sContext != null) sContext.Teardown();
-		}
-	}
-	
-	public static void SetupUpdater (string loopId, Func<bool> OnUpdate) {
-		
-		// #if UNITY_EDITOR
-		// {
-		// 	var settings = (StandardAssetsConnectorSettings)ScriptableObject.CreateInstance("StandardAssetsConnectorSettings");
-		// 	if (settings.use_unity_thread) {
-		// 		Action update = () => OnUpdate();
-		// 		var executor = new UnityEditorUpdateExecutor(update);
-		// 		EditorApplication.update += executor.Update;
-		// 		return;
-		// 	}
-		// }
-		// #endif
-		
-		// if not unity
-		new Updater("serverInitializer_" + loopId, OnUpdate);
-	}
-
-
-	// あとはこのへんにコマンドを追加するかね。停止と再起動、リセット。contextのリセットとかを呼べば良い感じ。
 }

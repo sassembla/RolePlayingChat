@@ -9,13 +9,6 @@ class StandardAssetsConnectorSettings extends ScriptableObject {
 	// true | false
 	private var use_private = true;
 
-
-	// ["binary, string"]
-	public var data_mode = "binary";
-
-	// true | false
-	public var use_unity_thread = false;
-
 	/*
 		constants
 	*/
@@ -32,10 +25,6 @@ class StandardAssetsConnectorSettings extends ScriptableObject {
 	public function ClientToContextKey () {
 		if (use_private) return gameKey + GetPrivateClientKey() + DISQUE_QUEUE_FOOTER;
 		return gameKey + DISQUE_QUEUE_FOOTER;
-	}
-
-	public function DataMode () {
-		return "disque" + "_" + data_mode;
 	}
 
 	public function DomainKey () {

@@ -41,7 +41,7 @@ public class DisqueConnectionController : IDisposable {
 	private readonly string[] addJobOptions;
 
 	
-	public DisqueConnectionController (Action<string, Func<bool>> Updater, string contextQueueIdentity) {
+	public DisqueConnectionController (string contextQueueIdentity) {
 		// only from client-connection to this context queue name is predefined. connection queue names are not defined in code. these are connection-id of connection.
 		this.getJobOptions = new string[]{"count", "1000", "from", contextQueueIdentity};
 		this.addJobOptions = new string[]{"0"};
@@ -57,10 +57,9 @@ public class DisqueConnectionController : IDisposable {
 
 		// (Develop.TIME_ASSERT).TimeAssert("切断からの復帰を自動的に行うのを考えたら、これじゃまずい。");
 		XrossPeer.Log("DisqueConnectionController: succeded to connect disque @:" + host + ":" + port);
-		Updater("disque_" + disqueId, GetJobsOnUpdate);//消せる。
 		
-		// スロットの概念導入する
-		// 実行用のAPIのデザインする(先にテストかけそう)
+		// スレッド一つもたせてる。
+		new Updater("disque_" + disqueId, GetJobsOnUpdate);
 	}
 
 	public void SetContext (ServerContext context) {
