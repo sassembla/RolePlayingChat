@@ -72,7 +72,6 @@ namespace DisquuunCore {
 			
 			this.connectionState = ConnectionState.ALLCLOSED;
 			
-			
 			/*
 				set handlers for connection error.
 				other runtime errors will emit in API handler.
@@ -302,7 +301,6 @@ namespace DisquuunCore {
 							token.socketState = SocketState.CLOSED;
 							var error = new Exception("connect error:" + args.SocketError.ToString());
 							
-							Log("まだいろいろハンドルしてない。このソケットでの単体の失敗なんで、Disquuun自体の失敗なのか。ハンドラいるな、、AddSlotとかで露出させたほうが楽か。");
 							ConnectionFailed(this, error);
 							return;
 						}
