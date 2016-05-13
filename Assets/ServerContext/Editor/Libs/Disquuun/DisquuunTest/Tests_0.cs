@@ -51,11 +51,27 @@ public partial class Tests {
 		var infoStr = string.Empty;
 		disquuun.Info().Async(
 			(DisqueCommand command, DisquuunResult[] datas) => {
+				TestLogger.Log("hereComes");
 				infoStr = DisquuunDeserializer.Info(datas);
 			}
 		);
 		
 		WaitUntil(() => !string.IsNullOrEmpty(infoStr), 5);
 	}
+	
+	// public void _0_5_LoopInfo (Disquuun disquuun) {
+	// 	WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		
+	// 	var infoStr = string.Empty;
+	// 	disquuun.Info().Loop(
+	// 		(DisqueCommand command, DisquuunResult[] datas) => {
+	// 			TestLogger.Log("hereComes");
+	// 			infoStr = DisquuunDeserializer.Info(datas);
+	// 			return true;
+	// 		} 
+	// 	);
+		
+	// 	WaitUntil(() => !string.IsNullOrEmpty(infoStr), 5);
+	// }
 	
 }
