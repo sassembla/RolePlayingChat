@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using DisquuunCore;
 using DisquuunCore.Deserialize;
 
@@ -51,7 +52,6 @@ public partial class Tests {
 		var infoStr = string.Empty;
 		disquuun.Info().Async(
 			(DisqueCommand command, DisquuunResult[] datas) => {
-				TestLogger.Log("hereComes");
 				infoStr = DisquuunDeserializer.Info(datas);
 			}
 		);
@@ -59,19 +59,50 @@ public partial class Tests {
 		WaitUntil(() => !string.IsNullOrEmpty(infoStr), 5);
 	}
 	
-	// public void _0_5_LoopInfo (Disquuun disquuun) {
-	// 	WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+	public void _0_5_LoopInfo_Once (Disquuun disquuun) {
+		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
 		
-	// 	var infoStr = string.Empty;
-	// 	disquuun.Info().Loop(
-	// 		(DisqueCommand command, DisquuunResult[] datas) => {
-	// 			TestLogger.Log("hereComes");
-	// 			infoStr = DisquuunDeserializer.Info(datas);
-	// 			return true;
-	// 		} 
-	// 	);
+		var infoStr = string.Empty;
+		disquuun.Info().Loop(
+			(DisqueCommand command, DisquuunResult[] datas) => {
+				infoStr = DisquuunDeserializer.Info(datas);
+				return false;
+			} 
+		);
 		
-	// 	WaitUntil(() => !string.IsNullOrEmpty(infoStr), 5);
-	// }
+		WaitUntil(() => !string.IsNullOrEmpty(infoStr), 5);
+	}
+	
+	public void _0_6_LoopInfo_Twice (Disquuun disquuun) {
+		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		
+		var infos = new List<string>();
+		disquuun.Info().Loop(
+			(DisqueCommand command, DisquuunResult[] datas) => {
+				var infoStr = DisquuunDeserializer.Info(datas);
+				infos.Add(infoStr);
+				if (infos.Count < 2) return true;
+				return false;
+			} 
+		);
+		
+		WaitUntil(() => (infos.Count == 2), 5);
+	}
+	
+	public void _0_7_LoopInfo_100 (Disquuun disquuun) {
+		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		
+		var infos = new List<string>();
+		disquuun.Info().Loop(
+			(DisqueCommand command, DisquuunResult[] datas) => {
+				var infoStr = DisquuunDeserializer.Info(datas);
+				infos.Add(infoStr);
+				if (infos.Count < 100) return true;
+				return false;
+			} 
+		);
+		
+		WaitUntil(() => (infos.Count == 100), 5);
+	}
 	
 }

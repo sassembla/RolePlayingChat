@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using UnityEngine;
 
 namespace DisquuunCore
 {
@@ -175,7 +176,7 @@ namespace DisquuunCore
 		public DisquuunInput Info () {
 			var data = DisquuunAPI.Info();
 			
-			// busyじゃないSocketを探して渡す。この部分が重そうだな〜〜ガトリングガンみたいな感じに次を用意しとくか。まあ無理か。
+			Debug.LogError("busyじゃないSocketを探して渡す。この部分が重そうだな〜〜ガトリングガンみたいな感じに次を用意しとくか。");
 			var socket = socketPool[0];
 			
 			return new DisquuunInput(DisqueCommand.INFO, data, socket);

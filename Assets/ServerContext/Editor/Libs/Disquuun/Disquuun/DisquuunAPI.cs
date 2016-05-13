@@ -240,7 +240,6 @@ namespace DisquuunCore {
 				get data then react.
 			*/
 			switch (currentCommand) {
-				
 				case DisqueCommand.ADDJOB: {
 					switch (sourceBuffer[cursor]) {
 						// case ByteError: {

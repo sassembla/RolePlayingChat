@@ -28,6 +28,9 @@ public partial class Tests {
 		tests.Add(_0_2_SyncInfo);
 		tests.Add(_0_3_SyncInfoTwice);
 		tests.Add(_0_4_AsyncInfo);
+		tests.Add(_0_5_LoopInfo_Once);
+		tests.Add(_0_6_LoopInfo_Twice);
+		tests.Add(_0_7_LoopInfo_100);
 		
 		
 		TestLogger.Log("tests started.");

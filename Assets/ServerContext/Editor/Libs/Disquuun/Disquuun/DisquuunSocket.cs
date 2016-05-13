@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
+using UnityEngine;
 
 namespace DisquuunCore {
 	public class DisquuunSocket {
@@ -33,7 +34,10 @@ namespace DisquuunCore {
 			public readonly SocketAsyncEventArgs sendArgs;
 			public readonly SocketAsyncEventArgs receiveArgs;
 			
-			public Queue<DisqueCommand> stack;
+			public DisqueCommand currentCommand;
+			public byte[] currentBytes;
+			
+			public Func<DisqueCommand, DisquuunCore.DisquuunResult[], bool> AsyncCallback;
 			
 			public SocketToken (Socket socket, SocketAsyncEventArgs connectArgs, SocketAsyncEventArgs sendArgs, SocketAsyncEventArgs receiveArgs) {
 				this.socketState = SocketState.OPENING;
@@ -42,8 +46,6 @@ namespace DisquuunCore {
 				this.connectArgs = connectArgs;
 				this.sendArgs = sendArgs;
 				this.receiveArgs = receiveArgs;
-				
-				this.stack = new Queue<DisqueCommand>();
 				
 				this.connectArgs.UserToken = this;
 				this.sendArgs.UserToken = this;
@@ -87,6 +89,8 @@ namespace DisquuunCore {
 			socketToken.socketState = SocketState.BUSY;
 			socketToken.socket.Send(data);
 			
+			Debug.LogWarning("バッファ使いたいね。");
+			
 			// waiting for result data.
 			var header = new byte[1];
 			socketToken.socket.Receive(header);
@@ -96,33 +100,32 @@ namespace DisquuunCore {
 			buffer[0] = header[0];
 			
 			socketToken.socket.Receive(buffer, 1, available, SocketFlags.None);
-			
+			var result = DisquuunAPI.EvaluateSingleCommand(command, available+1, buffer);
 			socketToken.socketState = SocketState.OPENED;
-			return DisquuunAPI.EvaluateSingleCommand(command, available+1, buffer);
+			return result;
 		}
 		
-		public void Async (DisqueCommand command, byte[] data, Action<DisqueCommand, DisquuunResult[]> Callback) {
+		public void Async (DisqueCommand command, byte[] data, Func<DisqueCommand, DisquuunResult[], bool> Callback) {
 			socketToken.socketState = SocketState.BUSY;
 			
 			// ready for receive.
-			// socketToken.receiveArgs.Completed = 
 			if (!socketToken.socket.ReceiveAsync(socketToken.receiveArgs)) OnReceived(socketToken.socket, socketToken.receiveArgs);
 			
-			socketToken.stack.Enqueue(command);
+			socketToken.currentCommand = command;
+			socketToken.AsyncCallback = Callback;
 			socketToken.sendArgs.SetBuffer(data, 0, data.Length);
 			if (!socketToken.socket.SendAsync(socketToken.sendArgs)) OnSend(socketToken.socket, socketToken.sendArgs);
 		}
 		
-		public void Loop (DisqueCommand command, byte[] data, Action<DisqueCommand, DisquuunResult[], bool> Callback) {
+		public void Loop (DisqueCommand command, byte[] data, Func<DisqueCommand, DisquuunResult[], bool> Callback) {
 			socketToken.socketState = SocketState.BUSY;
 			
 			// ready for receive.
 			if (!socketToken.socket.ReceiveAsync(socketToken.receiveArgs)) OnReceived(socketToken.socket, socketToken.receiveArgs);
 			
-			// コマンドとかを固定してなんとかする感じ。receiveのコールバックを書き換えて仕舞えば良いのか。
-			
-			
-			socketToken.stack.Enqueue(command);
+			socketToken.currentCommand = command;
+			socketToken.currentBytes = data;
+			socketToken.AsyncCallback = Callback;
 			socketToken.sendArgs.SetBuffer(data, 0, data.Length);
 			if (!socketToken.socket.SendAsync(socketToken.sendArgs)) OnSend(socketToken.socket, socketToken.sendArgs); 
 		}
@@ -189,7 +192,6 @@ namespace DisquuunCore {
 		}
 		
 		private void OnReceived (object unused, SocketAsyncEventArgs args) {
-		
 			var token = (SocketToken)args.UserToken;
 			if (args.SocketError != SocketError.Success) { 
 				switch (token.socketState) {
@@ -200,7 +202,7 @@ namespace DisquuunCore {
 					}
 					default: {
 						// show error, then close or continue receiving.
-						Disquuun.Log("まだエラーハンドルしてない2。切断の一種なんだけど、非同期実行してるAPIに紐付けることができる、、、かなあ？　できない気もしてきたぞ。いつのコマンドかわかんないんだよな。");
+						Disquuun.Log("まだエラーハンドルしてない2。切断の一種なんだけど、非同期実行してるAPIに紐付けることができる、、、かなあ？　できない気もしてきたぞ。");
 						// if (Error != null) {
 						// 	var error = new Exception("receive error:" + args.SocketError.ToString() + " size:" + args.BytesTransferred);
 						// 	Error(error);
@@ -219,33 +221,44 @@ namespace DisquuunCore {
 			}
 			
 			if (0 < args.BytesTransferred) {
-				if (0 < token.stack.Count) { 
-					var dataSource = args.Buffer;
-					var bytesAmount = args.BytesTransferred;
+				var dataSource = args.Buffer;
+				var bytesAmount = args.BytesTransferred;
+				
+				var rest = args.AcceptSocket.Available;
+				if (0 < rest) {
+					var restBuffer = new byte[rest];
+					var additionalReadResult = token.socket.Receive(restBuffer, SocketFlags.None);
 					
-					var rest = args.AcceptSocket.Available;
-					if (0 < rest) {
-						var restBuffer = new byte[rest];
-						var additionalReadResult = token.socket.Receive(restBuffer, SocketFlags.None);
-						
-						var baseLength = dataSource.Length;
-						Array.Resize(ref dataSource, baseLength + rest);
-						
-						for (var i = 0; i < rest; i++) dataSource[baseLength + i] = restBuffer[i];
-						bytesAmount = dataSource.Length;
-					}
+					var baseLength = dataSource.Length;
+					Array.Resize(ref dataSource, baseLength + rest);
 					
-					// このへんで気になるのが、Asyncでいろんな動作をやった時、足りなくなったらどうしようっていうやつだな、、みんなどうしてるんだろうね。
-					// 要件としては、
-					
-					// ・全部いっぱいいっぱいな場合は貯める(Asyncならまあ、データで待てる。データスタック持っておけば良い。)(Syncが来た時にいっぱいいっぱいだったら？とかは辛いな。socketShortage出しちゃおう。)
-					
-					// ・気にせずsocketに積む(積めるルールがある気がする。Syncの上にAsync積むのはできないし、逆もできない。使い中のSocketのタイプに寄る感じになる。よくないのでは、、)
-					
-					// とかか。気にせず積もうかな。振り分けのロジックのバランシングができればそれで良い気がする。GetJobとかがロックするのはしょうがないことなんで。
-					// 問題になりそうなのは、Asyncで詰まってるようなところに、Syncでメッセージ送ろうとすると詰まっちゃって、これはユーザーから見えないところ。
-					// それは避けないとな〜〜っていう。
-					// DisquuunAPI.Evaluate(token.stack, bytesAmount, dataSource, Received, Failed);
+					for (var i = 0; i < rest; i++) dataSource[baseLength + i] = restBuffer[i];
+					bytesAmount = dataSource.Length;
+				}
+				
+				
+				// このへんで気になるのが、Asyncでいろんな動作をやった時、socketが足りなくなったらどうしようっていうやつだな、、みんなどうしてるんだろうね。
+				// 要件としては、
+				
+				// ・全部いっぱいいっぱいな場合は貯める(Asyncならまあ、データで待てる。データスタック持っておけば良い。)(Syncが来た時にいっぱいいっぱいだったら？とかは辛いな。socketShortage出しちゃおう。)
+				
+				// ・気にせずsocketに積む(積めるルールがある気がする。Syncの上にAsync積むのはできないし、逆もできない。使い中のSocketのタイプに寄る感じになる。よくないのでは、、)
+				
+				// とかか。気にせず積もうかな。振り分けのロジックのバランシングができればそれで良い気がする。GetJobとかがロックするのはしょうがないことなんで。
+				// 問題になりそうなのは、Asyncで詰まってるようなところに、Syncでメッセージ送ろうとすると詰まっちゃって、これはユーザーから見えないところ。
+				// それは避けないとな〜〜っていう。
+				
+				var result = DisquuunAPI.EvaluateSingleCommand(token.currentCommand, bytesAmount, dataSource);
+				var continuation = token.AsyncCallback(token.currentCommand, result);
+				
+				if (continuation) {
+					// ready for receive.
+					if (!socketToken.socket.ReceiveAsync(socketToken.receiveArgs)) OnReceived(socketToken.socket, socketToken.receiveArgs);
+			
+					socketToken.sendArgs.SetBuffer(token.currentBytes, 0, token.currentBytes.Length);
+					if (!token.socket.SendAsync(token.sendArgs)) OnSend(token.socket, token.sendArgs);
+				} else {
+					token.socketState = SocketState.OPENED;
 				}
 			}
 		}
@@ -304,12 +317,19 @@ namespace DisquuunCore {
 		
 		public static void Async (this DisquuunInput input, Action<DisqueCommand, DisquuunResult[]> Callback) {	
 			var socket = input.socket;
-			socket.Async(input.command, input.data, Callback);
+			socket.Async(
+				input.command, 
+				input.data, 
+				(command, resultBytes) => {
+					Callback(command, resultBytes);
+					return false;
+				}
+			);
 		}
 		
 		public static void Loop (this DisquuunInput input, Func<DisqueCommand, DisquuunResult[], bool> Callback) {	
 			var socket = input.socket;
-			// socket.Async(input.command, input.data, Callback);
+			socket.Loop(input.command, input.data, Callback);
 		}
 	}
 }
