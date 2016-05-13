@@ -1,7 +1,12 @@
 using System;
 using System.Collections.Generic;
+
 using DisquuunCore;
 using DisquuunCore.Deserialize;
+
+/*
+	basement api tests.
+*/
 
 public partial class Tests {
 	public void _0_0_InitWith2Connection (Disquuun disquuun) {
@@ -27,7 +32,7 @@ public partial class Tests {
 		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
 		var data = disquuun.Info().Sync();
 		var infoStr = DisquuunDeserializer.Info(data);
-		// なんかバリデーションしないとな〜
+		Assert(!string.IsNullOrEmpty(infoStr), "empty.");
 	}
 	
 	public void _0_3_SyncInfoTwice (Disquuun disquuun) {
@@ -36,13 +41,13 @@ public partial class Tests {
 		{
 			var datas = disquuun.Info().Sync();
 			var infoStr = DisquuunDeserializer.Info(datas);
-			// なんかバリデーションしないとな〜
+			Assert(!string.IsNullOrEmpty(infoStr), "empty.");
 		}
 		
 		{
 			var datas = disquuun.Info().Sync();
 			var infoStr = DisquuunDeserializer.Info(datas);
-			// なんかバリデーションしないとな〜
+			Assert(!string.IsNullOrEmpty(infoStr), "empty.");
 		}	
 	}
 	
@@ -102,7 +107,7 @@ public partial class Tests {
 			} 
 		);
 		
-		WaitUntil(() => (infos.Count == 100), 5);
+		WaitUntil(() => (infos.Count == 100), 5);		
 	}
 	
 }

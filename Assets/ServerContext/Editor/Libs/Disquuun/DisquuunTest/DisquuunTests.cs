@@ -1,9 +1,9 @@
-using UnityEngine;
 using System;
 using System.Collections.Generic;
-using DisquuunCore;
 using System.IO;
 using System.Threading;
+
+using DisquuunCore;
 
 public class DisquuunTests {
 	public static Tests tests;
@@ -32,16 +32,22 @@ public partial class Tests {
 		tests.Add(_0_6_LoopInfo_Twice);
 		tests.Add(_0_7_LoopInfo_100);
 		
+		tests.Add(_1_0_AddJob);
+		
 		
 		TestLogger.Log("tests started.");
 		
 		
 		foreach (var test in tests) {
-			var disquuun = new Disquuun("127.0.0.1", 7711, 10240, 2);
-			test(disquuun);
-			if (disquuun != null) {
-				disquuun.Disconnect(true);
-				disquuun = null;
+			try {
+				var disquuun = new Disquuun("127.0.0.1", 7711, 10240, 2);
+				test(disquuun);
+				if (disquuun != null) {
+					disquuun.Disconnect(true);
+					disquuun = null;
+				}
+			} catch (Exception e) {
+				TestLogger.Log("test:" + test + " FAILED by exception:" + e);
 			}
 		}
 		
@@ -82,6 +88,18 @@ public partial class Tests {
 		waitingThread.Start();
 		
 		resetEvent.WaitOne();
+	}
+	
+	public void Assert (bool condition, string message) {
+		System.Diagnostics.StackTrace stack  = new System.Diagnostics.StackTrace(false);
+		var methodName = stack.GetFrame(1).GetMethod().Name;
+		if (!condition) TestLogger.Log("test:" + methodName + " FAILED:" + message); 
+	}
+	
+	public void Assert (object expected, object actual, string message) {
+		System.Diagnostics.StackTrace stack  = new System.Diagnostics.StackTrace(false);
+		var methodName = stack.GetFrame(1).GetMethod().Name;
+		if (expected != actual) TestLogger.Log("test:" + methodName + " FAILED:" + message + " expected:" + expected + " actual:" + actual); 
 	}
 }
 

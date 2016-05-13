@@ -2,10 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using UnityEngine;
 
-namespace DisquuunCore
-{
+namespace DisquuunCore {
     public enum DisqueCommand {		
 		ADDJOB,// queue_name job <ms-timeout> [REPLICATE <count>] [DELAY <sec>] [RETRY <sec>] [TTL <sec>] [MAXLEN <count>] [ASYNC]
 		GETJOB,// [NOHANG] [TIMEOUT <ms-timeout>] [COUNT <count>] [WITHCOUNTERS] FROM queue1 queue2 ... queueN
@@ -176,7 +174,7 @@ namespace DisquuunCore
 		public DisquuunInput Info () {
 			var data = DisquuunAPI.Info();
 			
-			Debug.LogError("busyじゃないSocketを探して渡す。この部分が重そうだな〜〜ガトリングガンみたいな感じに次を用意しとくか。");
+			TestLogger.Log("busyじゃないSocketを探して渡す。この部分が重そうだな〜〜ガトリングガンみたいな感じに次を用意しとくか。");
 			var socket = socketPool[0];
 			
 			return new DisquuunInput(DisqueCommand.INFO, data, socket);

@@ -1,11 +1,9 @@
 using System;
-using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
-using UnityEngine;
 
 namespace DisquuunCore {
-	public class DisquuunSocket {
+    public class DisquuunSocket {
 		private Action<DisquuunSocket, Exception> ConnectionFailed;
 		
 		private SocketToken socketToken;
@@ -89,7 +87,7 @@ namespace DisquuunCore {
 			socketToken.socketState = SocketState.BUSY;
 			socketToken.socket.Send(data);
 			
-			Debug.LogWarning("バッファ使いたいね。");
+			TestLogger.Log("バッファ使いたいね。");
 			
 			// waiting for result data.
 			var header = new byte[1];
