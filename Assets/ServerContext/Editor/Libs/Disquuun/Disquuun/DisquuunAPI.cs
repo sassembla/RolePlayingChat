@@ -234,6 +234,261 @@ namespace DisquuunCore {
 			return bytes;
 		}
 		
+		public struct ScanResult {
+			public readonly bool isDone;
+			public readonly DisquuunResult[] data;
+			public ScanResult (bool isDone, DisquuunResult[] data) {
+				this.isDone = isDone;
+				this.data = data;
+			}
+		}
+		
+		public static ScanResult ScanBuffer (DisqueCommand command, byte[] sourceBuffer) {
+			// 必要な手順としては、
+			// ・読み込んで、コマンドごとにindexを集めてしまう(どうせArrayCopyは出る。)
+			// ・最後にindexだけを指定できるように、バッファを加算させて持たせておくようにしたい
+			// ・ or 途中までのデータで必要なものだけを読みだしてしまう この辺を綺麗に考える必要があるのか。WebuSocketの時の判断が必要。しかもロック。
+			
+			var cursor = 0;
+			/*
+				get data then react.
+			*/
+			switch (command) {				
+				case DisqueCommand.GETJOB: {
+					switch (sourceBuffer[cursor]) {
+						case ByteMultiBulk: {
+							DisquuunResult[] jobDatas = new DisquuunResult[]{};
+							{
+								/*
+									受け取ったbyteに関して、サイズ系の判断をガンガンしてく。
+									根っこがTCPだからな〜〜非同期に何かできることの嬉しさみたいなのがあんまりないんだ。
+								*/
+								
+								// ここで判断したいのは、何が入っててどのくらいデカイか。
+								// *と、数字、CRLFまでが入ってるはずで、それが入ってなかったら次を待つ
+								
+								// *
+								var lineEndCursor = ReadLine(sourceBuffer, cursor);
+								if (lineEndCursor == -1) return new ScanResult(false, new DisquuunResult[]{});
+								
+								/*
+									一行読み込めたので、数字が入っているところまで確定。
+								*/
+								
+								cursor = cursor + 1;// add header byte size = 1.
+								
+								var bulkCountStr = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor - cursor);
+								var bulkCountNum = Convert.ToInt32(bulkCountStr);
+								
+								cursor = lineEndCursor + 2;// CR + LF
+								
+								/*
+									ここまでいける。
+								*/
+								
+								// trigger when GETJOB NOHANG
+								if (bulkCountNum < 0) return new ScanResult(true, new DisquuunResult[]{});
+								
+								
+								jobDatas = new DisquuunResult[bulkCountNum];
+								for (var i = 0; i < bulkCountNum; i++) {
+									var itemCount = 0;
+									
+									{
+										// *
+										var lineEndCursor2 = ReadLine(sourceBuffer, cursor);
+										if (lineEndCursor2 == -1) return new ScanResult(false, new DisquuunResult[]{});
+										
+										/*
+											通過してれば、このブロック通れる。
+										*/  
+										cursor = cursor + 1;// add header byte size = 1.
+										
+										var bulkCountStr2 = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor2 - cursor);
+										
+										itemCount = Convert.ToInt32(bulkCountStr2);
+										// Disquuun.Log("itemCount:" + itemCount);
+										
+										cursor = lineEndCursor2 + 2;// CR + LF
+									}
+									
+									// queueName
+									{
+										// $
+										var lineEndCursor3 = ReadLine(sourceBuffer, cursor);
+										if (lineEndCursor3 == -1) return new ScanResult(false, new DisquuunResult[]{});
+										
+										cursor = cursor + 1;// add header byte size = 1											
+										
+										var countStr = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor3 - cursor);
+										var strNum = Convert.ToInt32(countStr);
+										
+										cursor = lineEndCursor3 + 2;// CR + LF
+										
+										/*
+											これが読めるかどうかはわからない。どうやって判断、、ああ、長さが実際にあるかどうか見ればいいのか。
+										*/
+										if (ShortageOfReadableLength(sourceBuffer, cursor, strNum)) return new ScanResult(false, new DisquuunResult[]{});
+										// var nameStr = Encoding.UTF8.GetString(sourceBuffer, cursor, strNum);
+										// Disquuun.Log("nameStr:" + nameStr);
+										
+										cursor = cursor + strNum + 2;// CR + LF
+										if (sourceBuffer.Length < cursor) return new ScanResult(false, new DisquuunResult[]{});
+									}
+									
+									// jobId
+									byte[] jobIdBytes;
+									{
+										// $
+										var lineEndCursor3 = ReadLine(sourceBuffer, cursor);
+										if (lineEndCursor3 == -1) return new ScanResult(false, new DisquuunResult[]{});
+										
+										cursor = cursor + 1;// add header byte size = 1.
+										
+										var countStr = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor3 - cursor);
+										
+										var strNum = Convert.ToInt32(countStr);
+										// Disquuun.Log("id strNum:" + strNum);
+										
+										cursor = lineEndCursor3 + 2;// CR + LF
+										
+										
+										/*
+											ここまでは保証できる。
+										*/
+										
+										if (ShortageOfReadableLength(sourceBuffer, cursor, strNum)) return new ScanResult(false, new DisquuunResult[]{});
+										// var jobIdStr = Encoding.UTF8.GetString(sourceBuffer, cursor, strNum);
+										// Disquuun.Log("jobIdStr:" + jobIdStr);
+										jobIdBytes = new byte[strNum];
+										Array.Copy(sourceBuffer, cursor, jobIdBytes, 0, strNum);
+										
+										cursor = cursor + strNum + 2;// CR + LF
+										if (sourceBuffer.Length < cursor) return new ScanResult(false, new DisquuunResult[]{});
+									}
+									
+									
+									// jobData
+									{
+										// $
+										var lineEndCursor3 = ReadLine(sourceBuffer, cursor);
+										if (lineEndCursor3 == -1) return new ScanResult(false, new DisquuunResult[]{});
+										
+										cursor = cursor + 1;// add header byte size = 1.
+										
+										var countStr = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor3 - cursor);
+										var strNum = Convert.ToInt32(countStr);
+										
+										cursor = lineEndCursor3 + 2;// CR + LF
+										
+										
+										// ここで、データが足りない目算が高い。
+										
+										if (ShortageOfReadableLength(sourceBuffer, cursor, strNum)) return new ScanResult(false, new DisquuunResult[]{});
+										var dataBytes = new byte[strNum];
+										Array.Copy(sourceBuffer, cursor, dataBytes, 0, strNum);
+										
+										cursor = cursor + strNum + 2;// CR + LF
+										if (sourceBuffer.Length < cursor) return new ScanResult(false, new DisquuunResult[]{});
+										
+										// jobのデータを取り出してる。
+										jobDatas[i] = new DisquuunResult(jobIdBytes, dataBytes);
+										continue;
+									}
+									
+									// using additional info flag for getjob... not yet applied.
+									// if (itemCount == 7) {
+									// 	byte[] nackCountBytes;
+									// 	{
+									// 		// $
+									// 		var lineEndCursor3 = ReadLine(sourceBuffer, cursor);
+									// 		cursor = cursor + 1;// add header byte size = 1.
+											
+									// 		var countStr = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor3 - cursor);
+									// 		var strNum = Convert.ToInt32(countStr);
+									// 		// Disquuun.Log("data strNum:" + strNum);
+											
+									// 		cursor = lineEndCursor3 + 2;// CR + LF
+											
+									// 		// ignore params. 
+										
+									// 		cursor = cursor + strNum + 2;// CR + LF
+										
+									// 		// :
+									// 		var lineEndCursor4 = ReadLine(sourceBuffer, cursor);
+									// 		cursor = cursor + 1;// add header byte size = 1.
+											
+									// 		nackCountBytes = new byte[lineEndCursor4 - cursor];
+									// 		Array.Copy(sourceBuffer, cursor, nackCountBytes, 0, nackCountBytes.Length);
+											
+									// 		cursor = lineEndCursor4 + 2;// CR + LF
+									// 	}
+										
+									// 	byte[] additionalDeliveriesCountBytes;
+									// 	{
+									// 		// $
+									// 		var lineEndCursor3 = ReadLine(sourceBuffer, cursor);
+									// 		cursor = cursor + 1;// add header byte size = 1.
+											
+									// 		var countStr = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor3 - cursor);
+									// 		var strNum = Convert.ToInt32(countStr);
+									// 		// Disquuun.Log("data strNum:" + strNum);
+											
+									// 		cursor = lineEndCursor3 + 2;// CR + LF
+											
+									// 		// ignore params. 
+										
+									// 		cursor = cursor + strNum + 2;// CR + LF
+										
+									// 		// :
+									// 		var lineEndCursor4 = ReadLine(sourceBuffer, cursor);
+									// 		cursor = cursor + 1;// add header byte size = 1.
+											
+									// 		additionalDeliveriesCountBytes = new byte[lineEndCursor4 - cursor];
+									// 		Array.Copy(sourceBuffer, cursor, additionalDeliveriesCountBytes, 0, additionalDeliveriesCountBytes.Length);
+											
+									// 		jobDatas[i] = new DisquuunResult(jobIdBytes, dataBytes, nackCountBytes, additionalDeliveriesCountBytes);
+											
+									// 		cursor = lineEndCursor4 + 2;// CR + LF
+									// 	}
+									// }
+								}
+							}
+							
+							if (jobDatas != null && 0 < jobDatas.Length) return new ScanResult(true, jobDatas);
+							break;
+						}
+						// case ByteError: {
+						// 	// -
+						// 	var lineEndCursor = ReadLine(sourceBuffer, cursor);
+						// 	cursor = cursor + 1;// add header byte size = 1.
+							
+						// 	if (Failed != null) {
+						// 		var errorStr = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor - cursor);
+						// 		// Disquuun.Log("errorStr:" + errorStr);
+						// 		Failed(currentCommand, errorStr);
+						// 	}
+							
+						// 	cursor = lineEndCursor + 2;// CR + LF
+						// 	break;
+						// }
+						// default: {
+						// 	Disquuun.Log("currentCommand:" + currentCommand + " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer, cursor, bytesTransferred - cursor));
+						// 	cursor = bytesTransferred;
+						// 	break;
+						// }
+					}
+					break;
+				}
+			}
+			return new ScanResult();
+		}
+		
+		private static bool ShortageOfReadableLength (byte[] source, int cursor, int length) {
+			if (cursor + length < source.Length) return false;
+			return true;
+		}
+		
 		public static DisquuunResult[] EvaluateSingleCommand (DisqueCommand currentCommand, int bytesTransferred, byte[] sourceBuffer) {
 			var cursor = 0;
 			/*
@@ -289,6 +544,7 @@ namespace DisquuunCore {
 								
 								var bulkCountStr = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor - cursor);
 								var bulkCountNum = Convert.ToInt32(bulkCountStr);
+								Disquuun.Log("bulkCountNum:" + bulkCountNum);
 								
 								cursor = lineEndCursor + 2;// CR + LF
 								
@@ -298,6 +554,7 @@ namespace DisquuunCore {
 								jobDatas = new DisquuunResult[bulkCountNum];
 								for (var i = 0; i < bulkCountNum; i++) {
 									var itemCount = 0;
+									
 									{
 										// *
 										var lineEndCursor2 = ReadLine(sourceBuffer, cursor);
@@ -314,11 +571,11 @@ namespace DisquuunCore {
 									{
 										// $
 										var lineEndCursor3 = ReadLine(sourceBuffer, cursor);
-										cursor = cursor + 1;// add header byte size = 1.
+										cursor = cursor + 1;// add header byte size = 1											
 										
 										var countStr = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor3 - cursor);
 										var strNum = Convert.ToInt32(countStr);
-										// Disquuun.Log("id strNum:" + strNum);
+										
 										
 										cursor = lineEndCursor3 + 2;// CR + LF
 										
@@ -335,9 +592,12 @@ namespace DisquuunCore {
 									{
 										// $
 										var lineEndCursor3 = ReadLine(sourceBuffer, cursor);
+										cursor = cursor + 1;// add header byte size = 1.
 										
 										var countStr = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor3 - cursor);
+										
 										var strNum = Convert.ToInt32(countStr);
+										// Disquuun.Log("id strNum:" + strNum);
 										
 										cursor = lineEndCursor3 + 2;// CR + LF
 										
@@ -349,6 +609,7 @@ namespace DisquuunCore {
 										
 										cursor = cursor + strNum + 2;// CR + LF
 									}
+									
 									
 									// jobData
 									byte[] jobIdBytes;
@@ -867,10 +1128,14 @@ namespace DisquuunCore {
 			return null;
 		}
 		
-	
 		public static int ReadLine (byte[] bytes, int cursor) {
+			while (cursor < bytes.Length) {
+				if (bytes[cursor] == ByteLF) return cursor - 1;
 				cursor++;
+			}
 			
+			TestLogger.Log("overflow detected.");
+			return -1;
 		}
 	}
 }
