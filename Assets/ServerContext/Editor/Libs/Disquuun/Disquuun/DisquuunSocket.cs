@@ -28,6 +28,8 @@ namespace DisquuunCore {
 			
 			public readonly Socket socket;
 			
+			public byte[] receiveBuffer;
+			
 			public readonly SocketAsyncEventArgs connectArgs;
 			public readonly SocketAsyncEventArgs sendArgs;
 			public readonly SocketAsyncEventArgs receiveArgs;
@@ -37,9 +39,11 @@ namespace DisquuunCore {
 			
 			public Func<DisqueCommand, DisquuunCore.DisquuunResult[], bool> AsyncCallback;
 			
-			public SocketToken (Socket socket, SocketAsyncEventArgs connectArgs, SocketAsyncEventArgs sendArgs, SocketAsyncEventArgs receiveArgs) {
+			public SocketToken (Socket socket, long bufferSize, SocketAsyncEventArgs connectArgs, SocketAsyncEventArgs sendArgs, SocketAsyncEventArgs receiveArgs) {
 				this.socketState = SocketState.OPENING;
 				this.socket = socket;
+				
+				this.receiveBuffer = new byte[bufferSize];
 				
 				this.connectArgs = connectArgs;
 				this.sendArgs = sendArgs;
@@ -48,6 +52,8 @@ namespace DisquuunCore {
 				this.connectArgs.UserToken = this;
 				this.sendArgs.UserToken = this;
 				this.receiveArgs.UserToken = this;
+				
+				this.receiveArgs.SetBuffer(receiveBuffer, 0, receiveBuffer.Length);
 			}
 		}
 		
@@ -67,13 +73,11 @@ namespace DisquuunCore {
 			sendArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnSend);
 			
 			var receiveArgs = new SocketAsyncEventArgs();
-			byte[] receiveBuffer = new byte[bufferSize];
-			receiveArgs.SetBuffer(receiveBuffer, 0, receiveBuffer.Length);
 			receiveArgs.AcceptSocket = clientSocket;
 			receiveArgs.RemoteEndPoint = endPoint;
 			receiveArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnReceived);
 						
-			socketToken = new SocketToken(clientSocket, connectArgs, sendArgs, receiveArgs);
+			socketToken = new SocketToken(clientSocket, bufferSize, connectArgs, sendArgs, receiveArgs); 
 			
 			// start connect.
 			if (!clientSocket.ConnectAsync(socketToken.connectArgs)) OnConnected(clientSocket, connectArgs);
@@ -87,18 +91,64 @@ namespace DisquuunCore {
 			socketToken.socketState = SocketState.BUSY;
 			socketToken.socket.Send(data);
 			
-			TestLogger.Log("バッファ使いたいね。");
+			// TestLogger.Log("バッファ使いたいね。あと、send失敗とかもありえるはず。");
 			
 			// waiting for result data.
 			var header = new byte[1];
 			socketToken.socket.Receive(header);
 			
 			var available = socketToken.socket.Available;
+			
+			if (socketToken.receiveBuffer.Length < available) {
+				TestLogger.Log("しょっぱなからサイズオーバーしてる " + socketToken.receiveBuffer.Length + " vs:" + available);
+			} else {
+				TestLogger.Log("サイズオーバーしてない " + socketToken.receiveBuffer.Length + " vs:" + available);
+			}
+			
+			// 頭冴えてるときになんとかする。このへんいらないはず。
 			var buffer = new byte[available + 1];
 			buffer[0] = header[0];
 			
+			DisquuunResult[] result = null;
 			socketToken.socket.Receive(buffer, 1, available, SocketFlags.None);
-			var result = DisquuunAPI.EvaluateSingleCommand(command, available+1, buffer);
+			
+			var currentByteSize = available+1;
+			
+			// ここで分解 & 待つのが正しい。うーーん。スキャンして読み込み可能かどうか判断、
+			// 読み込み可能になるまでReceiveする、っていう。。。
+			// getjob以外はこんな泥沼になることないと思う。
+			if (command == DisqueCommand.GETJOB) {
+				var scanResult = DisquuunAPI.ScanBuffer(command, buffer);
+				TestLogger.Log("scanResult:" + scanResult.isDone);
+				
+				if (!scanResult.isDone) {
+					// 最終的には、自前で用意したバッファに対して足していくのが良いと思う。
+					// オーバーしたらアウト、っていう。そしたらコピー自体は無い。
+					
+					// この内容をAsyncに行うことができれば、それでいいわけだ。できるだろ多分。loopを併用すればいい。
+					while (true) {
+						var availableReadingSize = socketToken.socket.Available;
+						if (0 < availableReadingSize) {
+							var baseLength = buffer.Length;
+							Array.Resize(ref buffer, buffer.Length + availableReadingSize);
+							socketToken.socket.Receive(buffer, baseLength, availableReadingSize, SocketFlags.None);
+						} else {
+							TestLogger.Log("availableが0で待つなんてこともあると思う。んで、そうなった場合どうやって待てばいいんだろう。continueしてみる。");
+							continue;
+						}
+						
+						var scanResult2 = DisquuunAPI.ScanBuffer(command, buffer);
+						if (scanResult2.isDone) {
+							TestLogger.Log("無事突破、この時のサイズ:" + buffer.Length);
+							// この数値には再現性がある。んで、バッファサイズがこれを超えることがなければ、一発で受けられる。
+							// 途中でバッファサイズオーバーが露呈するんだよな。大丈夫かな、、
+							break;
+						}
+					}
+				}
+			}	
+			result = DisquuunAPI.EvaluateSingleCommand(command, currentByteSize, buffer);
+			
 			socketToken.socketState = SocketState.OPENED;
 			return result;
 		}
@@ -127,6 +177,7 @@ namespace DisquuunCore {
 			socketToken.sendArgs.SetBuffer(data, 0, data.Length);
 			if (!socketToken.socket.SendAsync(socketToken.sendArgs)) OnSend(socketToken.socket, socketToken.sendArgs); 
 		}
+		
 		
 		/*
 			handlers
@@ -225,7 +276,8 @@ namespace DisquuunCore {
 				var rest = args.AcceptSocket.Available;
 				if (0 < rest) {
 					var restBuffer = new byte[rest];
-					var additionalReadResult = token.socket.Receive(restBuffer, SocketFlags.None);
+					var additionalReadResult = token.socket.Receive(restBuffer, SocketFlags.None);// ここでロックしちゃう気がする。が、asyncに変えればなんとか逃げられそう。
+					TestLogger.Log("byteTransferredか、指定bufferサイズを超えた場合にここに来る気がする。");
 					
 					var baseLength = dataSource.Length;
 					Array.Resize(ref dataSource, baseLength + rest);
@@ -234,17 +286,9 @@ namespace DisquuunCore {
 					bytesAmount = dataSource.Length;
 				}
 				
-				
-				// このへんで気になるのが、Asyncでいろんな動作をやった時、socketが足りなくなったらどうしようっていうやつだな、、みんなどうしてるんだろうね。
-				// 要件としては、
-				
-				// ・全部いっぱいいっぱいな場合は貯める(Asyncならまあ、データで待てる。データスタック持っておけば良い。)(Syncが来た時にいっぱいいっぱいだったら？とかは辛いな。socketShortage出しちゃおう。)
-				
-				// ・気にせずsocketに積む(積めるルールがある気がする。Syncの上にAsync積むのはできないし、逆もできない。使い中のSocketのタイプに寄る感じになる。よくないのでは、、)
-				
-				// とかか。気にせず積もうかな。振り分けのロジックのバランシングができればそれで良い気がする。GetJobとかがロックするのはしょうがないことなんで。
-				// 問題になりそうなのは、Asyncで詰まってるようなところに、Syncでメッセージ送ろうとすると詰まっちゃって、これはユーザーから見えないところ。
-				// それは避けないとな〜〜っていう。
+				// 読み出そうとして、そのタイミングでデータの全体像が整ってない、っていうのがあり得る。
+				// データが足りてない場合、この辺でロックしてしまうのはマズイよな。
+				// ・足りているかどうかの仮読みはやっぱり欲しいわけだな。っていうかデータだけをindexで取り出せれば良いんだよな。
 				
 				var result = DisquuunAPI.EvaluateSingleCommand(token.currentCommand, bytesAmount, dataSource);
 				var continuation = token.AsyncCallback(token.currentCommand, result);
@@ -291,6 +335,7 @@ namespace DisquuunCore {
 				}
 			}
 		}
+		
 		
 		/*
 			utils

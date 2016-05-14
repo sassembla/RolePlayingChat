@@ -24,7 +24,10 @@ public partial class Tests {
 	}
 	
 	public void _2_1_MultipleSyncSocket (Disquuun disquuun) {
-		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		// WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		// var queueId1 = Guid.NewGuid().ToString();
+		// var result1 = disquuun.AddJob(queueId1, new byte[10]).Sync();
+		// var jobId1 = DisquuunDeserializer.AddJob(result1);
 		
 		// for () {		
 		// 	var queueId = Guid.NewGuid().ToString();

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
+using UnityEngine;
 
 namespace DisquuunCore {
 	
@@ -289,12 +290,10 @@ namespace DisquuunCore {
 								var bulkCountStr = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor - cursor);
 								var bulkCountNum = Convert.ToInt32(bulkCountStr);
 								
-								// Disquuun.Log("bulkCountNum:" + bulkCountNum);
 								cursor = lineEndCursor + 2;// CR + LF
 								
 								// trigger when GETJOB NOHANG
 								if (bulkCountNum < 0) return new DisquuunResult[]{};
-								
 								
 								jobDatas = new DisquuunResult[bulkCountNum];
 								for (var i = 0; i < bulkCountNum; i++) {
@@ -306,7 +305,6 @@ namespace DisquuunCore {
 										
 										var bulkCountStr2 = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor2 - cursor);
 										itemCount = Convert.ToInt32(bulkCountStr2);
-										
 										// Disquuun.Log("itemCount:" + itemCount);
 										
 										cursor = lineEndCursor2 + 2;// CR + LF
@@ -337,11 +335,9 @@ namespace DisquuunCore {
 									{
 										// $
 										var lineEndCursor3 = ReadLine(sourceBuffer, cursor);
-										cursor = cursor + 1;// add header byte size = 1.
 										
 										var countStr = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor3 - cursor);
 										var strNum = Convert.ToInt32(countStr);
-										// Disquuun.Log("id strNum:" + strNum);
 										
 										cursor = lineEndCursor3 + 2;// CR + LF
 										
@@ -873,12 +869,8 @@ namespace DisquuunCore {
 		
 	
 		public static int ReadLine (byte[] bytes, int cursor) {
-			do {
-				if (bytes[cursor] == ByteLF) break;
 				cursor++;
-			} while (cursor < bytes.Length);
 			
-			return cursor - 1;
 		}
 	}
 }

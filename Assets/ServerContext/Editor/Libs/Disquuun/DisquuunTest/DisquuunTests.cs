@@ -24,36 +24,35 @@ public partial class Tests {
 	public void RunTests () {
 		var tests = new List<Action<Disquuun>>();
 		
-		// basement.
-		tests.Add(_0_0_InitWith2Connection);
-		tests.Add(_0_1_ConnectionFailedWithNoDisqueServer);
-		tests.Add(_0_2_SyncInfo);
-		tests.Add(_0_3_SyncInfoTwice);
-		tests.Add(_0_4_AsyncInfo);
-		tests.Add(_0_5_LoopInfo_Once);
-		tests.Add(_0_6_LoopInfo_Twice);
-		tests.Add(_0_7_LoopInfo_100);
+		// // basement.
+		// tests.Add(_0_0_InitWith2Connection);
+		// tests.Add(_0_1_ConnectionFailedWithNoDisqueServer);
+		// tests.Add(_0_2_SyncInfo);
+		// tests.Add(_0_3_SyncInfoTwice);
+		// tests.Add(_0_4_AsyncInfo);
+		// tests.Add(_0_5_LoopInfo_Once);
+		// tests.Add(_0_6_LoopInfo_Twice);
+		// tests.Add(_0_7_LoopInfo_100);
 		
-		// apis.
-		tests.Add(_1_0_AddJob);
-		tests.Add(_1_1_GetJob);
+		// // apis.
+		// tests.Add(_1_0_AddJob);
+		// tests.Add(_1_1_GetJob);
 		tests.Add(_1_1_1_GetJobWithCount);
-		tests.Add(_1_1_2_GetJobFromMultiQueue);
-		tests.Add(_1_1_3_GetJobWithNoHang);
-		tests.Add(_1_2_AckJob);
-		tests.Add(_1_3_Fastack);
+		// tests.Add(_1_1_2_GetJobFromMultiQueue);
+		// tests.Add(_1_1_3_GetJobWithNoHang);
+		// tests.Add(_1_2_AckJob);
+		// tests.Add(_1_3_Fastack);
 		
-		// multiSocket.
-		tests.Add(_2_0_2SyncSocket);
-		tests.Add(_2_1_MultipleSyncSocket);
+		// // multiSocket.
+		// tests.Add(_2_0_2SyncSocket);
+		// tests.Add(_2_1_MultipleSyncSocket);
 		
 		
 		TestLogger.Log("tests started.");
 		
-		
 		foreach (var test in tests) {
 			try {
-				var disquuun = new Disquuun("127.0.0.1", 7711, 10240, 2);
+				var disquuun = new Disquuun("127.0.0.1", 7711, 2020008, 2);
 				test(disquuun);
 				if (disquuun != null) {
 					disquuun.Disconnect(true);
@@ -68,8 +67,9 @@ public partial class Tests {
 		WaitUntil(() => (disquuun2.State() == Disquuun.ConnectionState.OPENED), 5);
 		var result = DisquuunDeserializer.Info(disquuun2.Info().Sync());
 		disquuun2.Disconnect(true);
-		
-		TestLogger.Log("all tests over. rest unconsumed job:" + result.jobs.registered_jobs);
+		var restJobCount = -1;
+		if (result.jobs != null) restJobCount = result.jobs.registered_jobs;
+		TestLogger.Log("all tests over. rest unconsumed job:" + restJobCount);
 	}
 	
 	

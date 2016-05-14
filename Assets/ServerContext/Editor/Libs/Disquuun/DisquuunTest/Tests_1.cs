@@ -37,20 +37,20 @@ public partial class Tests {
 	}
 	
 	public void _1_1_1_GetJobWithCount (Disquuun disquuun) {
-		Assert(false, "not yet tested.");
-		// WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
 		
-		// var queueId = Guid.NewGuid().ToString();
+		var queueId = Guid.NewGuid().ToString();
 		
-		// for (var i = 0; i < 1000; i++) disquuun.AddJob(queueId, new byte[10]).Sync();
+		var addJobCount = 10000;// 1110008
+		for (var i = 0; i < addJobCount; i++) disquuun.AddJob(queueId, new byte[100]).Sync();
 		
-		// var result = disquuun.GetJob(new string[]{queueId}, "COUNT", 1000).Sync();
-		// var jobDatas = DisquuunDeserializer.GetJob(result);
-		// Assert(1000, jobDatas.Length, "not match.");
+		var result = disquuun.GetJob(new string[]{queueId}, "COUNT", addJobCount).Sync();
+		var jobDatas = DisquuunDeserializer.GetJob(result);
+		Assert(addJobCount, jobDatas.Length, "not match.");
 		
-		// // ack in.
-		// var jobIds = jobDatas.Select(job => job.jobId).ToArray();
-		// disquuun.FastAck(jobIds).Sync();
+		// ack in.
+		var jobIds = jobDatas.Select(job => job.jobId).ToArray();
+		disquuun.FastAck(jobIds).Sync();
 	}
 	
 	public void _1_1_2_GetJobFromMultiQueue (Disquuun disquuun) {
