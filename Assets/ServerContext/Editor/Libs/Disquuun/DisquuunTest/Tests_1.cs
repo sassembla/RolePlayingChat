@@ -1,6 +1,5 @@
 using System;
-using System.Collections.Generic;
-
+using System.Linq;
 using DisquuunCore;
 using DisquuunCore.Deserialize;
 
@@ -16,6 +15,9 @@ public partial class Tests {
 		var result = disquuun.AddJob(queueId, new byte[10]).Sync();
 		var jobId = DisquuunDeserializer.AddJob(result);
 		Assert(!string.IsNullOrEmpty(jobId), "empty.");
+		
+		// ack in.
+		disquuun.FastAck(new string[]{jobId}).Sync();
 	}
 	
 	public void _1_1_GetJob (Disquuun disquuun) {
@@ -28,6 +30,55 @@ public partial class Tests {
 		var result = disquuun.GetJob(new string[]{queueId}).Sync();
 		var jobDatas = DisquuunDeserializer.GetJob(result);
 		Assert(1, jobDatas.Length, "not match.");
+		
+		// ack in.
+		var jobId = jobDatas[0].jobId;
+		disquuun.FastAck(new string[]{jobId}).Sync();
+	}
+	
+	public void _1_1_1_GetJobWithCount (Disquuun disquuun) {
+		Assert(false, "not yet tested.");
+		// WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		
+		// var queueId = Guid.NewGuid().ToString();
+		
+		// for (var i = 0; i < 1000; i++) disquuun.AddJob(queueId, new byte[10]).Sync();
+		
+		// var result = disquuun.GetJob(new string[]{queueId}, "COUNT", 1000).Sync();
+		// var jobDatas = DisquuunDeserializer.GetJob(result);
+		// Assert(1000, jobDatas.Length, "not match.");
+		
+		// // ack in.
+		// var jobIds = jobDatas.Select(job => job.jobId).ToArray();
+		// disquuun.FastAck(jobIds).Sync();
+	}
+	
+	public void _1_1_2_GetJobFromMultiQueue (Disquuun disquuun) {
+		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		
+		var queueId1 = Guid.NewGuid().ToString();
+		disquuun.AddJob(queueId1, new byte[10]).Sync();
+		
+		var queueId2 = Guid.NewGuid().ToString();
+		disquuun.AddJob(queueId2, new byte[10]).Sync();
+		
+		var result = disquuun.GetJob(new string[]{queueId1, queueId2}, "count", 2).Sync();
+		var jobDatas = DisquuunDeserializer.GetJob(result);
+		Assert(2, jobDatas.Length, "not match.");
+		
+		// ack in.
+		var jobIds = jobDatas.Select(job => job.jobId).ToArray();
+		disquuun.FastAck(jobIds).Sync();
+	}
+	
+	public void _1_1_3_GetJobWithNoHang (Disquuun disquuun) {
+		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		
+		var queueId = Guid.NewGuid().ToString();
+		
+		var result = disquuun.GetJob(new string[]{queueId}, "NOHANG").Sync();
+		var jobDatas = DisquuunDeserializer.GetJob(result);
+		Assert(0, jobDatas.Length, "not match.");
 	}
 	
 	public void _1_2_AckJob (Disquuun disquuun) {
@@ -43,9 +94,20 @@ public partial class Tests {
 		Assert(1, ackCount, "not match.");
 	}
 	
+	public void _1_3_Fastack (Disquuun disquuun) {
+		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		
+		var queueId = Guid.NewGuid().ToString();
+		var jobId = DisquuunDeserializer.AddJob(
+			disquuun.AddJob(queueId, new byte[10]).Sync()
+		);
+		
+		var result = disquuun.FastAck(new string[]{jobId}).Sync();
+		var ackCount = DisquuunDeserializer.FastAck(result);
+		Assert(1, ackCount, "not match.");
+	}
 	
-	// ACKJOB,// jobid1 jobid2 ... jobidN
-	// FASTACK,// jobid1 jobid2 ... jobidN
+	
 	// WORKING,// jobid
 	// NACK,// <job-id> ... <job-id>
 	// INFO,
