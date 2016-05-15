@@ -37,7 +37,7 @@ public partial class Tests {
 		// // apis.
 		// tests.Add(_1_0_AddJob);
 		// tests.Add(_1_1_GetJob);
-		tests.Add(_1_1_1_GetJobWithCount);
+		// tests.Add(_1_1_1_GetJobWithCount);
 		// tests.Add(_1_1_2_GetJobFromMultiQueue);
 		// tests.Add(_1_1_3_GetJobWithNoHang);
 		// tests.Add(_1_2_AckJob);
@@ -47,6 +47,10 @@ public partial class Tests {
 		// tests.Add(_2_0_2SyncSocket);
 		// tests.Add(_2_1_MultipleSyncSocket);
 		
+		// buffer over.
+		tests.Add(_3_0_ByfferOverWithSingleSyncGetJob);
+		tests.Add(_3_1_ByfferOverWithMultipleSyncGetJob);
+		tests.Add(_3_2_ByfferOverWithSokcetOverSyncGetJob);
 		
 		TestLogger.Log("tests started.");
 		
@@ -62,6 +66,7 @@ public partial class Tests {
 				TestLogger.Log("test:" + test + " FAILED by exception:" + e);
 			}
 		}
+		
 		
 		var disquuun2 = new Disquuun("127.0.0.1", 7711, 10240, 1);
 		WaitUntil(() => (disquuun2.State() == Disquuun.ConnectionState.OPENED), 5);

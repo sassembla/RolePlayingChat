@@ -1,6 +1,7 @@
 using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 
 namespace DisquuunCore {
     public class DisquuunSocket {
@@ -91,66 +92,41 @@ namespace DisquuunCore {
 			socketToken.socketState = SocketState.BUSY;
 			socketToken.socket.Send(data);
 			
-			// TestLogger.Log("バッファ使いたいね。あと、send失敗とかもありえるはず。");
+			// TestLogger.Log("send失敗とかもありえるはず。");
 			
-			// waiting for result data.
-			var header = new byte[1];
-			socketToken.socket.Receive(header);
+			var currentLength = 0;
+			var scanResult = new DisquuunAPI.ScanResult(false);
 			
-			var available = socketToken.socket.Available;
-			
-			if (socketToken.receiveBuffer.Length < available) {
-				TestLogger.Log("しょっぱなからサイズオーバーしてる " + socketToken.receiveBuffer.Length + " vs:" + available);
-			} else {
-				TestLogger.Log("サイズオーバーしてない " + socketToken.receiveBuffer.Length + " vs:" + available);
-			}
-			
-			// 頭冴えてるときになんとかする。このへんいらないはず。
-			var buffer = new byte[available + 1];
-			buffer[0] = header[0];
-			
-			DisquuunResult[] result = null;
-			socketToken.socket.Receive(buffer, 1, available, SocketFlags.None);
-			
-			var currentByteSize = available+1;
-			
-			// ここで分解 & 待つのが正しい。うーーん。スキャンして読み込み可能かどうか判断、
-			// 読み込み可能になるまでReceiveする、っていう。。。
-			// getjob以外はこんな泥沼になることないと思う。
-			if (command == DisqueCommand.GETJOB) {
-				var scanResult = DisquuunAPI.ScanBuffer(command, buffer);
-				TestLogger.Log("scanResult:" + scanResult.isDone);
+			while (true) {
+				// waiting for head of transferring data or rest of data.
+				socketToken.socket.Receive(socketToken.receiveBuffer, currentLength, 1, SocketFlags.None);
+				currentLength = currentLength + 1;
 				
-				if (!scanResult.isDone) {
-					// 最終的には、自前で用意したバッファに対して足していくのが良いと思う。
-					// オーバーしたらアウト、っていう。そしたらコピー自体は無い。
+				var available = socketToken.socket.Available;
+				{
+					var readableLength = currentLength + available;
 					
-					// この内容をAsyncに行うことができれば、それでいいわけだ。できるだろ多分。loopを併用すればいい。
-					while (true) {
-						var availableReadingSize = socketToken.socket.Available;
-						if (0 < availableReadingSize) {
-							var baseLength = buffer.Length;
-							Array.Resize(ref buffer, buffer.Length + availableReadingSize);
-							socketToken.socket.Receive(buffer, baseLength, availableReadingSize, SocketFlags.None);
-						} else {
-							TestLogger.Log("availableが0で待つなんてこともあると思う。んで、そうなった場合どうやって待てばいいんだろう。continueしてみる。");
-							continue;
-						}
-						
-						var scanResult2 = DisquuunAPI.ScanBuffer(command, buffer);
-						if (scanResult2.isDone) {
-							TestLogger.Log("無事突破、この時のサイズ:" + buffer.Length);
-							// この数値には再現性がある。んで、バッファサイズがこれを超えることがなければ、一発で受けられる。
-							// 途中でバッファサイズオーバーが露呈するんだよな。大丈夫かな、、
-							break;
-						}
+					if (socketToken.receiveBuffer.Length < readableLength) {
+						TestLogger.Log("サイズオーバーしてる " + socketToken.receiveBuffer.Length + " vs:" + readableLength);
+						Array.Resize(ref socketToken.receiveBuffer, readableLength);
+					} else {
+						// TestLogger.Log("まだサイズオーバーしてない " + socketToken.receiveBuffer.Length + " vs:" + readableLength + " が、読み込みの過程でサイズオーバーしそう。");
 					}
 				}
-			}	
-			result = DisquuunAPI.EvaluateSingleCommand(command, currentByteSize, buffer);
+				
+				// read rest.
+				socketToken.socket.Receive(socketToken.receiveBuffer, currentLength, available, SocketFlags.None);
+				currentLength = currentLength + available;
+				
+				scanResult = DisquuunAPI.ScanBuffer(command, socketToken.receiveBuffer, currentLength);
+				if (scanResult.isDone) break;
+				
+				// continue reading data from socket.
+				TestLogger.Log("continue, currentLength:" + currentLength);
+			}
 			
 			socketToken.socketState = SocketState.OPENED;
-			return result;
+			return scanResult.data;
 		}
 		
 		public void Async (DisqueCommand command, byte[] data, Func<DisqueCommand, DisquuunResult[], bool> Callback) {
@@ -290,18 +266,20 @@ namespace DisquuunCore {
 				// データが足りてない場合、この辺でロックしてしまうのはマズイよな。
 				// ・足りているかどうかの仮読みはやっぱり欲しいわけだな。っていうかデータだけをindexで取り出せれば良いんだよな。
 				
-				var result = DisquuunAPI.EvaluateSingleCommand(token.currentCommand, bytesAmount, dataSource);
-				var continuation = token.AsyncCallback(token.currentCommand, result);
+				TestLogger.Log("asyncはまだ対応してない。");
 				
-				if (continuation) {
-					// ready for receive.
-					if (!socketToken.socket.ReceiveAsync(socketToken.receiveArgs)) OnReceived(socketToken.socket, socketToken.receiveArgs);
+				// var result = DisquuunAPI.EvaluateSingleCommand(token.currentCommand, dataSource);
+				// var continuation = token.AsyncCallback(token.currentCommand, result);
+				
+				// if (continuation) {
+				// 	// ready for receive.
+				// 	if (!socketToken.socket.ReceiveAsync(socketToken.receiveArgs)) OnReceived(socketToken.socket, socketToken.receiveArgs);
 			
-					socketToken.sendArgs.SetBuffer(token.currentBytes, 0, token.currentBytes.Length);
-					if (!token.socket.SendAsync(token.sendArgs)) OnSend(token.socket, token.sendArgs);
-				} else {
-					token.socketState = SocketState.OPENED;
-				}
+				// 	socketToken.sendArgs.SetBuffer(token.currentBytes, 0, token.currentBytes.Length);
+				// 	if (!token.socket.SendAsync(token.sendArgs)) OnSend(token.socket, token.sendArgs);
+				// } else {
+				// 	token.socketState = SocketState.OPENED;
+				// }
 			}
 		}
 		

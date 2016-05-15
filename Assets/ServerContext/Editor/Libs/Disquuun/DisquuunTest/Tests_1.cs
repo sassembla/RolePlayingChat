@@ -41,7 +41,7 @@ public partial class Tests {
 		
 		var queueId = Guid.NewGuid().ToString();
 		
-		var addJobCount = 10000;// 1110008
+		var addJobCount = 10000;
 		for (var i = 0; i < addJobCount; i++) disquuun.AddJob(queueId, new byte[100]).Sync();
 		
 		var result = disquuun.GetJob(new string[]{queueId}, "COUNT", addJobCount).Sync();
