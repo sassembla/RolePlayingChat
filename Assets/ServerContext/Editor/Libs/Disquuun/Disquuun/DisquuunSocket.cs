@@ -12,10 +12,7 @@ namespace DisquuunCore {
 		private SocketToken socketToken;
 		
 		public SocketState State () {
-			// lock (socketToken) 
-			{
-				return socketToken.socketState;
-			}
+			return socketToken.socketState;
 		}
 		
 		public enum SocketState {
@@ -226,8 +223,6 @@ namespace DisquuunCore {
 				}
 			}
 		}
-		
-		private int count = 0;
 		
 		private void OnReceived (object unused, SocketAsyncEventArgs args) {
 			var token = (SocketToken)args.UserToken;

@@ -8,22 +8,48 @@ using DisquuunCore.Deserialize;
 */
 
 public partial class Tests {
-	public void _3_0_2SyncSocket (Disquuun disquuun) {
+	public void _3_0_2AsyncSocket (Disquuun disquuun) {
 		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
 		
+		var jobId1 = string.Empty;
+		
 		var queueId1 = Guid.NewGuid().ToString();
-		var result1 = disquuun.AddJob(queueId1, new byte[10]).Sync();
-		var jobId1 = DisquuunDeserializer.AddJob(result1);
+		disquuun.AddJob(queueId1, new byte[10]).Async(
+			(command, data) => {
+				jobId1 = DisquuunDeserializer.AddJob(data);
+			}
+		);
+		
+		var jobId2 = string.Empty;
 		
 		var queueId2 = Guid.NewGuid().ToString();
-		var result2 = disquuun.AddJob(queueId2, new byte[10]).Sync();
-		var jobId2 = DisquuunDeserializer.AddJob(result2);
+		disquuun.AddJob(queueId2, new byte[10]).Async(
+			(command, data) => {
+				jobId2 = DisquuunDeserializer.AddJob(data);
+			}
+		);
 		
-		var gets = DisquuunDeserializer.GetJob(disquuun.GetJob(new string[]{queueId1, queueId2}, "count", 2).Sync());
-		disquuun.FastAck(gets.Select(job => job.jobId).ToArray()).Sync();
+		WaitUntil(() => (!string.IsNullOrEmpty(queueId1) && !string.IsNullOrEmpty(queueId2)), 5);
+		
+		var done = false;
+		disquuun.GetJob(new string[]{queueId1, queueId2}, "count", 2).Async(
+			(command, data) => {
+				var gets = DisquuunDeserializer.GetJob(data);
+				
+				Assert(2, gets.Length, "not match.");
+				
+				disquuun.FastAck(gets.Select(job => job.jobId).ToArray()).Async(
+					(c, d) => {
+						done = true;
+					}
+				);
+			}	
+		);
+		
+		WaitUntil(() => done, 5);
 	}
 	
-	public void _3_1_MultipleSyncSocket (Disquuun disquuun) {
+	public void _3_1_MultipleAsyncSocket (Disquuun disquuun) {
 		// WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
 		// var queueId1 = Guid.NewGuid().ToString();
 		// var result1 = disquuun.AddJob(queueId1, new byte[10]).Sync();
