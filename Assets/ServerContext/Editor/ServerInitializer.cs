@@ -12,29 +12,39 @@ using System.IO;
   		var settings = (StandardAssetsConnectorSettings)ScriptableObject.CreateInstance("StandardAssetsConnectorSettings");
 		settings.GeneratePrivateClientKey();
   	}
-  
-	static ServerContext sContext;
+  	private static ServerInitializer initializer;
 	
-	static ServerInitializer () {
+	static ServerInitializer () {// called by Unity.
+		initializer = new ServerInitializer();
+	}
+	
+	
+	
+	
+	public ServerInitializer () {
 		XrossPeer.SetupLog(Path.Combine(Directory.GetParent(Application.dataPath).ToString(), "server.log"));
 		Setup();
 		
 		DisquuunTests.Start();
+		
+		// コンパイル開始と、プレイ開始時にリセットをかける必要がある。
 		EditorApplication.update += DetectCompileStart;
 	}
 	
-	private static void DetectCompileStart () {
+	private void DetectCompileStart () {
 		if (EditorApplication.isCompiling) {
 			EditorApplication.update -= DetectCompileStart;
-			if (disqueConnectionCont != null) disqueConnectionCont.Disconnect();
+			
+			initializer.Teardown();
 			DisquuunTests.Stop();
 		}
 	}
 	
-	private static DisqueConnectionController disqueConnectionCont;
+	private ServerContext sContext;
+	private DisqueConnectionController disqueConnectionCont;
 	
 	
-	public static void Setup () {
+	public void Setup () {
 		XrossPeer.Log("\n\n");
 		XrossPeer.Log("----------");
 		XrossPeer.Log("initializing server context....");
@@ -46,5 +56,14 @@ using System.IO;
 		
 		disqueConnectionCont = new DisqueConnectionController(settings.ClientToContextKey());
 		disqueConnectionCont.SetContext(sContext);
+	}
+	
+	public void Teardown () {
+		XrossPeer.Log("\n\n");
+		XrossPeer.Log("----------");
+		XrossPeer.Log("teardown server context....");
+		XrossPeer.Log("----------");
+		sContext.Teardown();
+		disqueConnectionCont.Disconnect();
 	}
 }
