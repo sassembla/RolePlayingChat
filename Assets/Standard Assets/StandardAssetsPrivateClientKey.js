@@ -1,5 +1,5 @@
 #pragma strict
 class StandardAssetsPrivateClientKey extends ScriptableObject {
-public function ToString () { return "747b9f59-f90e-4782-8a26-3974a6ac91a4"; }
+public function ToString () { return "f6dba12a-59b7-4bcc-a835-991a2ccf5a78"; }
 }
 

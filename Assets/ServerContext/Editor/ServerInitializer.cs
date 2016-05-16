@@ -26,9 +26,12 @@ using System.IO;
 	private static void DetectCompileStart () {
 		if (EditorApplication.isCompiling) {
 			EditorApplication.update -= DetectCompileStart;
+			if (disqueConnectionCont != null) disqueConnectionCont.Disconnect();
 			DisquuunTests.Stop();
 		}
 	}
+	
+	private static DisqueConnectionController disqueConnectionCont;
 	
 	
 	public static void Setup () {
@@ -41,8 +44,7 @@ using System.IO;
 		
 		sContext = new ServerContext(settings.ClientToContextKey());
 		
-		// この辺がDisquuunになればもうちょい整理できると思う。
-		var disqueConnectionCont = new DisqueConnectionController(settings.ClientToContextKey());
+		disqueConnectionCont = new DisqueConnectionController(settings.ClientToContextKey());
 		disqueConnectionCont.SetContext(sContext);
 	}
 }

@@ -8,7 +8,7 @@ using DisquuunCore.Deserialize;
 */
 
 public partial class Tests {
-	public void _1_0_AddJob (Disquuun disquuun) {
+	public void _1_0_AddJob_Sync (Disquuun disquuun) {
 		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
 		
 		var queueId = Guid.NewGuid().ToString();
@@ -20,7 +20,7 @@ public partial class Tests {
 		disquuun.FastAck(new string[]{jobId}).Sync();
 	}
 	
-	public void _1_1_GetJob (Disquuun disquuun) {
+	public void _1_1_GetJob_Sync (Disquuun disquuun) {
 		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
 		
 		var queueId = Guid.NewGuid().ToString();
@@ -36,7 +36,7 @@ public partial class Tests {
 		disquuun.FastAck(new string[]{jobId}).Sync();
 	}
 	
-	public void _1_1_1_GetJobWithCount (Disquuun disquuun) {
+	public void _1_1_1_GetJobWithCount_Sync (Disquuun disquuun) {
 		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
 		
 		var queueId = Guid.NewGuid().ToString();
@@ -53,7 +53,7 @@ public partial class Tests {
 		disquuun.FastAck(jobIds).Sync();
 	}
 	
-	public void _1_1_2_GetJobFromMultiQueue (Disquuun disquuun) {
+	public void _1_1_2_GetJobFromMultiQueue_Sync (Disquuun disquuun) {
 		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
 		
 		var queueId1 = Guid.NewGuid().ToString();
@@ -71,7 +71,7 @@ public partial class Tests {
 		disquuun.FastAck(jobIds).Sync();
 	}
 	
-	public void _1_1_3_GetJobWithNoHang (Disquuun disquuun) {
+	public void _1_1_3_GetJobWithNoHang_Sync (Disquuun disquuun) {
 		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
 		
 		var queueId = Guid.NewGuid().ToString();
@@ -81,7 +81,7 @@ public partial class Tests {
 		Assert(0, jobDatas.Length, "not match.");
 	}
 	
-	public void _1_2_AckJob (Disquuun disquuun) {
+	public void _1_2_AckJob_Sync (Disquuun disquuun) {
 		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
 		
 		var queueId = Guid.NewGuid().ToString();
@@ -94,7 +94,7 @@ public partial class Tests {
 		Assert(1, ackCount, "not match.");
 	}
 	
-	public void _1_3_Fastack (Disquuun disquuun) {
+	public void _1_3_Fastack_Sync (Disquuun disquuun) {
 		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
 		
 		var queueId = Guid.NewGuid().ToString();

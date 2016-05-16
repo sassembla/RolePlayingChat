@@ -24,33 +24,51 @@ public partial class Tests {
 	public void RunTests () {
 		var tests = new List<Action<Disquuun>>();
 		
-		// // basement.
-		// tests.Add(_0_0_InitWith2Connection);
-		// tests.Add(_0_1_ConnectionFailedWithNoDisqueServer);
-		// tests.Add(_0_2_SyncInfo);
-		// tests.Add(_0_3_SyncInfoTwice);
-		// tests.Add(_0_4_AsyncInfo);
-		// tests.Add(_0_5_LoopInfo_Once);
-		// tests.Add(_0_6_LoopInfo_Twice);
-		// tests.Add(_0_7_LoopInfo_100);
+		// basement.
+		tests.Add(_0_0_InitWith2Connection);
+		tests.Add(_0_0_1_WaitOnOpen2Connection);
+		tests.Add(_0_1_ConnectionFailedWithNoDisqueServer);
+		tests.Add(_0_2_SyncInfo);
+		tests.Add(_0_3_SyncInfoTwice);
+		tests.Add(_0_4_AsyncInfo);
+		tests.Add(_0_5_LoopInfo_Once);
+		tests.Add(_0_6_LoopInfo_Twice);
+		tests.Add(_0_7_LoopInfo_100);
 		
-		// // apis.
-		// tests.Add(_1_0_AddJob);
-		// tests.Add(_1_1_GetJob);
-		// tests.Add(_1_1_1_GetJobWithCount);
-		// tests.Add(_1_1_2_GetJobFromMultiQueue);
-		// tests.Add(_1_1_3_GetJobWithNoHang);
-		// tests.Add(_1_2_AckJob);
-		// tests.Add(_1_3_Fastack);
+		// sync apis.
+		tests.Add(_1_0_AddJob_Sync);
+		tests.Add(_1_1_GetJob_Sync);
+		tests.Add(_1_1_1_GetJobWithCount_Sync);
+		tests.Add(_1_1_2_GetJobFromMultiQueue_Sync);
+		tests.Add(_1_1_3_GetJobWithNoHang_Sync);
+		tests.Add(_1_2_AckJob_Sync);
+		tests.Add(_1_3_Fastack_Sync);
 		
-		// // multiSocket.
-		// tests.Add(_2_0_2SyncSocket);
-		// tests.Add(_2_1_MultipleSyncSocket);
+		// async apis.
+		tests.Add(_2_0_AddJob_Async);
+		tests.Add(_2_1_GetJob_Async);
+		tests.Add(_2_1_1_GetJobWithCount_Async);
+		tests.Add(_2_1_2_GetJobFromMultiQueue_Async);
+		tests.Add(_2_1_3_GetJobWithNoHang_Async);
+		tests.Add(_2_2_AckJob_Async);
+		tests.Add(_2_3_Fastack_Async);
+		
+		// multiSocket.
+		tests.Add(_3_0_2SyncSocket);
+		tests.Add(_3_1_MultipleSyncSocket);
 		
 		// buffer over.
-		tests.Add(_3_0_ByfferOverWithSingleSyncGetJob);
-		tests.Add(_3_1_ByfferOverWithMultipleSyncGetJob);
-		tests.Add(_3_2_ByfferOverWithSokcetOverSyncGetJob);
+		tests.Add(_4_0_ByfferOverWithSingleSyncGetJob_Sync);
+		tests.Add(_4_1_ByfferOverWithMultipleSyncGetJob_Sync);
+		tests.Add(_4_2_ByfferOverWithSokcetOverSyncGetJob_Sync);
+		tests.Add(_4_3_ByfferOverWithSingleSyncGetJob_Async);
+		tests.Add(_4_4_ByfferOverWithMultipleSyncGetJob_Async);
+		tests.Add(_4_5_ByfferOverWithSokcetOverSyncGetJob_Async);
+		
+		// error handling.
+		// tests.Add(_5_0_Error)// sync時に出るエラー、接続できないとかその辺。
+		
+		
 		
 		TestLogger.Log("tests started.");
 		
