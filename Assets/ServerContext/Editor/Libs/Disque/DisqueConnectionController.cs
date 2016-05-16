@@ -20,8 +20,17 @@ public class DisqueConnectionController {
 			conId => {
 				disquuun.GetJob(new string[]{contextQueueIdentity}, "count", 1000).Loop(
 					(command, data) => {
-						var jobs = DisquuunDeserializer.GetJob(data).Select(jobData => jobData.jobData).ToList();
-						InputDatasToContext(jobs);
+						var jobs = DisquuunDeserializer.GetJob(data);
+						
+						var jobIds = jobs.Select(jobData => jobData.jobId).ToArray();
+						var jobDatas = jobs.Select(jobData => jobData.jobData).ToList();
+						
+						/*
+							fast ack all.
+						*/
+						disquuun.FastAck(jobIds).Async((command2, data2) => {});
+						
+						InputDatasToContext(jobDatas);
 						return true;
 					}
 				);

@@ -27,12 +27,22 @@ using System.IO;
 		
 		DisquuunTests.Start();
 		
-		// コンパイル開始と、プレイ開始時にリセットをかける必要がある。
+		EditorApplication.playmodeStateChanged += DetectPlayStart;
 		EditorApplication.update += DetectCompileStart;
+	}
+	
+	private void DetectPlayStart () {
+		if (!EditorApplication.isPlaying && EditorApplication.isPlayingOrWillChangePlaymode) {
+			TestLogger.Log("DetectPlayStart");
+			EditorApplication.playmodeStateChanged -= DetectPlayStart;
+			initializer.Teardown();
+			DisquuunTests.Stop();
+		}
 	}
 	
 	private void DetectCompileStart () {
 		if (EditorApplication.isCompiling) {
+			TestLogger.Log("DetectCompileStart");
 			EditorApplication.update -= DetectCompileStart;
 			
 			initializer.Teardown();
