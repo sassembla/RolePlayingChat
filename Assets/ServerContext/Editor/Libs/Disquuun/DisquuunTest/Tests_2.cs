@@ -23,7 +23,7 @@ public partial class Tests {
 		WaitUntil(() => !string.IsNullOrEmpty(jobId), 5);
 		
 		// ack in.
-		disquuun.FastAck(new string[]{jobId}).Sync();
+		disquuun.FastAck(new string[]{jobId}).DEPRICATED_Sync();
 	}
 	
 	public void _2_1_GetJob_Async (Disquuun disquuun) {
@@ -31,7 +31,7 @@ public partial class Tests {
 		
 		var queueId = Guid.NewGuid().ToString();
 		
-		disquuun.AddJob(queueId, new byte[10]).Sync();
+		disquuun.AddJob(queueId, new byte[10]).DEPRICATED_Sync();
 		
 		DisquuunDeserializer.JobData[] jobDatas = new DisquuunDeserializer.JobData[]{};
 		
@@ -45,7 +45,7 @@ public partial class Tests {
 		
 		// ack in.
 		var jobId = jobDatas[0].jobId;
-		disquuun.FastAck(new string[]{jobId}).Sync();
+		disquuun.FastAck(new string[]{jobId}).DEPRICATED_Sync();
 	}
 	
 	public void _2_1_1_GetJobWithCount_Async (Disquuun disquuun) {
@@ -54,7 +54,7 @@ public partial class Tests {
 		var queueId = Guid.NewGuid().ToString();
 		
 		var addJobCount = 10000;
-		for (var i = 0; i < addJobCount; i++) disquuun.AddJob(queueId, new byte[100]).Sync();
+		for (var i = 0; i < addJobCount; i++) disquuun.AddJob(queueId, new byte[100]).DEPRICATED_Sync();
 		
 		DisquuunDeserializer.JobData[] jobDatas = new DisquuunDeserializer.JobData[]{};
 		disquuun.GetJob(new string[]{queueId}, "COUNT", addJobCount).Async(
@@ -67,17 +67,17 @@ public partial class Tests {
 		
 		// ack in.
 		var jobIds = jobDatas.Select(job => job.jobId).ToArray();
-		disquuun.FastAck(jobIds).Sync();
+		disquuun.FastAck(jobIds).DEPRICATED_Sync();
 	}
 	
 	public void _2_1_2_GetJobFromMultiQueue_Async (Disquuun disquuun) {
 		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
 		
 		var queueId1 = Guid.NewGuid().ToString();
-		disquuun.AddJob(queueId1, new byte[10]).Sync();
+		disquuun.AddJob(queueId1, new byte[10]).DEPRICATED_Sync();
 		
 		var queueId2 = Guid.NewGuid().ToString();
-		disquuun.AddJob(queueId2, new byte[10]).Sync();
+		disquuun.AddJob(queueId2, new byte[10]).DEPRICATED_Sync();
 		
 		DisquuunDeserializer.JobData[] jobDatas = new DisquuunDeserializer.JobData[]{};
 		disquuun.GetJob(new string[]{queueId1, queueId2}, "count", 2).Async(
@@ -90,7 +90,7 @@ public partial class Tests {
 		
 		// ack in.
 		var jobIds = jobDatas.Select(job => job.jobId).ToArray();
-		disquuun.FastAck(jobIds).Sync();
+		disquuun.FastAck(jobIds).DEPRICATED_Sync();
 	}
 	
 	public void _2_1_3_GetJobWithNoHang_Async (Disquuun disquuun) {
@@ -115,7 +115,7 @@ public partial class Tests {
 		
 		var queueId = Guid.NewGuid().ToString();
 		var jobId = DisquuunDeserializer.AddJob(
-			disquuun.AddJob(queueId, new byte[10]).Sync()
+			disquuun.AddJob(queueId, new byte[10]).DEPRICATED_Sync()
 		);
 		
 		var ackCount = 0;
@@ -133,7 +133,7 @@ public partial class Tests {
 		
 		var queueId = Guid.NewGuid().ToString();
 		var jobId = DisquuunDeserializer.AddJob(
-			disquuun.AddJob(queueId, new byte[10]).Sync()
+			disquuun.AddJob(queueId, new byte[10]).DEPRICATED_Sync()
 		);
 		
 		var ackCount = 0;

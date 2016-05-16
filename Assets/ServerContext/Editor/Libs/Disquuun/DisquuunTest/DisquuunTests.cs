@@ -36,14 +36,14 @@ public partial class Tests {
 		tests.Add(_0_6_LoopInfo_Twice);
 		tests.Add(_0_7_LoopInfo_100);
 		
-		// sync apis. deprecated.
-		// tests.Add(_1_0_AddJob_Sync);
-		// tests.Add(_1_1_GetJob_Sync);
-		// tests.Add(_1_1_1_GetJobWithCount_Sync);
-		// tests.Add(_1_1_2_GetJobFromMultiQueue_Sync);
-		// tests.Add(_1_1_3_GetJobWithNoHang_Sync);
-		// tests.Add(_1_2_AckJob_Sync);
-		// tests.Add(_1_3_Fastack_Sync);
+		// sync apis. DEPRECATED.
+		tests.Add(_1_0_AddJob_Sync);
+		tests.Add(_1_1_GetJob_Sync);
+		tests.Add(_1_1_1_GetJobWithCount_Sync);
+		tests.Add(_1_1_2_GetJobFromMultiQueue_Sync);
+		tests.Add(_1_1_3_GetJobWithNoHang_Sync);
+		tests.Add(_1_2_AckJob_Sync);
+		tests.Add(_1_3_Fastack_Sync);
 		
 		// async apis.
 		tests.Add(_2_0_AddJob_Async);
@@ -67,8 +67,10 @@ public partial class Tests {
 		tests.Add(_4_5_ByfferOverWithSokcetOverSyncGetJob_Async);
 		
 		// error handling.
-		// tests.Add(_5_0_Error)// sync時に出るエラー、接続できないとかその辺。
+		// tests.Add(_5_0_Error)// connect時に出るエラー、接続できないとかその辺。
 		
+		// adding async request over busy-socket num.
+		// tests.Add(_6_0_ExceededSocketNo3In2);
 		
 		
 		TestLogger.Log("tests started.");

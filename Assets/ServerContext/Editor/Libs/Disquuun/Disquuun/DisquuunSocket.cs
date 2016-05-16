@@ -91,7 +91,7 @@ namespace DisquuunCore {
 		/*
 			Core methods of Disquuun.
 		*/
-		public DisquuunResult[] Sync (DisqueCommand command, byte[] data) {
+		public DisquuunResult[] DEPRECATED_Sync (DisqueCommand command, byte[] data) {
 			socketToken.socketState = SocketState.BUSY;
 			socketToken.socket.Send(data);
 			
@@ -367,9 +367,9 @@ namespace DisquuunCore {
 	
 	
 	public static class DisquuunExtension {
-		public static DisquuunResult[] Sync (this DisquuunInput input) {	
+		public static DisquuunResult[] DEPRICATED_Sync (this DisquuunInput input) {	
 			var socket = input.socket;
-			return socket.Sync(input.command, input.data);
+			return socket.DEPRECATED_Sync(input.command, input.data);
 		}
 		
 		public static void Async (this DisquuunInput input, Action<DisqueCommand, DisquuunResult[]> Callback) {	
