@@ -1,9 +1,8 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 
-namespace DisquuunCore {
+namespace DisquuunCore
+{
     public enum DisqueCommand {		
 		ADDJOB,// queue_name job <ms-timeout> [REPLICATE <count>] [DELAY <sec>] [RETRY <sec>] [TTL <sec>] [MAXLEN <count>] [ASYNC]
 		GETJOB,// [NOHANG] [TIMEOUT <ms-timeout>] [COUNT <count>] [WITHCOUNTERS] FROM queue1 queue2 ... queueN
@@ -121,10 +120,13 @@ namespace DisquuunCore {
 		
 		public void UpdateState () {
 			lock (socketPool) {
-				var avaiableSockets = socketPool.Where(socket => socket.State() == DisquuunSocket.SocketState.OPENED).ToArray();
-				var connectionCount = avaiableSockets.Length;
+				var availableSocketCount = 0;
+				for (var i = 0; i < socketPool.Length; i++) {
+					var socket = socketPool[i];
+					if (socket.State() == DisquuunSocket.SocketState.OPENED) availableSocketCount++;
+				}
 				
-				switch (connectionCount) {
+				switch (availableSocketCount) {
 					case 0: {
 						connectionState = ConnectionState.ALLCLOSED;
 						break;
