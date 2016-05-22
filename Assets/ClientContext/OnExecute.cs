@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using Cinemachine;
 using UnityEngine;
 using UnityEngine.UI;
@@ -18,9 +17,9 @@ public class OnExecute : MonoBehaviour {
 	/*
 		メッセージをどうやってデザインしようかな。
 		✔︎まず他人が必要だな。ダミー出そう。
-		・他人の近所にいったら、会話ボタン？どうやってチャット開始しよう。
-		・突然ウィンドウでるんでいいや。状態としては？
-		・walk -> 円形近接 -> 歩き終わったタイミングでTalk? Talk終わったらDefault。
+		✔他人の近所にいったら、会話ボタン？どうやってチャット開始しよう。
+		✔突然ウィンドウでるんでいいや。状態としては？
+		✔walk -> 円形近接 -> 歩き終わったタイミングでTalk? Talk終わったらDefault。
 		・
 	*/
 	
@@ -46,7 +45,7 @@ public class OnExecute : MonoBehaviour {
 			}, 
 			"rolePlayAgent", // string agent,
 			() => {
-				Debug.LogError("connected!");
+				// Debug.LogError("connected!");
 			}, 
 			(List<byte[]> datas) => {
 				foreach (var data in datas) ProcessData(data);

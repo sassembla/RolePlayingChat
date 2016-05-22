@@ -1,781 +1,317 @@
-using UnityEngine;
-
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Net.Sockets;
-using System.Text;
-using System.Threading;
 using System.Security.Cryptography;
-using System.Linq;
+using System.Text;
+using UnityEngine;
 
-
-/**
-	Motivations
+namespace WebuSocketCore {
+	public enum SocketState {
+		CONNECTING,
+		OPENING,
+		OPENED,
+		CLOSING,
+		CLOSED
+	}
 	
-	・async default
-		だいたい全部async。書いてなくてもasync。
-		syncは無い。
-		
-	・receive per frame
-		WebSocket接続後、
-		socket.Receiveとsocket.Sendを1Threadベースで一元化する。
-		複数箇所で同時にReceiveしない。また、Receiveに非同期動作を含まない。
-	
-	・2 threading
-		thread1:
-			serverからの受信データのqueueと、その後にclientからのqueuedデータの送付を行う。
-			
-		thread2:
-			queueされた受信データを解析、消化する。
-			
-		遅くなったり詰まったりしても、各threadの特定のフレームが時間的に膨張して、結果他の処理が後ろ倒しになるだけ。
-		
-	・ordered operation
-		外部からのrequestや、内部での状態変化などは、できる限りorderedな形で扱う。
-		即時的に動くのはcloseくらい。
-		
-*/
-namespace WebuSocket {
-	
-	public class WebuSocketClient {
+	public class WebuSocket {
 		private static RNGCryptoServiceProvider randomGen = new RNGCryptoServiceProvider();
 		
-		public readonly string webSocketConnectionId;
+		private readonly EndPoint endPoint;
+		
+		private SocketToken socketToken;
+		
+		public string webSocketConnectionId;
 		
 		private Socket socket;
-		private readonly Thread updater;
 		
-		private const string CRLF = "\r\n";
-		private const int HTTP_HEADER_LINE_BUF_SIZE = 1024;
-		private const string WEBSOCKET_VERSION = "13"; 
-		
+		public class SocketToken {
+			public SocketState socketState;
+			public readonly Socket socket;
 			
-		public enum WSConnectionState : int {
-			Opening,
-			Opened,
-			Closing,
-			Closed
+			public byte[] receiveBuffer;
+			public int readableDataLength;
+			
+			public readonly SocketAsyncEventArgs connectArgs;
+			public readonly SocketAsyncEventArgs sendArgs;
+			public readonly SocketAsyncEventArgs receiveArgs;
+			
+			
+			
+			// public Func<DisqueCommand, DisquuunCore.DisquuunResult[], bool> AsyncCallback;
+			
+			public SocketToken (Socket socket, long bufferSize, SocketAsyncEventArgs connectArgs, SocketAsyncEventArgs sendArgs, SocketAsyncEventArgs receiveArgs) {
+				this.socket = socket;
+				
+				this.receiveBuffer = new byte[bufferSize];
+				
+				this.connectArgs = connectArgs;
+				this.sendArgs = sendArgs;
+				this.receiveArgs = receiveArgs;
+				
+				this.connectArgs.UserToken = this;
+				this.sendArgs.UserToken = this;
+				this.receiveArgs.UserToken = this;
+				
+				this.receiveArgs.SetBuffer(receiveBuffer, 0, receiveBuffer.Length);
+			}
 		}
 		
-		private Action OnPong = () => {
-			// do nothing.
-		};
 		
-		private enum WSOrder : int {
-			Ping,
-			Pong,
-			CloseGracefully,
-		}
-		
-		private Queue<WSOrder> stackedOrders = new Queue<WSOrder>();
-		
-		private Queue<byte[]> stackedSendingDatas = new Queue<byte[]>();
-		
-		private List<byte[]> receivedDataList = new List<byte[]>();
-		
-		private WSConnectionState state;
-		
-		public WebuSocketClient (
+		public WebuSocket (
 			string url,
 			Action OnConnected,
 			Action<Queue<byte[]>> OnMessage,
 			Action<string> OnClosed,
 			Action<string, Exception> OnError,
-			int throttle=0,
 			Dictionary<string, string> additionalHeaderParams=null
 		) {
-			Debug.LogWarning("wss and another features are not supported yet.");
-			/*
-				unsupporteds:
-					wss,
-					redirect,
-					proxy,
-					fragments(fin != 1) for sending & receiving,
-					text,
-					
-			*/
-			
 			this.webSocketConnectionId = Guid.NewGuid().ToString();
 			
-			state = WSConnectionState.Opening;
+			var requstBytesAndHostAndPort = WebuSocketClient.GenerateRequestData(url, additionalHeaderParams);
+			this.endPoint = new IPEndPoint(IPAddress.Parse(requstBytesAndHostAndPort.host), requstBytesAndHostAndPort.port);
 			
+			StartConnectAsync(requstBytesAndHostAndPort.requestDataBytes);
+		}
+		
+		private void StartConnectAsync (byte[] requestData) {
+			var timeout = 1000;
+			var bufferSize = 1024 * 10;
 			
-			Queue<byte[]> messageQueue = new Queue<byte[]>();
+			Debug.LogError("起動時に、asyncでtcp -> ヘッダ送る -> レスポンス得る、というのをやってしまう。完了後はargs系を塗り替えるはず。");
 			
+			socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+			socket.NoDelay = true;
+			socket.SendTimeout = timeout;
 			
-			/*
-				stack of data which received header and half of payload.
-				this is local valuable and never access to this instance from outside of consumer thread.
-			*/
-			var stackedBytes = new byte[0];
+			Debug.LogError("endpointをでっち上げる");
 			
-			/*
-				thread for process the queue of received data.
-			*/
-			var receivedDataQueueConsumer = Updater(
-				throttle,
-				"WebuSocket-consumer-thread",
-				() => {
-					lock (receivedDataList) {
-						if (0 < receivedDataList.Count) {
-							/*
-								start concatinate.
-								new data is 
-									stacket bytes + new data bytes.
-							*/
-							var totalLength = 0;
-							foreach (var data in receivedDataList) totalLength = totalLength + data.Length;
-							
-							// stack length of data which is stacked at previous run.
-							var dataIndex = stackedBytes.Length;
-							
-							/*
-								expand stackedBytes. head of this bytes is maybe empty or rest of past-frame data. keep these datas & update size. 
-							*/
-							Array.Resize(ref stackedBytes, dataIndex + totalLength);
-							
-							// read all incoming datas. adding to stackedBytes.
-							foreach (var receivedData in receivedDataList) {
-								Buffer.BlockCopy(receivedData, 0, stackedBytes, dataIndex, receivedData.Length);
-								dataIndex = dataIndex + receivedData.Length;
-							}
-							
-							// consume all received data.
-							receivedDataList.Clear();
-							
-							
-							/*
-								start reading.
-							*/
-							
-							var messageIndexies = WebSocketByteGenerator.GetIndexies(stackedBytes);
-														
-							for (var i = 0; i < messageIndexies.Count; i++) {
-								var messageIndex = messageIndexies[i];
-								
-								switch (messageIndex.opCode) {
-									case WebSocketByteGenerator.OP_PING: {
-										StackOrder(WSOrder.Pong);
-										break;
-									}
-									case WebSocketByteGenerator.OP_PONG: {
-										if (OnPong != null) OnPong();
-										break;
-									}
-									case WebSocketByteGenerator.OP_TEXT: {
-										Debug.LogError("text data is ignored.");
-										break;
-									}
-									case WebSocketByteGenerator.OP_BINARY: {
-										messageQueue.Enqueue(stackedBytes.SubArray(messageIndex.start, messageIndex.length));
-										break;
-									}
-									case WebSocketByteGenerator.OP_CLOSE: {
-										if (OnClosed != null) OnClosed("closed by server.");
-										Close();
-										break;
-									}
-								}
-							}
-							
-							
-							uint lastDataIndex = 0;
-							if (0 < messageIndexies.Count) lastDataIndex = messageIndexies[messageIndexies.Count-1].start + messageIndexies[messageIndexies.Count-1].length;
-							
-							// fill stackedBytes with rest of partial message data.
-							// will be 0 < length if fragment exists. or just 0.
-							var restLength = (uint)stackedBytes.Length - lastDataIndex;
-							if (0 == restLength) stackedBytes = new byte[0];
-							else stackedBytes = stackedBytes.SubArray(lastDataIndex, restLength);
-						}
+			// receiveのargsと、sendのargsを用意する。receiveを立てて云々。全部書ききることができるかな〜〜
+			
+			var clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+			clientSocket.NoDelay = true;
+			
+			var connectArgs = new SocketAsyncEventArgs();
+			connectArgs.AcceptSocket = clientSocket;
+			connectArgs.RemoteEndPoint = endPoint;
+			connectArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnConnect);
+			
+			var sendArgs = new SocketAsyncEventArgs();
+			sendArgs.AcceptSocket = clientSocket;
+			sendArgs.RemoteEndPoint = endPoint;
+			sendArgs.SetBuffer(requestData, 0, requestData.Length);
+			sendArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnSend);
+			
+			var receiveArgs = new SocketAsyncEventArgs();
+			receiveArgs.AcceptSocket = clientSocket;
+			receiveArgs.RemoteEndPoint = endPoint;
+			receiveArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnReceived);
 						
-						
-						// emit messages.
-						if (0 < messageQueue.Count) {
-							if (OnMessage != null) OnMessage(messageQueue);
-							messageQueue.Clear();
-						}
-						return true;
-					}
-				}
-			);
+			socketToken = new SocketToken(clientSocket, bufferSize, connectArgs, sendArgs, receiveArgs); 
+			socketToken.socketState = SocketState.CONNECTING;
 			
-			/*
-				main thread for websocket data receiving & sending.
-			*/
-			updater = Updater(
-				throttle,
-				"WebuSocket-main-thread",
-				() => {
-					switch (state) {
-						case WSConnectionState.Opening: {
-							var newSocket = WebSocketHandshake(url, additionalHeaderParams, OnError);
-							
-							if (newSocket != null) {
-								this.socket = newSocket;
-								
-								state = WSConnectionState.Opened;
-								
-								if (OnConnected != null) OnConnected();
-								break;
-							}
-							
-							// handshake connection failed.
-							// OnError handler is already fired.
-							return false;
-						}
-						case WSConnectionState.Opened: {
-							lock (socket) {
-								while (0 < socket.Available) {
-									var buff = new byte[socket.Available];
-									socket.Receive(buff);
-									lock (receivedDataList) receivedDataList.Add(buff);
-								}
-							}
-							
-							lock (stackedOrders) {
-								while (0 < stackedOrders.Count) {
-									var order = stackedOrders.Dequeue();
-									ExecuteOrder(order);
-								}
-							}
-							
-							lock (stackedSendingDatas) {
-								while (state == WSConnectionState.Opened && 0 < stackedSendingDatas.Count) {
-									var data = stackedSendingDatas.Dequeue();
-									var framedData = WebSocketByteGenerator.SendBinaryData(data);
-									TrySend(framedData, OnError);
-								}
-							} 
-							
-							break;
-						}
-						case WSConnectionState.Closing: {
-							lock (socket) {
-								while (0 < socket.Available) {
-									var buff = new byte[socket.Available];
-									socket.Receive(buff);
-									lock (receivedDataList) receivedDataList.Add(buff);
-								}
-							}
-							
-							lock (stackedOrders) {
-								while (0 < stackedOrders.Count) {
-									var order = stackedOrders.Dequeue();
-									ExecuteOrder(order);
-								}
-							}
-							break;
-						}
-						case WSConnectionState.Closed: {
-							// break queue processor thread.
-							receivedDataQueueConsumer.Abort();
-							
-							// break this thread.
-							return false;
-						}
+			// start connect.
+			if (!clientSocket.ConnectAsync(socketToken.connectArgs)) OnConnect(clientSocket, connectArgs);
+		}
+		
+		private void OnConnect (object unused, SocketAsyncEventArgs args) {
+			var token = (SocketToken)args.UserToken;
+			switch (token.socketState) {
+				case SocketState.CONNECTING: {
+					if (args.SocketError != SocketError.Success) {
+						token.socketState = SocketState.CLOSED;
+						var error = new Exception("connect error:" + args.SocketError.ToString());
+						
+						Debug.LogError("接続できなかった。");
+						// SocketClosed(this, error);
+						return;
 					}
-					return true;
-				},
-				OnClosed
-			);
-		}
-		
-		
-		/*
-			public methods.
-		*/
-		public WSConnectionState State () {
-			switch (state){
-				case WSConnectionState.Opening: return WSConnectionState.Opening;
-				case WSConnectionState.Opened: return WSConnectionState.Opened;
-				case WSConnectionState.Closing: return WSConnectionState.Closing;
-				case WSConnectionState.Closed: return WSConnectionState.Closed;
-				default: throw new Exception("unhandled state.");
-			}
-		}
-		
-		public bool IsConnected () {
-			switch (state){
-				case WSConnectionState.Opened: {
-					if (socket != null) {
-						if (socket.Connected) return true; 
-					}
-					return false;
-				}
-				default: return false;
-			}
-		}
-		
-		public void Ping (Action NewOnPong=null) {
-			switch (state) {
-				case WSConnectionState.Opened: {
-					if (NewOnPong != null) this.OnPong = NewOnPong;
-					StackOrder(WSOrder.Ping);
-					break;
-				}
-				default: {
-					Debug.LogError("current state is:" + state + ", ping operation request is ignored.");
-					break;
-				}
-			}
-		}
-		
-		public void Send (byte[] data) {
-			switch (state) {
-				case WSConnectionState.Opened: {
-					StackData(data);
-					break;
-				}
-				default: {
-					Debug.LogError("current state is:" + state + ", send operation request is ignored.");
-					break;
-				}
-			}
-		}
-		
-		
-		public void Close () {
-			switch (state) {
-				case WSConnectionState.Opened: {
-					state = WSConnectionState.Closing;
-					StackOrder(WSOrder.CloseGracefully);
-					break;
-				}
-				default: {
-					Debug.LogError("current state is:" + state + ", close operation request is ignored.");
-					break;
-				}
-			}
-		}
-		
-		/*
-			forcely close socket on this time.
-		*/
-		public void CloseSync () {
-			ForceClose();
-		}
-		
-		
-		
-		/*
-			private methods.
-		*/
-		
-		private void StackData (byte[] data) {
-			lock (stackedSendingDatas) stackedSendingDatas.Enqueue(data); 
-		}
-		
-		private void StackOrder (WSOrder order) {
-			lock (stackedOrders) stackedOrders.Enqueue(order);
-		}
-		
-		
-		private void ExecuteOrder (WSOrder order) {
-			switch (order) {
-				case WSOrder.Ping: {
-					var data = WebSocketByteGenerator.Ping();
-					TrySend(data);
-					break;
-				}
-				case WSOrder.Pong: {
-					var data = WebSocketByteGenerator.Pong();
-					TrySend(data);
-					break;
-				}
-				case WSOrder.CloseGracefully: {
-					state = WSConnectionState.Closing;
 					
-					// this order is final one of this thread. ignore all other orders.
-					stackedOrders.Clear();
+					token.socketState = SocketState.OPENING;
+					Debug.LogError("opening!");
 					
-					var data = WebSocketByteGenerator.CloseData();
-					TrySend(data);
-					ForceClose();
+					// ready receive.
+					socketToken.readableDataLength = 0;
+					socketToken.receiveArgs.SetBuffer(socketToken.receiveBuffer, 0, socketToken.receiveBuffer.Length);
+					if (!socketToken.socket.ReceiveAsync(socketToken.receiveArgs)) OnReceived(socketToken.socket, socketToken.receiveArgs);
+					
+					// send.
+					if (!token.socket.SendAsync(socketToken.sendArgs)) OnSend(token.socket, token.sendArgs);
+					
+					return;
+				}
+				default: {
+					throw new Exception("socket state does not correct:" + token.socketState);
+				}
+			}
+		}
+		
+		private void OnClosed (object unused, SocketAsyncEventArgs args) {
+			var token = (SocketToken)args.UserToken;
+			switch (token.socketState) {
+				case SocketState.CLOSED: {
+					// do nothing.
 					break;
 				}
 				default: {
-					Debug.LogError("unhandled order:" + order);
+					token.socketState = SocketState.CLOSED;
 					break;
 				}
 			}
 		}
 		
+		private void OnSend (object unused, SocketAsyncEventArgs args) {
+			var socketError = args.SocketError;
+			switch (socketError) {
+				case SocketError.Success: {
+					// do nothing.
+					Debug.LogError("送信成功してる");
+					break;
+				}
+				default: {
+					Debug.Log("まだエラーハンドルしてない。切断の一種なんだけど、非同期実行してるAPIに紐付けることができる。");
+					// if (Error != null) {
+					// 	var error = new Exception("send error:" + socketError.ToString());
+					// 	Error(error);
+					// }
+					break;
+				}
+			}
+		}
 		
-		private void TrySend (byte[] data, Action<string, Exception> OnError=null) {
-			try {
-				socket.Send(data);
-			} catch (SocketException e0) {
-				switch (e0.SocketErrorCode) {
-					case SocketError.WouldBlock: {
-						if (OnError != null) OnError("failed to send data by SocketException:" + e0, e0);
+		private void OnReceived (object unused, SocketAsyncEventArgs args) {
+			var token = (SocketToken)args.UserToken;
+			
+			if (args.SocketError != SocketError.Success) { 
+				switch (token.socketState) {
+					case SocketState.CLOSING:
+					case SocketState.CLOSED: {
+						// already closing, ignore.
 						return;
 					}
 					default: {
-						if (OnError != null) OnError("failed to send data by SocketException:" + e0 + ". attempt to close forcely.", e0);
-						ForceClose(OnError);
-						return;
-					}
-				}
-			} catch (Exception e1) {
-				if (OnError != null) OnError("failed to send data. " + e1 + ". attempt to close forcely.", e1);
-				ForceClose(OnError);
-			}
-		}
-		
-		private void ForceClose (Action<string, Exception> OnError=null, Action<string> OnClosed=null) {
-			if (state == WSConnectionState.Closed) {
-				if (OnError != null) OnError("already closed.", null);
-				return;
-			}
-			
-			if (state == WSConnectionState.Opening) {
-				Close();
-				return;
-			}
-			
-			if (socket == null) {
-				if (OnError != null) OnError("not yet connected or already closed.", null);
-				return;
-			}
-			
-			if (!socket.Connected) {
-				if (OnError != null) OnError("connection is already closed.", null);
-				return;
-			}
-			
-			lock (socket) {
-				try {
-					socket.Close();
-				} catch (Exception e) {
-					if (OnError != null) OnError("socket closing error:" + e, e);
-				} finally {
-					socket = null;
-				}
-				
-				state = WSConnectionState.Closed;
-			}
-		}
-		
-		
-		private Socket WebSocketHandshake (string urlSource, Dictionary<string, string> additionalHeaderParams, Action<string, Exception> OnError=null) {
-			Debug.LogWarning("handshake timeoutの値どうしようかな、、そのままsocket使うからなんか影響しそう。");
-			var timeout = 1000;
-			
-			
-			var uri = new Uri(urlSource);
-			
-			var method = "GET";
-			var host = uri.Host;
-			var schm = uri.Scheme;
-			var port = uri.Port;
-			
-			var base64Key = GeneratePrivateBase64Key();
-			
-			var requestHeaderParams = new Dictionary<string, string>{
-				{"Host", (port == 80 && schm == "ws") || (port == 443 && schm == "wss") ? uri.DnsSafeHost : uri.Authority},
-				{"Upgrade", "websocket"},
-				{"Connection", "Upgrade"},
-				{"Sec-WebSocket-Key", base64Key},
-				{"Sec-WebSocket-Version", WEBSOCKET_VERSION}
-			};
-			
-			if (additionalHeaderParams != null) { 
-				foreach (var key in additionalHeaderParams.Keys) requestHeaderParams[key] = additionalHeaderParams[key];
-			}
-			
-			/*
-				construct request bytes data.
-			*/
-			var requestData = new StringBuilder();
-			
-			requestData.AppendFormat("{0} {1} HTTP/{2}{3}", method, uri, "1.1", CRLF);
-
-			foreach (var key in requestHeaderParams.Keys) requestData.AppendFormat("{0}: {1}{2}", key, requestHeaderParams[key], CRLF);
-
-			requestData.Append (CRLF);
-
-			var entity = string.Empty;
-			requestData.Append(entity);
-			
-			var requestDataBytes = Encoding.UTF8.GetBytes(requestData.ToString().ToCharArray());
-			
-			/*
-				ready connection sockets.
-			*/
-			var sock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-			sock.NoDelay = true;
-			sock.SendTimeout = timeout;
-			
-			Action ForceCloseSock = () => {
-				if (sock == null) return;
-				
-				if (!sock.Connected) {
-					sock = null;
-					return;
-				}
-			
-				try {
-					sock.Close();
-				} catch {} finally {
-					sock = null;
-				}
-			};
-			
-			try {
-				sock.Connect(host, port);
-			} catch (Exception e) {
-				ForceCloseSock();
-				if (OnError != null) OnError("failed to connect to host:" + host + " error:" + e, e);
-				return null;
-			}
-			
-			if (!sock.Connected) {
-				ForceCloseSock();
-				if (OnError != null) OnError("failed to connect.", null);
-				return null;
-			}
-			
-			try {
-				var result = sock.Send(requestDataBytes);
-				
-				if (0 < result) {}// succeeded to send.
-				else {
-					ForceCloseSock();
-					if (OnError != null) OnError("failed to send handshake request data, send size is 0.", null);
-					
-					return null;
-				}
-			} catch (Exception e) {
-				
-				ForceCloseSock();
-				if (OnError != null) OnError("failed to send handshake request data. error:" + e, e);
-				
-				return null;
-			}
-			
-			
-			
-			/*
-				read connection response from socket.
-			*/
-			var responseHeaderDict = new Dictionary<string, string>();
-			{
-				/*
-					protocol should be switched.
-				*/
-				var protocolResponse = ReadLineBytes(sock);
-				if (!string.IsNullOrEmpty(protocolResponse.error)) {
-					ForceCloseSock();
-					if (OnError != null) OnError("failed to receive response.", null);
-					return null;
-				}
-				
-				if (Encoding.UTF8.GetString(protocolResponse.data).ToLower() != "HTTP/1.1 101 Switching Protocols".ToLower()) {
-					ForceCloseSock();
-					if (OnError != null) OnError("failed to switch protocol.", null);
-					return null;
-				}
-				
-				if (sock.Available == 0) {
-					ForceCloseSock();
-					if (OnError != null) OnError("failed to receive rest of response header.", null);
-					return null;
-				}
-				
-				/*
-					rest data exists and can be received.
-				*/
-				while (0 < sock.Available) {
-					var responseHeaderLineBytes = ReadLineBytes(sock);
-					if (!string.IsNullOrEmpty(responseHeaderLineBytes.error)) {
-						ForceCloseSock();
-						if (OnError != null) OnError("responseHeaderLineBytes.error:" + responseHeaderLineBytes.error, null);
-						return null;
-					}
-					
-					var responseHeaderLine = Encoding.UTF8.GetString(responseHeaderLineBytes.data);
-					
-					if (!responseHeaderLine.Contains(":")) continue;
-					
-					var splittedKeyValue = responseHeaderLine.Split(':');
-					
-					var key = splittedKeyValue[0].ToLower();
-					var val = splittedKeyValue[1];
-					
-					responseHeaderDict[key] = val;
-				}
-			}
-				
-			// validate.
-			if (!responseHeaderDict.ContainsKey("Server".ToLower())) {
-				ForceCloseSock();
-				if (OnError != null) OnError("failed to receive 'Server' key.", null);
-				return null;
-			}
-			
-			if (!responseHeaderDict.ContainsKey("Date".ToLower())) {
-				ForceCloseSock();
-				if (OnError != null) OnError("failed to receive 'Date' key.", null);
-				return null;
-			}
-			
-			if (!responseHeaderDict.ContainsKey("Connection".ToLower())) {
-				ForceCloseSock();
-				if (OnError != null) OnError("failed to receive 'Connection' key.", null);
-				return null;
-			}
-			
-			if (!responseHeaderDict.ContainsKey("Upgrade".ToLower())) {
-				ForceCloseSock();
-				if (OnError != null) OnError("failed to receive 'Upgrade' key.", null);
-				return null;
-			}
-			
-			if (!responseHeaderDict.ContainsKey("Sec-WebSocket-Accept".ToLower())) {
-				ForceCloseSock();
-				if (OnError != null) OnError("failed to receive 'Sec-WebSocket-Accept' key.", null);
-				return null;
-			}
-			var serverAcceptedWebSocketKey = responseHeaderDict["Sec-WebSocket-Accept".ToLower()];
-			
-			if (!sock.Connected) {
-				ForceCloseSock();
-				if (OnError != null) OnError("failed to check connected after validate.", null);
-				return null;
-			}
-			
-			return sock;
-		}
-		
-		private byte[] httpResponseReadBuf = new byte[HTTP_HEADER_LINE_BUF_SIZE];
-
-		public ResponseHeaderLineDataAndError ReadLineBytes (Socket sock) {
-			byte[] b = new byte[1];
-			
-			var readyReadLength = sock.Available;
-			if (httpResponseReadBuf.Length < readyReadLength) {
-				new ResponseHeaderLineDataAndError(new byte[0], "too long data for read as line found");
-			} 
-			
-			/*
-				there are not too long data.
-				"readyReadLength <= HTTP_HEADER_LINE_BUF_SIZE".
-				
-				but it is not surpported that this socket contains data which containes "\n".
-				cut out when buffering reached to full.
-			*/
-			int i = 0;
-			while (true) {
-				sock.Receive(b);
-				
-				if (b[0] == '\r') continue;
-				if (b[0] == '\n') break;
-				
-				httpResponseReadBuf[i] = b[0];
-				i++;
-				
-				if (i == readyReadLength) {
-					Debug.LogError("no \n appears. cut out.");
-					break;
-				}
-			}
-			
-			var retByte = new byte[i];
-			Array.Copy(httpResponseReadBuf, 0, retByte, 0, i);
-
-			return new ResponseHeaderLineDataAndError(retByte);
-		}
-		
-		public struct ResponseHeaderLineDataAndError {
-			public readonly byte[] data;
-			public readonly string error;
-			public ResponseHeaderLineDataAndError (byte[] data, string error=null) {
-				this.data = data;
-				this.error = error;
-			}
-		}
-		
-		private static string GeneratePrivateBase64Key () {
-			var src = new byte[16];
-			randomGen.GetBytes(src);
-			return Convert.ToBase64String(src);
-		}
-		
-		public static byte[] NewMaskKey () {
-			var maskingKeyBytes = new byte[4];
-			randomGen.GetBytes(maskingKeyBytes);
-			return maskingKeyBytes;
-		}
-		
-		/**
-			2 loop type.
-			switched by throttle.
-		*/
-		private Thread Updater (int throttle, string loopId, Func<bool> OnUpdate, Action<string> OnClosed=null) {
-			Action loopMethod = null;
-			
-			// limited frame update.
-			if (0 < throttle) {
-				var framePerSecond =throttle;
-				var mainThreadInterval = 1000f / framePerSecond;
-				
-				loopMethod = () => {
-					try {
-						double nextFrame = (double)System.Environment.TickCount;
+						// show error, then close or continue receiving.
+						Debug.Log("まだエラーハンドルしてない2。切断の一種なんだけど、非同期実行してるAPIに紐付けることができる、、、かなあ？　できない気もしてきたぞ。");
+						// if (Error != null) {
+						// 	var error = new Exception("receive error:" + args.SocketError.ToString() + " size:" + args.BytesTransferred);
+						// 	Error(error);
+						// }
 						
-						var before = 0.0;
-						var tickCount = (double)System.Environment.TickCount;
-						
-						while (true) {
-							tickCount = System.Environment.TickCount * 1.0;
-							if (nextFrame - tickCount > 1) {
-								Thread.Sleep((int)(nextFrame - tickCount)/2);
-								/*
-									waitを半分くらいにすると特定フレームで安定する。よくない。
-								*/
-								continue;
-							}
-							
-							if (tickCount >= nextFrame + mainThreadInterval) {
-								nextFrame += mainThreadInterval;
-								continue;
-							}
-							
-							// run action for update.
-							var continuation = OnUpdate();
-							if (!continuation) break;
-							
-							nextFrame += mainThreadInterval;
-							before = tickCount;
+						// connection is already closed.
+						if (!IsSocketConnected(token.socket)) {
+							Debug.LogError("すでに切断している。");
+							// Disconnect();
+							return;
 						}
 						
-						if (OnClosed != null) OnClosed("WebuSocket:" + webSocketConnectionId + " loopId:" + loopId + " is finished gracefully.");
-					} catch (Exception e) {
-						if (OnClosed != null) OnClosed("WebuSocket:" + webSocketConnectionId + " loopId:" + loopId + " finished with error:" + e);
+						// continue receiving data. go to below.
+						break;
 					}
-				};
-			} else {
-				loopMethod = () => {
-					try {
-						while (true) {
-							// run action for update.
-							var continuation = OnUpdate();
-							if (!continuation) break;
-							
-							Thread.Sleep(1);
-						}
-						
-						if (OnClosed != null) OnClosed("WebuSocket:" + webSocketConnectionId + " loopId:" + loopId + " is finished gracefully.");
-					} catch (Exception e) {
-						if (OnClosed != null) OnClosed("WebuSocket:" + webSocketConnectionId + " loopId:" + loopId + " finished with error:" + e);
-					}
-				};
+				}
 			}
 			
-			var thread = new Thread(new ThreadStart(loopMethod));
-			thread.Start();
-			return thread;
+			if (0 < args.BytesTransferred) {
+				var bytesAmount = args.BytesTransferred;
+				switch (token.socketState) {
+					case SocketState.OPENING: {		
+						/*
+HTTP/1.1 101 Switching Protocols
+Server: nginx/1.7.10
+Date: Sun, 22 May 2016 18:31:47 GMT
+Connection: upgrade
+Upgrade: websocket
+Sec-WebSocket-Accept: C3HoL/ER1LOnEj8yVINdXluouHw=
+
+
+						*/
+						
+						// 改行コードまでを読んで、っていうので良いのか。続く。
+						
+						// 特定のデータが取得できるまでは、データを貯めてく。
+						Debug.LogError("data:" + Encoding.UTF8.GetString(args.Buffer));	
+						break;
+					}
+				}
+				
+				
+				// update as read completed.
+				token.readableDataLength = token.readableDataLength + bytesAmount;
+				
+				// var result = DisquuunAPI.ScanBuffer(token.currentCommand, token.receiveBuffer, token.readableDataLength);
+				
+				// if (result.isDone) {
+				// 	var continuation = token.AsyncCallback(token.currentCommand, result.data);
+				// 	if (continuation) {
+				// 		// ready for loop receive.
+				// 		token.readableDataLength = 0;
+				// 		token.receiveArgs.SetBuffer(token.receiveBuffer, 0, token.receiveBuffer.Length);
+				// 		if (!token.socket.ReceiveAsync(token.receiveArgs)) OnReceived(token.socket, token.receiveArgs);
+						
+				// 		token.sendArgs.SetBuffer(token.currentSendingBytes, 0, token.currentSendingBytes.Length);
+				// 		if (!token.socket.SendAsync(token.sendArgs)) OnSend(token.socket, token.sendArgs);
+				// 	} else {
+				// 		switch (token.socketState) {
+				// 			case SocketState.BUSY: {
+				// 				token.socketState = SocketState.OPENED;
+				// 				break;
+				// 			}
+				// 			case SocketState.DISPOSABLE_BUSY: {
+				// 				// disposable connection should be close after used.
+				// 				StartCloseAsync();
+				// 				break;
+				// 			}
+				// 		}
+				// 	}
+				// } else {
+				// 	/*
+				// 		note that,
+						
+				// 		SetBuffer([buffer], offset, count)'s "count" is, actually not count.
+						 
+				// 		it's "offset" is "offset of receiving-data-window against buffer",
+				// 		but the "count" is actually "size limitation of next receivable data size".
+						
+				// 		this "size" should be smaller than size of current bufferSize - offset && larger than 0.
+						
+				// 		e.g.
+				// 			if buffer is buffer[10], offset can set 0 ~ 8, and,
+				// 			count should be 9 ~ 1.
+						
+				// 		if vaiolate to this rule, ReceiveAsync never receive data. not good behaviour.
+						
+				// 		and, the "buffer" is treated as pointer. this API treats the pointer of buffer directly.
+				// 		this means, when the byteTransferred is reaching to the size of "buffer", then you resize it to proper size,
+						
+				// 		you should re-set the buffer's pointer by using SetBuffer API.
+						
+						
+				// 		actually, SetBuffer's parameters are below.
+						
+				// 		socket.SetBuffer([bufferAsPointer], additionalDataOffset, receiveSizeLimit)
+				// 	*/
+					
+				// 	var nextAdditionalBytesLength = token.socket.Available;
+					
+				// 	if (token.readableDataLength == token.receiveBuffer.Length) {
+				// 		Debug.Log("次のデータが来るのが確定していて、かつバッファサイズが足りない。");
+				// 		Array.Resize(ref token.receiveBuffer, token.receiveArgs.Buffer.Length + nextAdditionalBytesLength);
+				// 	}
+					
+				// 	var receivableCount = token.receiveBuffer.Length - token.readableDataLength;
+				// 	token.receiveArgs.SetBuffer(token.receiveBuffer, token.readableDataLength, receivableCount);
+				// 	if (!token.socket.ReceiveAsync(token.receiveArgs)) OnReceived(token.socket, token.receiveArgs);
+				// }
+			}
+		}
+		
+		private static bool IsSocketConnected (Socket s) {
+			bool part1 = s.Poll(1000, SelectMode.SelectRead);
+			bool part2 = (s.Available == 0);
+			
+			if (part1 && part2) return false;
+			
+			return true;
 		}
 	}
 }

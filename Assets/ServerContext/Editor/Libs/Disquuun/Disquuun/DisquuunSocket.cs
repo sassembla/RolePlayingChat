@@ -78,6 +78,7 @@ namespace DisquuunCore {
 			this.socketId = Guid.NewGuid().ToString();
 			
 			var clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+			clientSocket.NoDelay = true;
 			
 			var connectArgs = new SocketAsyncEventArgs();
 			connectArgs.AcceptSocket = clientSocket;
@@ -106,6 +107,7 @@ namespace DisquuunCore {
 			this.SocketClosed = SocketClosed;
 			
 			var clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+			clientSocket.NoDelay = true;
 			
 			var connectArgs = new SocketAsyncEventArgs();
 			connectArgs.AcceptSocket = clientSocket;
