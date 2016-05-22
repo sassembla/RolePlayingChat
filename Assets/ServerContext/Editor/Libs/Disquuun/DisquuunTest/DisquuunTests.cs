@@ -44,6 +44,20 @@ public partial class Tests {
 		tests.Add(_1_1_3_GetJobWithNoHang_Sync);
 		tests.Add(_1_2_AckJob_Sync);
 		tests.Add(_1_3_Fastack_Sync);
+		// tests.Add(_1_4_Working_Sync);
+		// tests.Add(_1_5_Nack_Sync);
+		tests.Add(_1_6_Info_Sync);
+		tests.Add(_1_7_Hello_Sync);
+		tests.Add(_1_8_Qlen_Sync);
+		// tests.Add(_1_9_Qstat_Sync);
+		// tests.Add(_1_10_Qpeek_Sync);
+		// tests.Add(_1_11_Enqueue_Sync);
+		// tests.Add(_1_12_Dequeue_Sync);
+		// tests.Add(_1_13_DelJob_Sync);
+		// tests.Add(_1_14_Show_Sync);
+		// tests.Add(_1_15_Qscan_Sync);
+		// tests.Add(_1_16_Jscan_Sync);
+		// tests.Add(_1_17_Pause_Sync);
 		
 		// async apis.
 		tests.Add(_2_0_AddJob_Async);
@@ -53,10 +67,24 @@ public partial class Tests {
 		tests.Add(_2_1_3_GetJobWithNoHang_Async);
 		tests.Add(_2_2_AckJob_Async);
 		tests.Add(_2_3_Fastack_Async);
+		// tests.Add(_2_4_Working_Async);
+		// tests.Add(_2_5_Nack_Async);
+		tests.Add(_2_6_Info_Async);
+		tests.Add(_2_7_Hello_Async);
+		tests.Add(_2_8_Qlen_Async);
+		// tests.Add(_2_9_Qstat_Async);
+		// tests.Add(_2_10_Qpeek_Async);
+		// tests.Add(_2_11_Enqueue_Async);
+		// tests.Add(_2_12_Dequeue_Async);
+		// tests.Add(_2_13_DelJob_Async);
+		// tests.Add(_2_14_Show_Async);
+		// tests.Add(_2_15_Qscan_Async);
+		// tests.Add(_2_16_Jscan_Async);
+		// tests.Add(_2_17_Pause_Async);
 		
 		// multiSocket.
-		tests.Add(_3_0_2AsyncSocket);
-		tests.Add(_3_1_MultipleAsyncSocket);
+		tests.Add(_3_0_Nested2AsyncSocket);
+		tests.Add(_3_1_NestedMultipleAsyncSocket);
 		
 		// buffer over.
 		tests.Add(_4_0_ByfferOverWithSingleSyncGetJob_Sync);
@@ -67,17 +95,18 @@ public partial class Tests {
 		tests.Add(_4_5_ByfferOverWithSokcetOverSyncGetJob_Async);
 		
 		// error handling.
-		// tests.Add(_5_0_Error)// connect時に出るエラー、接続できないとかその辺。
+		// tests.Add(_5_0_Error)// connect時に出るエラー、接続できないとかその辺のハンドリング
 		
 		// adding async request over busy-socket num.
-		// tests.Add(_6_0_ExceededSocketNo3In2);
+		tests.Add(_6_0_ExceededSocketNo3In2);
+		tests.Add(_6_1_ExceededSocketNo100In2);
 		
 		
 		TestLogger.Log("tests started.");
 		
 		foreach (var test in tests) {
 			try {
-				var disquuun = new Disquuun("127.0.0.1", 7711, 2020008, 2);
+				var disquuun = new Disquuun("127.0.0.1", 7711, 2020008, 2);// this buffer size is just for 100byte job x 10000 then receive 1 GetJob(count 1000).
 				test(disquuun);
 				if (disquuun != null) {
 					disquuun.Disconnect(true);
@@ -96,8 +125,9 @@ public partial class Tests {
 			(command, data) => {
 				var result = DisquuunDeserializer.Info(data);
 				
-				if (result.jobs != null) restJobCount = result.jobs.registered_jobs;
-				TestLogger.Log("all tests over. rest unconsumed job:" + restJobCount);
+				restJobCount = result.jobs.registered_jobs;
+				
+				TestLogger.Log("all tests over. rest unconsumed job:" + restJobCount + " connected_clients:" + result.clients.connected_clients);
 			}
 		);
 		

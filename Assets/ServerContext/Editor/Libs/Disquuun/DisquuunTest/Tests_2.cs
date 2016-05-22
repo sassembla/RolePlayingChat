@@ -146,19 +146,193 @@ public partial class Tests {
 		WaitUntil(() => (ackCount == 1), 5);
 	}
 	
+	public void _2_4_Working_Async (Disquuun disquuun) {
+		Disquuun.Log("_1_4_Working_Async not yet applied");
+		// WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		
+		// var queueId = Guid.NewGuid().ToString();
+		// var jobId = DisquuunDeserializer.AddJob(
+		// 	disquuun.AddJob(queueId, new byte[10]).DEPRICATED_Sync()
+		// );
+		
+		// var workResult = disquuun.Working(jobId).DEPRICATED_Sync();
+		// var workingResult = DisquuunDeserializer.Working(workResult);
+		
+		// var result = disquuun.FastAck(new string[]{jobId}).DEPRICATED_Sync();
+		// var ackCount = DisquuunDeserializer.FastAck(result);
+		// Assert(1, ackCount, "not match.");
+	}
 	
-	// WORKING,// jobid
-	// NACK,// <job-id> ... <job-id>
-	// INFO,
-	// HELLO,
-	// QLEN,// <queue-name>
-	// QSTAT,// <queue-name>
-	// QPEEK,// <queue-name> <count>
-	// ENQUEUE,// <job-id> ... <job-id>
-	// DEQUEUE,// <job-id> ... <job-id>
-	// DELJOB,// <job-id> ... <job-id>
-	// SHOW,// <job-id>
-	// QSCAN,// [COUNT <count>] [BUSYLOOP] [MINLEN <len>] [MAXLEN <len>] [IMPORTRATE <rate>]
-	// JSCAN,// [<cursor>] [COUNT <count>] [BUSYLOOP] [QUEUE <queue>] [STATE <state1> STATE <state2> ... STATE <stateN>] [REPLY all|id]
-	// PAUSE,
+	public void _2_5_Nack_Async (Disquuun disquuun) {
+		Disquuun.Log("_1_5_Nack_Async not yet applied");
+		// WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		
+		// var queueId = Guid.NewGuid().ToString();
+		// var jobId = DisquuunDeserializer.AddJob(
+		// 	disquuun.AddJob(queueId, new byte[10]).DEPRICATED_Sync()
+		// );
+		
+		// var result = disquuun.FastAck(new string[]{jobId}).DEPRICATED_Sync();
+		// var ackCount = DisquuunDeserializer.FastAck(result);
+		// Assert(1, ackCount, "not match.");
+	}
+	
+	public void _2_6_Info_Async (Disquuun disquuun) {
+		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		
+		var registered_jobs = 0;
+		
+		disquuun.Info().Async(
+			(c, data) => {
+				var infoResult = DisquuunDeserializer.Info(data);
+				registered_jobs = infoResult.jobs.registered_jobs;
+			}
+		);
+		
+		WaitUntil(() => (registered_jobs == 0), 5);
+	}
+	
+	public void _2_7_Hello_Async (Disquuun disquuun) {
+		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		
+		var version = string.Empty;
+		
+		disquuun.Hello().Async(
+			(c, data) => {
+				var helloResult = DisquuunDeserializer.Hello(data);
+				version = helloResult.version;
+			}
+		);
+		
+		WaitUntil(() => (version == "1"), 5);
+	}
+	
+	public void _2_8_Qlen_Async (Disquuun disquuun) {
+		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		
+		var queueId = Guid.NewGuid().ToString();
+		var jobId = DisquuunDeserializer.AddJob(
+			disquuun.AddJob(queueId, new byte[10]).DEPRICATED_Sync()
+		);
+		
+		var qlen = 0;
+		disquuun.Qlen(queueId).Async(
+			(c, data) => {
+				qlen = DisquuunDeserializer.Qlen(data);
+			}
+		);
+		WaitUntil(() => (qlen == 1), 5);
+		
+		var result = disquuun.FastAck(new string[]{jobId}).DEPRICATED_Sync();
+		var ackCount = DisquuunDeserializer.FastAck(result);
+	}
+	
+	public void _2_9_Qstat_Async (Disquuun disquuun) {
+		Disquuun.Log("_1_9_Qstat_Async not yet applied");
+		// <queue-name>
+		
+		// WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		
+		// var infoData = disquuun.Info().DEPRICATED_Sync();
+		// var infoResult = DisquuunDeserializer.Info(infoData);
+		
+		// Assert(0, infoResult.jobs.registered_jobs, "not match.");
+	}
+	
+	
+	public void _2_10_Qpeek_Async (Disquuun disquuun) {
+		Disquuun.Log("_2_10_Qpeek_Async not yet applied");
+		// <queue-name> <count>
+		
+		// WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		
+		// var infoData = disquuun.Info().DEPRICATED_Sync();
+		// var infoResult = DisquuunDeserializer.Info(infoData);
+		
+		// Assert(0, infoResult.jobs.registered_jobs, "not match.");
+	}
+	
+	public void _2_11_Enqueue_Async (Disquuun disquuun) {
+		Disquuun.Log("_2_11_Enqueue_Async not yet applied");
+		// <job-id> ... <job-id>
+		
+		// WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		
+		// var infoData = disquuun.Info().DEPRICATED_Sync();
+		// var infoResult = DisquuunDeserializer.Info(infoData);
+		
+		// Assert(0, infoResult.jobs.registered_jobs, "not match.");
+	}
+	
+	public void _2_12_Dequeue_Async (Disquuun disquuun) {
+		Disquuun.Log("_2_12_Dequeue_Async not yet applied");
+		// <job-id> ... <job-id>
+		
+		// WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		
+		// var infoData = disquuun.Info().DEPRICATED_Sync();
+		// var infoResult = DisquuunDeserializer.Info(infoData);
+		
+		// Assert(0, infoResult.jobs.registered_jobs, "not match.");
+	}
+	
+	public void _2_13_DelJob_Async (Disquuun disquuun) {
+		Disquuun.Log("_2_13_DelJob_Async not yet applied");
+		// <job-id> ... <job-id>
+		
+		// WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		
+		// var infoData = disquuun.Info().DEPRICATED_Sync();
+		// var infoResult = DisquuunDeserializer.Info(infoData);
+		
+		// Assert(0, infoResult.jobs.registered_jobs, "not match.");
+	}
+	
+	public void _2_14_Show_Async (Disquuun disquuun) {
+		Disquuun.Log("_2_14_Show_Async not yet applied");
+		// <job-id>
+		
+		// WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		
+		// var infoData = disquuun.Info().DEPRICATED_Sync();
+		// var infoResult = DisquuunDeserializer.Info(infoData);
+		
+		// Assert(0, infoResult.jobs.registered_jobs, "not match.");
+	}
+	
+	public void _2_15_Qscan_Async (Disquuun disquuun) {
+		Disquuun.Log("_2_15_Qscan_Async not yet applied");
+		// [COUNT <count>] [BUSYLOOP] [MINLEN <len>] [MAXLEN <len>] [IMPORTRATE <rate>]
+		
+		// WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		
+		// var infoData = disquuun.Info().DEPRICATED_Sync();
+		// var infoResult = DisquuunDeserializer.Info(infoData);
+		
+		// Assert(0, infoResult.jobs.registered_jobs, "not match.");
+	}
+	
+	public void _2_16_Jscan_Async (Disquuun disquuun) {
+		Disquuun.Log("_2_16_Jscan_Async not yet applied");
+		// [<cursor>] [COUNT <count>] [BUSYLOOP] [QUEUE <queue>] [STATE <state1> STATE <state2> ... STATE <stateN>] [REPLY all|id]
+		
+		// WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		
+		// var infoData = disquuun.Info().DEPRICATED_Sync();
+		// var infoResult = DisquuunDeserializer.Info(infoData);
+		
+		// Assert(0, infoResult.jobs.registered_jobs, "not match.");
+	}
+	
+	public void _2_17_Pause_Async (Disquuun disquuun) {
+		Disquuun.Log("_2_17_Pause_Async not yet applied");
+		// <queue-name> option1 [option2 ... optionN]
+		
+		// WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		
+		// var pauseData = disquuun.Pause().DEPRICATED_Sync();
+		// var pauseResult = DisquuunDeserializer.Info(pauseData);
+		
+		// Assert(0, pauseResult.jobs.registered_jobs, "not match.");
+	}
 }

@@ -13,7 +13,7 @@ public partial class Tests {
 		
 		var queueId = Guid.NewGuid().ToString();
 		
-		disquuun.AddJob(queueId, new byte[disquuun.BufferSize]).DEPRICATED_Sync();
+		disquuun.AddJob(queueId, new byte[disquuun.bufferSize]).DEPRICATED_Sync();
 		
 		var result = disquuun.GetJob(new string[]{queueId}).DEPRICATED_Sync();
 		var jobDatas = DisquuunDeserializer.GetJob(result);
@@ -30,7 +30,7 @@ public partial class Tests {
 		var queueId = Guid.NewGuid().ToString();
 		
 		var addJobCount = 2;
-		for (var i = 0; i < addJobCount; i++) disquuun.AddJob(queueId, new byte[disquuun.BufferSize/addJobCount]).DEPRICATED_Sync();
+		for (var i = 0; i < addJobCount; i++) disquuun.AddJob(queueId, new byte[disquuun.bufferSize/addJobCount]).DEPRICATED_Sync();
 		
 		var result = disquuun.GetJob(new string[]{queueId}, "COUNT", addJobCount).DEPRICATED_Sync();
 		var jobDatas = DisquuunDeserializer.GetJob(result);
@@ -63,7 +63,7 @@ public partial class Tests {
 		
 		var queueId = Guid.NewGuid().ToString();
 		
-		disquuun.AddJob(queueId, new byte[disquuun.BufferSize]).DEPRICATED_Sync();
+		disquuun.AddJob(queueId, new byte[disquuun.bufferSize]).DEPRICATED_Sync();
 		
 		DisquuunDeserializer.JobData[] jobDatas = new DisquuunDeserializer.JobData[]{};
 		disquuun.GetJob(new string[]{queueId}).Async(
@@ -85,7 +85,7 @@ public partial class Tests {
 		var queueId = Guid.NewGuid().ToString();
 		
 		var addJobCount = 2;
-		for (var i = 0; i < addJobCount; i++) disquuun.AddJob(queueId, new byte[disquuun.BufferSize/addJobCount]).DEPRICATED_Sync();
+		for (var i = 0; i < addJobCount; i++) disquuun.AddJob(queueId, new byte[disquuun.bufferSize/addJobCount]).DEPRICATED_Sync();
 		
 		DisquuunDeserializer.JobData[] jobDatas = new DisquuunDeserializer.JobData[]{};
 		disquuun.GetJob(new string[]{queueId}, "COUNT", addJobCount).Async(
