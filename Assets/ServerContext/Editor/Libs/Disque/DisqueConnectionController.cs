@@ -15,6 +15,10 @@ public class DisqueConnectionController {
 		disquuun = new Disquuun(
 			"127.0.0.1", 7711, 1024 * 100, 3, 
 			conId => {
+				// enable adding job to Disque by swapping publisher method.
+				context.Setup(Publish);
+				
+				// start getting job from disque then fastack all automatically.
 				disquuun.GetJob(new string[]{contextQueueIdentity}, "count", 1000).Loop(
 					(command, data) => {
 						var jobs = DisquuunDeserializer.GetJob(data);
@@ -41,29 +45,31 @@ public class DisqueConnectionController {
 
 	public void SetContext (ServerContext context) {
 		this.context = context;
-		context.Setup(Publish);
 	}
 	
 	public void Publish (string targetConnectionId, byte[] data) {
-		if (disquuun != null && disquuun.connectionState == Disquuun.ConnectionState.OPENED) {
-		} else {
-			Disquuun.Log("not yet publicable.");
-			return;
-		}
-		
 		disquuun.AddJob(targetConnectionId, data).Async(
 			(command, result) => {
-				
+				// これなんかハンドルしたいかなあ。
 			}
 		);
 	}
 	
+	
+	
 	// こっからフィルタ。
 	/*
 		フィルタは、staticでいいんで、どっかにコピーして成立させよう。
+		
+		突きあわせレイヤーだ。
+		ConnectionServerと、ServerContextと、DisqueConnectionControllerの三つ巴ポイント。
+		
+		疎結合にしておけると良い感じなので、このレイヤで何かすべき、っていうレイヤは上位に持っていくと良い気がする。
+		・ServerContext				ゲーム本体、最小単位はDisqueのキューIdになる。データの受け入れと出力をする。
+		・DisqueConnectionController	Disqueの管理、送信と受信のハンドラを持つ。
+		・ServerController			
 	*/
-
-
+	
 	// header of data.
 	public const char HEADER_STRING	= 's';
 	public const char HEADER_BINARY	= 'b';
