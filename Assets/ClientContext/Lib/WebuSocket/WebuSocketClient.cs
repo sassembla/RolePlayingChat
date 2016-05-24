@@ -53,6 +53,7 @@ namespace WebuSocketCore {
 		
 		private WSConnectionState state;
 		
+		WebuSocket webuSocket;
 		
 		public WebuSocketClient (
 			string url,
@@ -63,7 +64,7 @@ namespace WebuSocketCore {
 			int throttle=0,
 			Dictionary<string, string> additionalHeaderParams=null
 		) {
-			var webuSocket = new WebuSocket(url, OnConnected, OnMessage, OnClosed, OnError, additionalHeaderParams);
+			webuSocket = new WebuSocket(url, OnConnected, OnMessage, OnClosed, OnError, additionalHeaderParams);
 			
 			Debug.LogWarning("wss and another features are not supported yet.");
 			/*
@@ -334,6 +335,7 @@ namespace WebuSocketCore {
 			forcely close socket on this time.
 		*/
 		public void CloseSync () {
+			webuSocket.Close();
 			ForceClose();
 		}
 		

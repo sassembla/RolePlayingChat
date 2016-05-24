@@ -31,8 +31,6 @@ namespace WebuSocket {
 		public const byte OP_PONG			= 0xA;// 1010
 		
 		private const byte OPFilter			= 0xF;// 1111
-		private const byte Length7Filter	= 0xBF;// 01111111
-		
 		public static byte[] Ping () {
 			return WSDataFrame(1, 0, 0, 0, OP_PING, 1, new byte[0]);
 		}
@@ -125,7 +123,7 @@ namespace WebuSocket {
 			get message detail from data.
 			no copy emitted. only read data then return there indexies of messages.
 		*/
-		public static List<OpCodeAndPayloadIndex> GetIndexies (byte[] data) {
+		public static List<OpCodeAndPayloadIndex> GetIndexies (byte[] data) {// これに限界値を付け加えたものが使えそう。
 			var opCodeAndPayloadIndexies = new List<OpCodeAndPayloadIndex>();
 			
 			uint messageHead;

@@ -10,8 +10,8 @@ public class DisquuunTests {
 	public static Tests tests;
 	
 	public static void Start () {
-		tests = new Tests();
-		tests.RunTests();	
+		// tests = new Tests();
+		// tests.RunTests();	
 	}
 	
 	public static void Stop () {

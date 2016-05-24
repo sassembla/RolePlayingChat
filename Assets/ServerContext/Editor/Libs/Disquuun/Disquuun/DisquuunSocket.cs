@@ -160,7 +160,7 @@ namespace DisquuunCore {
 				var readableLength = currentLength + available;
 				{
 					if (socketToken.receiveBuffer.Length < readableLength) {
-						TestLogger.Log("サイズオーバーしてる " + socketToken.receiveBuffer.Length + " vs:" + readableLength);
+						// TestLogger.Log("サイズオーバーしてる " + socketToken.receiveBuffer.Length + " vs:" + readableLength);
 						Array.Resize(ref socketToken.receiveBuffer, readableLength);
 					} else {
 						// TestLogger.Log("まだサイズオーバーしてない " + socketToken.receiveBuffer.Length + " vs:" + readableLength + " が、読み込みの過程でサイズオーバーしそう。");
@@ -177,7 +177,7 @@ namespace DisquuunCore {
 				// continue reading data from socket.
 				// if need, prepare for next 1 byte.
 				if (socketToken.receiveBuffer.Length == readableLength) {
-					TestLogger.Log("サイズオーバーの拡張をしてて、さらにもう1byte以上読む必要がある。");
+					// TestLogger.Log("サイズオーバーの拡張をしてて、さらにもう1byte以上読む必要がある。");
 					Array.Resize(ref socketToken.receiveBuffer, socketToken.receiveBuffer.Length + 1);
 				}
 			}
@@ -412,7 +412,7 @@ namespace DisquuunCore {
 					var nextAdditionalBytesLength = token.socket.Available;
 					
 					if (token.readableDataLength == token.receiveBuffer.Length) {
-						TestLogger.Log("次のデータが来るのが確定していて、かつバッファサイズが足りない。");
+						// TestLogger.Log("次のデータが来るのが確定していて、かつバッファサイズが足りない。");
 						Array.Resize(ref token.receiveBuffer, token.receiveArgs.Buffer.Length + nextAdditionalBytesLength);
 					}
 					

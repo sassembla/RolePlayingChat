@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
@@ -85,8 +86,6 @@ namespace WebuSocketCore {
 			socket.NoDelay = true;
 			socket.SendTimeout = timeout;
 			
-			Debug.LogError("endpointをでっち上げる");
-			
 			// receiveのargsと、sendのargsを用意する。receiveを立てて云々。全部書ききることができるかな〜〜
 			
 			var clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -129,7 +128,6 @@ namespace WebuSocketCore {
 					}
 					
 					token.socketState = SocketState.OPENING;
-					Debug.LogError("opening!");
 					
 					// ready receive.
 					socketToken.readableDataLength = 0;
@@ -170,7 +168,7 @@ namespace WebuSocketCore {
 					break;
 				}
 				default: {
-					Debug.Log("まだエラーハンドルしてない。切断の一種なんだけど、非同期実行してるAPIに紐付けることができる。");
+					Debug.LogError("まだエラーハンドルしてない。切断の一種なんだけど、非同期実行してるAPIに紐付けることができる。");
 					// if (Error != null) {
 					// 	var error = new Exception("send error:" + socketError.ToString());
 					// 	Error(error);
@@ -192,7 +190,7 @@ namespace WebuSocketCore {
 					}
 					default: {
 						// show error, then close or continue receiving.
-						Debug.Log("まだエラーハンドルしてない2。切断の一種なんだけど、非同期実行してるAPIに紐付けることができる、、、かなあ？　できない気もしてきたぞ。");
+						Debug.LogError("まだエラーハンドルしてない2。切断の一種なんだけど、非同期実行してるAPIに紐付けることができる、、、かなあ？　できない気もしてきたぞ。");
 						// if (Error != null) {
 						// 	var error = new Exception("receive error:" + args.SocketError.ToString() + " size:" + args.BytesTransferred);
 						// 	Error(error);
@@ -213,34 +211,38 @@ namespace WebuSocketCore {
 			
 			if (0 < args.BytesTransferred) {
 				var bytesAmount = args.BytesTransferred;
-				switch (token.socketState) {
-					case SocketState.OPENING: {		
-						/*
-HTTP/1.1 101 Switching Protocols
-Server: nginx/1.7.10
-Date: Sun, 22 May 2016 18:31:47 GMT
-Connection: upgrade
-Upgrade: websocket
-Sec-WebSocket-Accept: C3HoL/ER1LOnEj8yVINdXluouHw=
-
-
-						*/
-						
-						// 改行コードまでを読んで、っていうので良いのか。続く。
-						
-						// 特定のデータが取得できるまでは、データを貯めてく。
-						Debug.LogError("data:" + Encoding.UTF8.GetString(args.Buffer));	
-						break;
-					}
-				}
 				
+				// 総合的な長さ。このサイズを超えて読むことはできない。
 				
 				// update as read completed.
 				token.readableDataLength = token.readableDataLength + bytesAmount;
 				
-				// var result = DisquuunAPI.ScanBuffer(token.currentCommand, token.receiveBuffer, token.readableDataLength);
+				switch (token.socketState) {
+					case SocketState.OPENING: {
+						Debug.LogError("openingデータがある");	
+						var lineEndCursor = ReadUpgradeLine(args.Buffer, 0, token.readableDataLength);
+						if (lineEndCursor == -1) {
+							// まだ読み終われてないので、えーーーっと、、SetBufferの必要がある。
+							break;
+						}
+						
+						var protocolData = new SwitchingProtocolData(Encoding.UTF8.GetString(args.Buffer, 0, lineEndCursor));
+						token.socketState = SocketState.OPENED;
+						break;
+					}
+					case SocketState.OPENED: {
+						var result = ScanBuffer(token.receiveBuffer, token.readableDataLength);
+						if (result.Any()) {
+							// 読み終わっている場所まではなんとかする。で、末尾のデータのindex + lengthがtoken.readableDataLengthとマッチしない場合、
+							// 
+						}
+						break;
+					}
+				}
 				
-				// if (result.isDone) {
+				// 
+				
+				if (true) {
 				// 	var continuation = token.AsyncCallback(token.currentCommand, result.data);
 				// 	if (continuation) {
 				// 		// ready for loop receive.
@@ -263,45 +265,38 @@ Sec-WebSocket-Accept: C3HoL/ER1LOnEj8yVINdXluouHw=
 				// 			}
 				// 		}
 				// 	}
-				// } else {
-				// 	/*
-				// 		note that,
-						
-				// 		SetBuffer([buffer], offset, count)'s "count" is, actually not count.
-						 
-				// 		it's "offset" is "offset of receiving-data-window against buffer",
-				// 		but the "count" is actually "size limitation of next receivable data size".
-						
-				// 		this "size" should be smaller than size of current bufferSize - offset && larger than 0.
-						
-				// 		e.g.
-				// 			if buffer is buffer[10], offset can set 0 ~ 8, and,
-				// 			count should be 9 ~ 1.
-						
-				// 		if vaiolate to this rule, ReceiveAsync never receive data. not good behaviour.
-						
-				// 		and, the "buffer" is treated as pointer. this API treats the pointer of buffer directly.
-				// 		this means, when the byteTransferred is reaching to the size of "buffer", then you resize it to proper size,
-						
-				// 		you should re-set the buffer's pointer by using SetBuffer API.
-						
-						
-				// 		actually, SetBuffer's parameters are below.
-						
-				// 		socket.SetBuffer([bufferAsPointer], additionalDataOffset, receiveSizeLimit)
-				// 	*/
+					ReadyReceive(token);
+				} else {
+					var nextAdditionalBytesLength = token.socket.Available;
 					
-				// 	var nextAdditionalBytesLength = token.socket.Available;
+					if (token.readableDataLength == token.receiveBuffer.Length) {
+						Debug.Log("次のデータが来るのが確定していて、かつバッファサイズが足りない。");
+						Array.Resize(ref token.receiveBuffer, token.receiveArgs.Buffer.Length + nextAdditionalBytesLength);
+					}
 					
-				// 	if (token.readableDataLength == token.receiveBuffer.Length) {
-				// 		Debug.Log("次のデータが来るのが確定していて、かつバッファサイズが足りない。");
-				// 		Array.Resize(ref token.receiveBuffer, token.receiveArgs.Buffer.Length + nextAdditionalBytesLength);
-				// 	}
-					
-				// 	var receivableCount = token.receiveBuffer.Length - token.readableDataLength;
-				// 	token.receiveArgs.SetBuffer(token.receiveBuffer, token.readableDataLength, receivableCount);
-				// 	if (!token.socket.ReceiveAsync(token.receiveArgs)) OnReceived(token.socket, token.receiveArgs);
-				// }
+					var receivableCount = token.receiveBuffer.Length - token.readableDataLength;
+					token.receiveArgs.SetBuffer(token.receiveBuffer, token.readableDataLength, receivableCount);
+					if (!token.socket.ReceiveAsync(token.receiveArgs)) OnReceived(token.socket, token.receiveArgs);
+				}
+			} else {
+				Debug.LogError("データがない");
+				// ReadyReceive(token);
+			}
+		}
+		
+		private void ReadyReceive (SocketToken token) {
+			Debug.LogError("新規データの受付開始");
+			token.readableDataLength = 0;
+			token.receiveArgs.SetBuffer(token.receiveBuffer, 0, token.receiveBuffer.Length);
+			if (!token.socket.ReceiveAsync(token.receiveArgs)) OnReceived(token.socket, token.receiveArgs);
+		}
+		
+		public void Close () {
+			Debug.LogError("close!");
+			try {
+				socketToken.socket.Close();
+			} catch (Exception e) {
+				Debug.LogError("e:" + e);
 			}
 		}
 		
@@ -312,6 +307,115 @@ Sec-WebSocket-Accept: C3HoL/ER1LOnEj8yVINdXluouHw=
 			if (part1 && part2) return false;
 			
 			return true;
+		}
+		public static byte ByteCR = Convert.ToByte('\r');
+		public static byte ByteLF = Convert.ToByte('\n');
+		public static int ReadUpgradeLine (byte[] bytes, int cursor, long length) {
+			while (cursor < length) {
+				if (4 < cursor && 
+					bytes[cursor - 3] == ByteCR && 
+					bytes[cursor - 2] == ByteLF &&
+					bytes[cursor - 1] == ByteCR && 
+					bytes[cursor] == ByteLF
+				) return cursor - 1;
+				
+				cursor++;
+			}
+			
+			// Disquuun.Log("overflow detected.");
+			return -1;
+		}
+		
+		
+		private struct SwitchingProtocolData {
+			// HTTP/1.1 101 Switching Protocols
+			// Server: nginx/1.7.10
+			// Date: Sun, 22 May 2016 18:31:47 GMT
+			// Connection: upgrade
+			// Upgrade: websocket
+			// Sec-WebSocket-Accept: C3HoL/ER1LOnEj8yVINdXluouHw=
+			
+			public SwitchingProtocolData (string source) {
+				
+			}
+		}
+		
+		private const byte OPFilter			= 0xF;// 1111
+		
+		public static List<OpCodeAndPayloadIndex> ScanBuffer (byte[] buffer, long bufferLength) {
+			var opCodeAndPayloadIndexies = new List<OpCodeAndPayloadIndex>();
+			
+			uint messageHead;
+			uint cursor = 0;
+			
+			while (cursor < bufferLength) {
+				messageHead = cursor;
+				
+				// first byte = fin(1), rsv1(1), rsv2(1), rsv3(1), opCode(4)
+				var opCode = (byte)(buffer[cursor++] & OPFilter);
+				
+				// second byte = mask(1), length(7)
+				if (bufferLength < cursor) break; 
+				/*
+					mask of data from server is definitely zero(0).
+					ignore reading mask bit.
+				*/
+				uint length = (uint)buffer[cursor++];
+				switch (length) {
+					case 126: {
+						// next 2 byte is length data.
+						if (bufferLength < cursor + 2) break;
+						
+						length = (uint)(
+							(buffer[cursor++] << 8) +
+							(buffer[cursor++])
+						);
+						break;
+					}
+					case 127: {
+						// next 8 byte is length data.
+						if (bufferLength < cursor + 8) break;
+						
+						length = (uint)(
+							(buffer[cursor++] << (8*7)) +
+							(buffer[cursor++] << (8*6)) +
+							(buffer[cursor++] << (8*5)) +
+							(buffer[cursor++] << (8*4)) +
+							(buffer[cursor++] << (8*3)) +
+							(buffer[cursor++] << (8*2)) +
+							(buffer[cursor++] << 8) +
+							(buffer[cursor++])
+						);
+						break;
+					}
+					default: {
+						// other.
+						break;
+					}
+				}
+				
+				// read payload data.
+				if (bufferLength < cursor + length) break;
+				
+				// payload is fully contained!
+				opCodeAndPayloadIndexies.Add(new OpCodeAndPayloadIndex(opCode, cursor, length));
+				
+				cursor = cursor + length; 
+			}
+			
+			// finally return indexies.
+			return opCodeAndPayloadIndexies;
+		}
+		
+		public struct OpCodeAndPayloadIndex {
+			public readonly byte opCode;
+			public readonly uint start;
+			public readonly uint length;
+			public OpCodeAndPayloadIndex (byte opCode, uint start, uint length) {
+				this.opCode = opCode;
+				this.start = start;
+				this.length = length;
+			}
 		}
 	}
 }
