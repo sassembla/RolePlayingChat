@@ -22,6 +22,7 @@ namespace DisquuunCore.Deserialize {
 			public JobData (DisquuunResult dataSourceBytes) {
 				this.jobId = Encoding.UTF8.GetString(dataSourceBytes.bytesArray[0]);
 				this.jobData = dataSourceBytes.bytesArray[1];
+				
 				if (dataSourceBytes.bytesArray.Length < 3) {
 					nackCount = -1;
 					additionalDeliveriesCount = -1;

@@ -76,7 +76,7 @@ public partial class Tests {
 		tests.Add(_2_6_Info_Async);
 		tests.Add(_2_7_Hello_Async);
 		tests.Add(_2_8_Qlen_Async);
-		// tests.Add(_2_9_Qstat_Async);
+		tests.Add(_2_9_Qstat_Async);
 		// tests.Add(_2_10_Qpeek_Async);
 		// tests.Add(_2_11_Enqueue_Async);
 		// tests.Add(_2_12_Dequeue_Async);

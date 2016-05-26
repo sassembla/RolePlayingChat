@@ -248,15 +248,20 @@ public partial class Tests {
 	}
 	
 	public void _2_9_Qstat_Async (Disquuun disquuun) {
-		Disquuun.Log("_1_9_Qstat_Async not yet applied");
-		// <queue-name>
+		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		var queueId = Guid.NewGuid().ToString();
+		var jobId = DisquuunDeserializer.AddJob(disquuun.AddJob(queueId, new byte[10]).DEPRICATED_Sync());
 		
-		// WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		var qstatLen = 0;
+		disquuun.Qstat(queueId).Async(
+			(command, data) => {
+				qstatLen = DisquuunDeserializer.Qstat(data).len;
+			}
+		);
 		
-		// var infoData = disquuun.Info().DEPRICATED_Sync();
-		// var infoResult = DisquuunDeserializer.Info(infoData);
+		WaitUntil(() => (qstatLen == 1), 5);
 		
-		// Assert(0, infoResult.jobs.registered_jobs, "not match.");
+		disquuun.FastAck(new string[]{jobId}).DEPRICATED_Sync();
 	}
 	
 	
