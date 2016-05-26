@@ -110,6 +110,26 @@ public partial class Tests {
 		WaitUntil(() => received, 5);
 	}
 	
+	public void _2_1_4_GetJobWithCounters_Async (Disquuun disquuun) {
+		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		
+		var queueId = Guid.NewGuid().ToString();
+		
+		disquuun.AddJob(queueId, new byte[100]).DEPRICATED_Sync();
+		
+		var ackCount = -1;
+		
+		disquuun.GetJob(new string[]{queueId}, "withcounters").Async(
+			(command, result) => {
+				var jobDatas = DisquuunDeserializer.GetJob(result);
+				ackCount = jobDatas[0].additionalDeliveriesCount;
+				disquuun.FastAck(new string[]{jobDatas[0].jobId}).DEPRICATED_Sync();
+			}
+		);
+		
+		WaitUntil(() => (ackCount == 0), 5);
+	}
+	
 	public void _2_2_AckJob_Async (Disquuun disquuun) {
 		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
 		

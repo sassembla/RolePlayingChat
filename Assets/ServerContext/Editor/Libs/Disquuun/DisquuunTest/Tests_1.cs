@@ -83,6 +83,21 @@ public partial class Tests {
 		Assert(0, jobDatas.Length, "not match.");
 	}
 	
+	public void _1_1_4_GetJobWithCounters_Sync (Disquuun disquuun) {
+		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		
+		var queueId = Guid.NewGuid().ToString();
+		
+		disquuun.AddJob(queueId, new byte[100]).DEPRICATED_Sync();
+		
+		var result = disquuun.GetJob(new string[]{queueId}, "withcounters").DEPRICATED_Sync();
+		var jobDatas = DisquuunDeserializer.GetJob(result);
+		var ackCount = jobDatas[0].additionalDeliveriesCount;
+		Assert(0, ackCount, "not match.");
+		
+		disquuun.FastAck(new string[]{jobDatas[0].jobId}).DEPRICATED_Sync();
+	}
+	
 	public void _1_2_AckJob_Sync (Disquuun disquuun) {
 		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
 		

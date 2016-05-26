@@ -33,7 +33,6 @@ using System.IO;
 	
 	private void DetectPlayStart () {
 		if (!EditorApplication.isPlaying && EditorApplication.isPlayingOrWillChangePlaymode) {
-			TestLogger.Log("DetectPlayStart");
 			EditorApplication.playmodeStateChanged -= DetectPlayStart;
 			initializer.Teardown();
 			DisquuunTests.Stop();
@@ -42,7 +41,6 @@ using System.IO;
 	
 	private void DetectCompileStart () {
 		if (EditorApplication.isCompiling) {
-			TestLogger.Log("DetectCompileStart");
 			EditorApplication.update -= DetectCompileStart;
 			
 			initializer.Teardown();
