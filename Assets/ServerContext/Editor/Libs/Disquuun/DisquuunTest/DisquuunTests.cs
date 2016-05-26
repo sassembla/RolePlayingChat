@@ -52,7 +52,7 @@ public partial class Tests {
 		tests.Add(_1_6_Info_Sync);
 		tests.Add(_1_7_Hello_Sync);
 		tests.Add(_1_8_Qlen_Sync);
-		// tests.Add(_1_9_Qstat_Sync);
+		tests.Add(_1_9_Qstat_Sync);
 		// tests.Add(_1_10_Qpeek_Sync);
 		// tests.Add(_1_11_Enqueue_Sync);
 		// tests.Add(_1_12_Dequeue_Sync);
