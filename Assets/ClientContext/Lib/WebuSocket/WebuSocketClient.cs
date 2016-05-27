@@ -6,8 +6,6 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Security.Cryptography;
-using WebuSocket;
-
 
 /**
 	Motivations
@@ -59,13 +57,12 @@ namespace WebuSocketCore {
 			string url,
 			Action OnConnected,
 			Action<Queue<byte[]>> OnMessage,
+			Action OnPinged,
 			Action<string> OnClosed,
 			Action<string, Exception> OnError,
 			int throttle=0,
 			Dictionary<string, string> additionalHeaderParams=null
 		) {
-			webuSocket = new WebuSocket(url, OnConnected, OnMessage, OnClosed, OnError, additionalHeaderParams);
-			
 			Debug.LogWarning("wss and another features are not supported yet.");
 			/*
 				unsupporteds:
@@ -318,6 +315,7 @@ namespace WebuSocketCore {
 		
 		
 		public void Close () {
+			if (webuSocket != null) webuSocket.Disconnect();
 			switch (state) {
 				case WSConnectionState.Opened: {
 					state = WSConnectionState.Closing;
@@ -335,7 +333,7 @@ namespace WebuSocketCore {
 			forcely close socket on this time.
 		*/
 		public void CloseSync () {
-			webuSocket.Close();
+			webuSocket.Disconnect();
 			ForceClose();
 		}
 		

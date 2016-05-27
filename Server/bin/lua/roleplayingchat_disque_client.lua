@@ -108,6 +108,7 @@ function connectWebSocket()
 			break
 		elseif typ == "ping" then
 			local bytes, err = ws:send_pong()
+			ngx.log(ngx.ERR, "connection:", serverId, " ping received.")
 			if not bytes then
 				ngx.log(ngx.ERR, "connection:", serverId, " failed to send pong: ", err)
 				break

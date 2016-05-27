@@ -1,9 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using WebuSocketCore;
 
-namespace WebuSocket {
+namespace WebuSocketCore {
     public static class WebSocketByteGenerator {
 		// #0                   1                   2                   3
 		// #0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -30,7 +29,8 @@ namespace WebuSocket {
 		public const byte OP_PING			= 0x9;// 1001
 		public const byte OP_PONG			= 0xA;// 1010
 		
-		private const byte OPFilter			= 0xF;// 1111
+		public const byte OPFilter			= 0xF;// 1111
+		
 		public static byte[] Ping () {
 			return WSDataFrame(1, 0, 0, 0, OP_PING, 1, new byte[0]);
 		}
@@ -123,7 +123,7 @@ namespace WebuSocket {
 			get message detail from data.
 			no copy emitted. only read data then return there indexies of messages.
 		*/
-		public static List<OpCodeAndPayloadIndex> GetIndexies (byte[] data) {// これに限界値を付け加えたものが使えそう。
+		public static List<OpCodeAndPayloadIndex> GetIndexies (byte[] data) {
 			var opCodeAndPayloadIndexies = new List<OpCodeAndPayloadIndex>();
 			
 			uint messageHead;

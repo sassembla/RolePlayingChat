@@ -38,14 +38,10 @@ namespace WebuSocketCore {
 			public readonly SocketAsyncEventArgs sendArgs;
 			public readonly SocketAsyncEventArgs receiveArgs;
 			
-			
-			
-			// public Func<DisqueCommand, DisquuunCore.DisquuunResult[], bool> AsyncCallback;
-			
-			public SocketToken (Socket socket, long bufferSize, SocketAsyncEventArgs connectArgs, SocketAsyncEventArgs sendArgs, SocketAsyncEventArgs receiveArgs) {
+			public SocketToken (Socket socket, int bufferLen, SocketAsyncEventArgs connectArgs, SocketAsyncEventArgs sendArgs, SocketAsyncEventArgs receiveArgs) {
 				this.socket = socket;
 				
-				this.receiveBuffer = new byte[bufferSize];
+				this.receiveBuffer = new byte[bufferLen];
 				
 				this.connectArgs = connectArgs;
 				this.sendArgs = sendArgs;
@@ -59,26 +55,43 @@ namespace WebuSocketCore {
 			}
 		}
 		
+		private int baseBufferSize;
+		
+		private readonly Action OnConnected;
+		private readonly Action OnPinged;
+		private readonly Action<Queue<byte[]>> OnMessage;
+		private readonly Action<string> OnClosed;
+		private readonly Action<string, Exception> OnError;
 		
 		public WebuSocket (
 			string url,
-			Action OnConnected,
-			Action<Queue<byte[]>> OnMessage,
-			Action<string> OnClosed,
-			Action<string, Exception> OnError,
+			int baseBufferSize,
+			Action OnConnected=null,
+			Action<Queue<byte[]>> OnMessage=null,
+			Action OnPinged=null,
+			Action<string> OnClosed=null,
+			Action<string, Exception> OnError=null,
 			Dictionary<string, string> additionalHeaderParams=null
 		) {
 			this.webSocketConnectionId = Guid.NewGuid().ToString();
+			this.baseBufferSize = baseBufferSize;
 			
 			var requstBytesAndHostAndPort = WebuSocketClient.GenerateRequestData(url, additionalHeaderParams);
 			this.endPoint = new IPEndPoint(IPAddress.Parse(requstBytesAndHostAndPort.host), requstBytesAndHostAndPort.port);
+			
+			this.OnConnected = OnConnected;
+			this.OnMessage = OnMessage;
+			this.OnPinged = OnPinged;
+			this.OnClosed = OnClosed;
+			this.OnError = OnError;
+			
 			
 			StartConnectAsync(requstBytesAndHostAndPort.requestDataBytes);
 		}
 		
 		private void StartConnectAsync (byte[] requestData) {
 			var timeout = 1000;
-			var bufferSize = 1024 * 10;
+			
 			
 			Debug.LogError("起動時に、asyncでtcp -> ヘッダ送る -> レスポンス得る、というのをやってしまう。完了後はargs系を塗り替えるはず。");
 			
@@ -99,7 +112,7 @@ namespace WebuSocketCore {
 			var sendArgs = new SocketAsyncEventArgs();
 			sendArgs.AcceptSocket = clientSocket;
 			sendArgs.RemoteEndPoint = endPoint;
-			sendArgs.SetBuffer(requestData, 0, requestData.Length);
+			sendArgs.SetBuffer(requestData, 0, requestData.Length);// set websocket handshake data.
 			sendArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnSend);
 			
 			var receiveArgs = new SocketAsyncEventArgs();
@@ -107,7 +120,7 @@ namespace WebuSocketCore {
 			receiveArgs.RemoteEndPoint = endPoint;
 			receiveArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnReceived);
 						
-			socketToken = new SocketToken(clientSocket, bufferSize, connectArgs, sendArgs, receiveArgs); 
+			socketToken = new SocketToken(clientSocket, baseBufferSize, connectArgs, sendArgs, receiveArgs); 
 			socketToken.socketState = SocketState.CONNECTING;
 			
 			// start connect.
@@ -134,9 +147,8 @@ namespace WebuSocketCore {
 					socketToken.receiveArgs.SetBuffer(socketToken.receiveBuffer, 0, socketToken.receiveBuffer.Length);
 					if (!socketToken.socket.ReceiveAsync(socketToken.receiveArgs)) OnReceived(socketToken.socket, socketToken.receiveArgs);
 					
-					// send.
+					// send. websocket handshake request data is already set.
 					if (!token.socket.SendAsync(socketToken.sendArgs)) OnSend(token.socket, token.sendArgs);
-					
 					return;
 				}
 				default: {
@@ -145,7 +157,7 @@ namespace WebuSocketCore {
 			}
 		}
 		
-		private void OnClosed (object unused, SocketAsyncEventArgs args) {
+		private void OnDisconnected (object unused, SocketAsyncEventArgs args) {
 			var token = (SocketToken)args.UserToken;
 			switch (token.socketState) {
 				case SocketState.CLOSED: {
@@ -164,7 +176,7 @@ namespace WebuSocketCore {
 			switch (socketError) {
 				case SocketError.Success: {
 					// do nothing.
-					Debug.LogError("送信成功してる");
+					// Debug.LogError("送信成功してる");
 					break;
 				}
 				default: {
@@ -209,95 +221,140 @@ namespace WebuSocketCore {
 				}
 			}
 			
-			if (0 < args.BytesTransferred) {
-				var bytesAmount = args.BytesTransferred;
-				
-				// 総合的な長さ。このサイズを超えて読むことはできない。
-				
-				// update as read completed.
-				token.readableDataLength = token.readableDataLength + bytesAmount;
-				
-				switch (token.socketState) {
-					case SocketState.OPENING: {
-						Debug.LogError("openingデータがある");	
-						var lineEndCursor = ReadUpgradeLine(args.Buffer, 0, token.readableDataLength);
-						if (lineEndCursor == -1) {
-							// まだ読み終われてないので、えーーーっと、、SetBufferの必要がある。
-							break;
-						}
-						
+			if (args.BytesTransferred == 0) throw new Exception("failed to receive. args.BytesTransferred = 0.");
+			
+			// update as read completed.
+			token.readableDataLength = token.readableDataLength + args.BytesTransferred;
+			
+			switch (token.socketState) {
+				case SocketState.OPENING: {
+					var lineEndCursor = ReadUpgradeLine(args.Buffer, 0, token.readableDataLength);
+					if (lineEndCursor != -1) {
 						var protocolData = new SwitchingProtocolData(Encoding.UTF8.GetString(args.Buffer, 0, lineEndCursor));
 						token.socketState = SocketState.OPENED;
-						break;
-					}
-					case SocketState.OPENED: {
-						var result = ScanBuffer(token.receiveBuffer, token.readableDataLength);
-						if (result.Any()) {
-							// 読み終わっている場所まではなんとかする。で、末尾のデータのindex + lengthがtoken.readableDataLengthとマッチしない場合、
-							// 
-						}
-						break;
-					}
-				}
-				
-				// 
-				
-				if (true) {
-				// 	var continuation = token.AsyncCallback(token.currentCommand, result.data);
-				// 	if (continuation) {
-				// 		// ready for loop receive.
-				// 		token.readableDataLength = 0;
-				// 		token.receiveArgs.SetBuffer(token.receiveBuffer, 0, token.receiveBuffer.Length);
-				// 		if (!token.socket.ReceiveAsync(token.receiveArgs)) OnReceived(token.socket, token.receiveArgs);
 						
-				// 		token.sendArgs.SetBuffer(token.currentSendingBytes, 0, token.currentSendingBytes.Length);
-				// 		if (!token.socket.SendAsync(token.sendArgs)) OnSend(token.socket, token.sendArgs);
-				// 	} else {
-				// 		switch (token.socketState) {
-				// 			case SocketState.BUSY: {
-				// 				token.socketState = SocketState.OPENED;
-				// 				break;
-				// 			}
-				// 			case SocketState.DISPOSABLE_BUSY: {
-				// 				// disposable connection should be close after used.
-				// 				StartCloseAsync();
-				// 				break;
-				// 			}
-				// 		}
-				// 	}
-					ReadyReceive(token);
-				} else {
-					var nextAdditionalBytesLength = token.socket.Available;
-					
-					if (token.readableDataLength == token.receiveBuffer.Length) {
-						Debug.Log("次のデータが来るのが確定していて、かつバッファサイズが足りない。");
-						Array.Resize(ref token.receiveBuffer, token.receiveArgs.Buffer.Length + nextAdditionalBytesLength);
+						ReadyReceivingNewData(token);
+						
+						if (OnConnected != null) OnConnected();
+						return;
 					}
 					
-					var receivableCount = token.receiveBuffer.Length - token.readableDataLength;
-					token.receiveArgs.SetBuffer(token.receiveBuffer, token.readableDataLength, receivableCount);
-					if (!token.socket.ReceiveAsync(token.receiveArgs)) OnReceived(token.socket, token.receiveArgs);
+					// should read next.
+					ReceivingRestDataWithoutSort(token);
+					return;
 				}
-			} else {
-				Debug.LogError("データがない");
-				// ReadyReceive(token);
+				case SocketState.OPENED: {
+					var result = ScanBuffer(token.receiveBuffer, token.readableDataLength);
+					
+					// read completed datas.
+					if (result.Any()) {
+						// ここで呼ばれるのはbyteかstringのみ、っていう感じでやりたい。んーーーバラバラに呼ばれるのは避けたいが、ハンドラを渡すわけにも、、
+						// やっぱバラバラにしてしまうか？ここでハンドラ着火するか。
+						// どうやるのがベストか、、ArraySegmentのみで構成したほうが、取り出しは一発になる。受け取った側で直列化？いやーしんどいな。
+						// あ、でもそれでも良いのか。ここで束ねてしまったほうがいいのか。
+						// result自体をそれぞれindex持ったarrayにしちゃう？
+					}
+					
+					// check last index for fragmented data.
+					var lastData = result.Last();
+					var lastDataIndex = (int)(lastData.Offset + lastData.Count);
+					
+					// if the last result index is matched to whole length, receive finished.
+					if (lastDataIndex == token.readableDataLength) {
+						ReadyReceivingNewData(token);
+						return;
+					}
+					
+					// rest data exists.
+					
+					var lastDataLength = token.receiveBuffer.Length - lastDataIndex;
+					
+					// should read rest.
+					ReceivingRestData(token, lastDataIndex, lastDataLength);
+					return;
+				}
+				default: {
+					throw new Exception("fatal error, could not detect error, receive condition is strange, token.socketState:" + token.socketState);
+				}
 			}
 		}
 		
-		private void ReadyReceive (SocketToken token) {
+		private void ReadyReceivingNewData (SocketToken token) {
 			Debug.LogError("新規データの受付開始");
 			token.readableDataLength = 0;
 			token.receiveArgs.SetBuffer(token.receiveBuffer, 0, token.receiveBuffer.Length);
 			if (!token.socket.ReceiveAsync(token.receiveArgs)) OnReceived(token.socket, token.receiveArgs);
 		}
 		
-		public void Close () {
-			Debug.LogError("close!");
-			try {
-				socketToken.socket.Close();
-			} catch (Exception e) {
-				Debug.LogError("e:" + e);
+		private void ReceivingRestDataWithoutSort (SocketToken token) {
+			// should read rest.
+			var nextAdditionalBytesLength = token.socket.Available;
+		
+			if (0 < nextAdditionalBytesLength && token.readableDataLength == token.receiveBuffer.Length) {
+				Debug.Log("次のデータが来るのが確定していて、かつバッファサイズが足りない。");
+				Array.Resize(ref token.receiveBuffer, token.receiveArgs.Buffer.Length + nextAdditionalBytesLength);
 			}
+			
+			var receivableCount = token.receiveBuffer.Length - token.readableDataLength;
+			token.receiveArgs.SetBuffer(token.receiveBuffer, token.readableDataLength, receivableCount);
+			if (!token.socket.ReceiveAsync(token.receiveArgs)) OnReceived(token.socket, token.receiveArgs);
+		}
+		
+		private void ReceivingRestData (SocketToken token, int restDataIndex, int alreadyReadLength) {
+			// move already received data index to head.
+			Array.Copy(token.receiveBuffer, restDataIndex, token.receiveBuffer, 0, alreadyReadLength);
+			
+			token.readableDataLength = alreadyReadLength;
+			
+			// should read rest.
+			var nextAdditionalBytesLength = token.socket.Available;
+			
+			/*
+				if next data is too large to read at once, scale up buffer.
+				this causes token.receiveBuffer's pointer change & length change.
+			*/
+			if (0 < nextAdditionalBytesLength && token.receiveBuffer.Length - token.readableDataLength < nextAdditionalBytesLength) {
+				Debug.Log("次のデータが来るのが確定していて、かつバッファサイズが足りない。2");
+				Array.Resize(ref token.receiveBuffer, token.receiveArgs.Buffer.Length + nextAdditionalBytesLength);
+			}
+			
+			// set buffer size and index with latest length of token.receiveBuffer.
+			token.receiveArgs.SetBuffer(token.receiveBuffer, alreadyReadLength, token.receiveBuffer.Length - token.readableDataLength);
+			if (!token.socket.ReceiveAsync(token.receiveArgs)) OnReceived(token.socket, token.receiveArgs);
+		}
+		
+		public void Disconnect (bool force=false) {
+			if (force) {
+				try {
+					socketToken.socket.Close();
+				} catch (Exception e) {
+					Debug.LogError("e:" + e);
+				}
+				return;
+			}
+			
+			switch (socketToken.socketState) {
+				case SocketState.CLOSING:
+				case SocketState.CLOSED: {
+					// do nothing
+					break;
+				}
+				default: {
+					socketToken.socketState = SocketState.CLOSING;
+					
+					StartCloseAsync();
+					break;
+				}
+			}
+		}
+		
+		private void StartCloseAsync () {
+			var closeEventArgs = new SocketAsyncEventArgs();
+			closeEventArgs.UserToken = socketToken;
+			closeEventArgs.AcceptSocket = socketToken.socket;
+			closeEventArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnDisconnected);
+			
+			if (!socketToken.socket.DisconnectAsync(closeEventArgs)) OnDisconnected(socketToken.socket, closeEventArgs);
 		}
 		
 		private static bool IsSocketConnected (Socket s) {
@@ -336,37 +393,38 @@ namespace WebuSocketCore {
 			// Sec-WebSocket-Accept: C3HoL/ER1LOnEj8yVINdXluouHw=
 			
 			public SwitchingProtocolData (string source) {
-				
+				Debug.LogError("なんか分解して確認しないとな〜みたいな感じがする。");
 			}
 		}
 		
-		private const byte OPFilter			= 0xF;// 1111
 		
-		public static List<OpCodeAndPayloadIndex> ScanBuffer (byte[] buffer, long bufferLength) {
-			var opCodeAndPayloadIndexies = new List<OpCodeAndPayloadIndex>();
+		
+		public List<ArraySegment<byte>> ScanBuffer (byte[] buffer, long bufferLength) {
+			var receivedDataSegments = new List<ArraySegment<byte>>();
 			
-			uint messageHead;
-			uint cursor = 0;
+			int messageHead;
+			int cursor = 0;
 			
 			while (cursor < bufferLength) {
 				messageHead = cursor;
 				
 				// first byte = fin(1), rsv1(1), rsv2(1), rsv3(1), opCode(4)
-				var opCode = (byte)(buffer[cursor++] & OPFilter);
+				var opCode = (byte)(buffer[cursor++] & WebSocketByteGenerator.OPFilter);
 				
 				// second byte = mask(1), length(7)
-				if (bufferLength < cursor) break; 
+				if (bufferLength < cursor) break;
+				
 				/*
 					mask of data from server is definitely zero(0).
 					ignore reading mask bit.
 				*/
-				uint length = (uint)buffer[cursor++];
+				int length = buffer[cursor++];
 				switch (length) {
 					case 126: {
 						// next 2 byte is length data.
 						if (bufferLength < cursor + 2) break;
 						
-						length = (uint)(
+						length = (
 							(buffer[cursor++] << 8) +
 							(buffer[cursor++])
 						);
@@ -376,7 +434,7 @@ namespace WebuSocketCore {
 						// next 8 byte is length data.
 						if (bufferLength < cursor + 8) break;
 						
-						length = (uint)(
+						length = (
 							(buffer[cursor++] << (8*7)) +
 							(buffer[cursor++] << (8*6)) +
 							(buffer[cursor++] << (8*5)) +
@@ -398,24 +456,76 @@ namespace WebuSocketCore {
 				if (bufferLength < cursor + length) break;
 				
 				// payload is fully contained!
-				opCodeAndPayloadIndexies.Add(new OpCodeAndPayloadIndex(opCode, cursor, length));
+				switch (opCode) {
+					case WebSocketByteGenerator.OP_CONTINUATION: {
+						throw new Exception("unsupported.");
+					}
+					case WebSocketByteGenerator.OP_TEXT: {
+						throw new Exception("unsupported.");						
+					}
+					case WebSocketByteGenerator.OP_BINARY: {
+						receivedDataSegments.Add(new ArraySegment<byte>(buffer, cursor, length));
+						break;
+					}
+					case WebSocketByteGenerator.OP_CLOSE: {
+						CloseReceived();
+						break;
+					}
+					case WebSocketByteGenerator.OP_PING: {
+						PingReceived();
+						break;
+					}
+					case WebSocketByteGenerator.OP_PONG: {
+						Debug.LogError("pong,,! length:" + length);
+						PongReceived();
+						あーーpayload帰らないから次が取得できないのか〜うーーん、、
+						break;
+					}
+					default: {
+						break;
+					}
+				}
 				
 				cursor = cursor + length; 
 			}
 			
-			// finally return indexies.
-			return opCodeAndPayloadIndexies;
+			// finally return payload data indexies.
+			return receivedDataSegments;
 		}
 		
-		public struct OpCodeAndPayloadIndex {
-			public readonly byte opCode;
-			public readonly uint start;
-			public readonly uint length;
-			public OpCodeAndPayloadIndex (byte opCode, uint start, uint length) {
-				this.opCode = opCode;
-				this.start = start;
-				this.length = length;
+		private Action OnPonged;
+		public void Ping (Action OnPonged) {
+			this.OnPonged = OnPonged;
+			var pingBytes = WebSocketByteGenerator.Ping();
+			
+			socketToken.sendArgs.SetBuffer(pingBytes, 0, pingBytes.Length);
+			if (!socketToken.socket.SendAsync(socketToken.sendArgs)) OnSend(socketToken.socket, socketToken.sendArgs);		
+		}
+		
+		private void CloseReceived () {
+			switch (socketToken.socketState) {
+				case SocketState.OPENED: {
+					Debug.LogError("非同期の切断処理に入る。サーバからclose受け取った場合だね。");
+					if (OnClosed != null) OnClosed("disconnected from server.");
+					Disconnect();
+					break;
+				}
+				default: {
+					
+					break;
+				}
 			}
+		}
+		
+		private void PingReceived () {
+			Debug.LogError("pingきたのでpong返さねば");
+			var data = WebSocketByteGenerator.Pong();
+			if (OnPinged != null) OnPinged();
+			
+		}
+		
+		private void PongReceived () {
+			if (OnPonged != null) OnPonged();
 		}
 	}
 }

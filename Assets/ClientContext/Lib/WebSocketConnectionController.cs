@@ -22,6 +22,8 @@ namespace WebSocketControl {
 		
 		public static Queue<byte[]> binaryQueue = new Queue<byte[]>();
 		
+		static WebuSocket w2;
+		
 		public static void InitWebSocketConnection (
 			Dictionary<string, string> customHeaderKeyValues, 
 			string agent,
@@ -48,22 +50,42 @@ namespace WebSocketControl {
 				}
 			);
 			
-			webuSocket = new WebuSocketClient(
-				WEBSOCKET_ENTRYPOINT,
+			w2 = new WebuSocket(
+				WEBSOCKET_ENTRYPOINT, 
+				1024 * 100, 
 				() => {
-					var a = "";
-					MainThreadDispatcher.Post(
-						(b) => {
-							connected();
-						},
-						a
-					);
-				},
+					Debug.LogError("connected,");
+					
+					for (var i = 0; i < 100; i++) {
+						w2.Ping(
+							() => {
+								// Debug.LogError("receive pong.");
+							}
+						);
+					}
+					
+					// w2.Ping(
+					// 	() => {
+					// 		Debug.LogError("receive pong2.");
+					// 	}
+					// );
+					
+					// var a = "";
+					// MainThreadDispatcher.Post(
+					// 	(b) => {
+					// 		connected();
+					// 	},
+					// 	a
+					// );
+				}, 
 				(Queue<byte[]> datas) => {
 					lock (binaryQueue) {
 						while (0 < datas.Count) binaryQueue.Enqueue(datas.Dequeue());
 					}
-				},
+				}, 
+				() => {
+					Debug.LogError("pingされたぞ〜");
+				}, 
 				(string closeReason) => {
 					Debug.LogError("closeReason:" + closeReason);
 					var a = "";
@@ -73,7 +95,7 @@ namespace WebSocketControl {
 						},
 						a
 					);
-				},
+				}, 
 				(string errorReason, Exception e) => {
 					Debug.LogError("errorReason:" + errorReason);
 					var a = "";
@@ -83,10 +105,52 @@ namespace WebSocketControl {
 						},
 						a
 					);
-				},
-				0,
+				}, 
 				customHeaderKeyValues
 			);
+			
+			// webuSocket = new WebuSocketClient(
+			// 	WEBSOCKET_ENTRYPOINT,
+			// 	() => {
+			// 		var a = "";
+			// 		MainThreadDispatcher.Post(
+			// 			(b) => {
+			// 				connected();
+			// 			},
+			// 			a
+			// 		);
+			// 	},
+			// 	(Queue<byte[]> datas) => {
+			// 		lock (binaryQueue) {
+			// 			while (0 < datas.Count) binaryQueue.Enqueue(datas.Dequeue());
+			// 		}
+			// 	},
+			// 	() => {
+			// 		Debug.LogError("pingされたぞ〜");
+			// 	},
+			// 	(string closeReason) => {
+			// 		Debug.LogError("closeReason:" + closeReason);
+			// 		var a = "";
+			// 		MainThreadDispatcher.Post(
+			// 			(b) => {
+			// 				// run on main thread.
+			// 			},
+			// 			a
+			// 		);
+			// 	},
+			// 	(string errorReason, Exception e) => {
+			// 		Debug.LogError("errorReason:" + errorReason);
+			// 		var a = "";
+			// 		MainThreadDispatcher.Post(
+			// 			(b) => {
+			// 				// run on main thread.
+			// 			},
+			// 			a
+			// 		);
+			// 	},
+			// 	0,
+			// 	customHeaderKeyValues
+			// );
 		}
 		
 		public static void SendCommandAsync (byte[] command) {
