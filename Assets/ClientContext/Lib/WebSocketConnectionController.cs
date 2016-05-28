@@ -59,16 +59,10 @@ namespace WebSocketControl {
 					for (var i = 0; i < 100; i++) {
 						w2.Ping(
 							() => {
-								// Debug.LogError("receive pong.");
+								Debug.LogError("receive pong.");
 							}
 						);
 					}
-					
-					// w2.Ping(
-					// 	() => {
-					// 		Debug.LogError("receive pong2.");
-					// 	}
-					// );
 					
 					// var a = "";
 					// MainThreadDispatcher.Post(

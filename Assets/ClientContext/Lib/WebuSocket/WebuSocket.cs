@@ -247,30 +247,28 @@ namespace WebuSocketCore {
 					var result = ScanBuffer(token.receiveBuffer, token.readableDataLength);
 					
 					// read completed datas.
-					if (result.Any()) {
+					if (result.segments.Any()) {
 						// ここで呼ばれるのはbyteかstringのみ、っていう感じでやりたい。んーーーバラバラに呼ばれるのは避けたいが、ハンドラを渡すわけにも、、
 						// やっぱバラバラにしてしまうか？ここでハンドラ着火するか。
 						// どうやるのがベストか、、ArraySegmentのみで構成したほうが、取り出しは一発になる。受け取った側で直列化？いやーしんどいな。
 						// あ、でもそれでも良いのか。ここで束ねてしまったほうがいいのか。
 						// result自体をそれぞれindex持ったarrayにしちゃう？
+						// ラストも持たせよう。
 					}
 					
-					// check last index for fragmented data.
-					var lastData = result.Last();
-					var lastDataIndex = (int)(lastData.Offset + lastData.Count);
-					
 					// if the last result index is matched to whole length, receive finished.
-					if (lastDataIndex == token.readableDataLength) {
+					if (result.lastDataTail == token.readableDataLength) {
 						ReadyReceivingNewData(token);
 						return;
 					}
 					
+					Debug.LogError("receiving rest data! token.readableDataLength:" + token.readableDataLength + " vs result.lastDataTail:" + result.lastDataTail);
 					// rest data exists.
 					
-					var lastDataLength = token.receiveBuffer.Length - lastDataIndex;
+					var alreadyReceivedDataLength = token.receiveBuffer.Length - result.lastDataTail;
 					
 					// should read rest.
-					ReceivingRestData(token, lastDataIndex, lastDataLength);
+					ReceivingRestData(token, result.lastDataTail, alreadyReceivedDataLength);
 					return;
 				}
 				default: {
@@ -399,10 +397,10 @@ namespace WebuSocketCore {
 		
 		
 		
-		public List<ArraySegment<byte>> ScanBuffer (byte[] buffer, long bufferLength) {
-			var receivedDataSegments = new List<ArraySegment<byte>>();
+		private Results ScanBuffer (byte[] buffer, long bufferLength) {
+			List<ArraySegment<byte>> receivedDataSegments = new List<ArraySegment<byte>>();
 			
-			int messageHead;
+			int messageHead = 0;
 			int cursor = 0;
 			
 			while (cursor < bufferLength) {
@@ -476,9 +474,7 @@ namespace WebuSocketCore {
 						break;
 					}
 					case WebSocketByteGenerator.OP_PONG: {
-						Debug.LogError("pong,,! length:" + length);
 						PongReceived();
-						あーーpayload帰らないから次が取得できないのか〜うーーん、、
 						break;
 					}
 					default: {
@@ -490,7 +486,17 @@ namespace WebuSocketCore {
 			}
 			
 			// finally return payload data indexies.
-			return receivedDataSegments;
+			return new Results(receivedDataSegments, cursor);
+		}
+		
+		private struct Results {
+			public List<ArraySegment<byte>> segments;
+			public int lastDataTail;
+			
+			public Results (List<ArraySegment<byte>> segments, int lastDataTail) {
+				this.segments = segments;
+				this.lastDataTail = lastDataTail;
+			}
 		}
 		
 		private Action OnPonged;
