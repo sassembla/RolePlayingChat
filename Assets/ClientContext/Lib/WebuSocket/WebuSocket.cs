@@ -59,7 +59,7 @@ namespace WebuSocketCore {
 		
 		private readonly Action OnConnected;
 		private readonly Action OnPinged;
-		private readonly Action<Queue<byte[]>> OnMessage;
+		private readonly Action<Queue<ArraySegment<byte>>> OnMessage;
 		private readonly Action<string> OnClosed;
 		private readonly Action<string, Exception> OnError;
 		
@@ -67,7 +67,7 @@ namespace WebuSocketCore {
 			string url,
 			int baseBufferSize,
 			Action OnConnected=null,
-			Action<Queue<byte[]>> OnMessage=null,
+			Action<Queue<ArraySegment<byte>>> OnMessage=null,
 			Action OnPinged=null,
 			Action<string> OnClosed=null,
 			Action<string, Exception> OnError=null,
@@ -249,7 +249,7 @@ namespace WebuSocketCore {
 					
 					// read completed datas.
 					if (result.segments.Any()) {
-						Debug.LogError("レスポンスきた:" + Encoding.UTF8.GetString(result.segments[0].Array));
+						OnMessage(result.segments);
 					}
 					
 					// if the last result index is matched to whole length, receive finished.
@@ -258,8 +258,8 @@ namespace WebuSocketCore {
 						return;
 					}
 					
-					Debug.LogError("receiving rest data! token.readableDataLength:" + token.readableDataLength + " vs result.lastDataTail:" + result.lastDataTail);
-					// lastが4、dataLenが144、130くらいのデータが未処理で残っている。
+					// Debug.LogError("receiving rest data! token.readableDataLength:" + token.readableDataLength + " vs result.lastDataTail:" + result.lastDataTail);
+					
 					// rest data exists.
 					
 					var alreadyReceivedDataLength = token.receiveBuffer.Length - result.lastDataTail;
@@ -394,7 +394,7 @@ namespace WebuSocketCore {
 		
 		
 		private Results ScanBuffer (byte[] buffer, long bufferLength) {
-			List<ArraySegment<byte>> receivedDataSegments = new List<ArraySegment<byte>>();
+			Queue<ArraySegment<byte>> receivedDataSegments = new Queue<ArraySegment<byte>>();
 			
 			int messageHead = 0;
 			int cursor = 0;
@@ -458,7 +458,7 @@ namespace WebuSocketCore {
 						throw new Exception("unsupported.");						
 					}
 					case WebSocketByteGenerator.OP_BINARY: {
-						receivedDataSegments.Add(new ArraySegment<byte>(buffer, cursor, length));
+						receivedDataSegments.Enqueue(new ArraySegment<byte>(buffer, cursor, length));
 						break;
 					}
 					case WebSocketByteGenerator.OP_CLOSE: {
@@ -489,10 +489,10 @@ namespace WebuSocketCore {
 		}
 		
 		private struct Results {
-			public List<ArraySegment<byte>> segments;
+			public Queue<ArraySegment<byte>> segments;
 			public int lastDataTail;
 			
-			public Results (List<ArraySegment<byte>> segments, int lastDataTail) {
+			public Results (Queue<ArraySegment<byte>> segments, int lastDataTail) {
 				this.segments = segments;
 				this.lastDataTail = lastDataTail;
 			}

@@ -47,8 +47,12 @@ public class OnExecute : MonoBehaviour {
 			() => {
 				// Debug.LogError("connected!");
 			}, 
-			(List<byte[]> datas) => {
-				foreach (var data in datas) ProcessData(data);
+			datas => {
+				foreach (var data in datas) {
+					var newArray = new byte[data.Count];
+					Array.Copy(data.Array, data.Offset, newArray, 0, data.Count);
+					ProcessData(newArray);
+				};
 			},
 			(connectionFailedReason) => {
 				Debug.LogError("connection failed, connectionFailedReason:" + connectionFailedReason);

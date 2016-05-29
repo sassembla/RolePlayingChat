@@ -20,7 +20,7 @@ namespace WebSocketControl {
 		
 		private static int RECONNECTION_MILLISEC = 1000;
 		
-		public static Queue<byte[]> binaryQueue = new Queue<byte[]>();
+		public static Queue<ArraySegment<byte>> binaryQueue = new Queue<ArraySegment<byte>>();
 		
 		static WebuSocket w2;
 		
@@ -28,7 +28,7 @@ namespace WebSocketControl {
 			Dictionary<string, string> customHeaderKeyValues, 
 			string agent,
 			Action connected, 
-			Action<List<byte[]>> onBinaryMessage,
+			Action<Queue<ArraySegment<byte>>> OnBinaryMessage,
 			Action<string> connectionFailed, 
 			Action<string> disconnected,
 			bool autoReconnect,
@@ -40,12 +40,12 @@ namespace WebSocketControl {
 			Observable.EveryUpdate().Subscribe(
 				_ => {
 					if (0 < binaryQueue.Count) {
-						List<byte[]> messages;
+						Queue<ArraySegment<byte>> messages;
 						lock (binaryQueue) {
-							messages = new List<byte[]>(binaryQueue);
+							messages = binaryQueue;
+							OnBinaryMessage(messages);
 							binaryQueue.Clear();
 						}
-						onBinaryMessage(messages);
 					}
 				}
 			);
@@ -73,7 +73,7 @@ namespace WebSocketControl {
 					// 	a
 					// );
 				}, 
-				(Queue<byte[]> datas) => {
+				(Queue<ArraySegment<byte>> datas) => {
 					lock (binaryQueue) {
 						while (0 < datas.Count) binaryQueue.Enqueue(datas.Dequeue());
 					}
@@ -103,49 +103,6 @@ namespace WebSocketControl {
 				}, 
 				customHeaderKeyValues
 			);
-			
-			// webuSocket = new WebuSocketClient(
-			// 	WEBSOCKET_ENTRYPOINT,
-			// 	() => {
-			// 		var a = "";
-			// 		MainThreadDispatcher.Post(
-			// 			(b) => {
-			// 				connected();
-			// 			},
-			// 			a
-			// 		);
-			// 	},
-			// 	(Queue<byte[]> datas) => {
-			// 		lock (binaryQueue) {
-			// 			while (0 < datas.Count) binaryQueue.Enqueue(datas.Dequeue());
-			// 		}
-			// 	},
-			// 	() => {
-			// 		Debug.LogError("pingされたぞ〜");
-			// 	},
-			// 	(string closeReason) => {
-			// 		Debug.LogError("closeReason:" + closeReason);
-			// 		var a = "";
-			// 		MainThreadDispatcher.Post(
-			// 			(b) => {
-			// 				// run on main thread.
-			// 			},
-			// 			a
-			// 		);
-			// 	},
-			// 	(string errorReason, Exception e) => {
-			// 		Debug.LogError("errorReason:" + errorReason);
-			// 		var a = "";
-			// 		MainThreadDispatcher.Post(
-			// 			(b) => {
-			// 				// run on main thread.
-			// 			},
-			// 			a
-			// 		);
-			// 	},
-			// 	0,
-			// 	customHeaderKeyValues
-			// );
 		}
 		
 		public static void SendCommandAsync (byte[] command) {
