@@ -249,7 +249,7 @@ namespace WebuSocketCore {
 					
 					// read completed datas.
 					if (result.segments.Any()) {
-						Debug.LogError("レスポンスきた");
+						Debug.LogError("レスポンスきた:" + Encoding.UTF8.GetString(result.segments[0].Array));
 					}
 					
 					// if the last result index is matched to whole length, receive finished.
@@ -449,7 +449,6 @@ namespace WebuSocketCore {
 				// read payload data.
 				if (bufferLength < cursor + length) break;
 				
-				Debug.LogError("opCode:" + opCode);
 				// payload is fully contained!
 				switch (opCode) {
 					case WebSocketByteGenerator.OP_CONTINUATION: {
