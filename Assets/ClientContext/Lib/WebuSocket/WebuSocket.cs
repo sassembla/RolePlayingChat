@@ -244,16 +244,12 @@ namespace WebuSocketCore {
 					return;
 				}
 				case SocketState.OPENED: {
+					Debug.LogError("token.receiveBuffer.L:" + token.receiveBuffer.Length);
 					var result = ScanBuffer(token.receiveBuffer, token.readableDataLength);
 					
 					// read completed datas.
 					if (result.segments.Any()) {
-						// ここで呼ばれるのはbyteかstringのみ、っていう感じでやりたい。んーーーバラバラに呼ばれるのは避けたいが、ハンドラを渡すわけにも、、
-						// やっぱバラバラにしてしまうか？ここでハンドラ着火するか。
-						// どうやるのがベストか、、ArraySegmentのみで構成したほうが、取り出しは一発になる。受け取った側で直列化？いやーしんどいな。
-						// あ、でもそれでも良いのか。ここで束ねてしまったほうがいいのか。
-						// result自体をそれぞれindex持ったarrayにしちゃう？
-						// ラストも持たせよう。
+						Debug.LogError("レスポンスきた");
 					}
 					
 					// if the last result index is matched to whole length, receive finished.
@@ -263,6 +259,7 @@ namespace WebuSocketCore {
 					}
 					
 					Debug.LogError("receiving rest data! token.readableDataLength:" + token.readableDataLength + " vs result.lastDataTail:" + result.lastDataTail);
+					// lastが4、dataLenが144、130くらいのデータが未処理で残っている。
 					// rest data exists.
 					
 					var alreadyReceivedDataLength = token.receiveBuffer.Length - result.lastDataTail;
@@ -278,7 +275,6 @@ namespace WebuSocketCore {
 		}
 		
 		private void ReadyReceivingNewData (SocketToken token) {
-			Debug.LogError("新規データの受付開始");
 			token.readableDataLength = 0;
 			token.receiveArgs.SetBuffer(token.receiveBuffer, 0, token.receiveBuffer.Length);
 			if (!token.socket.ReceiveAsync(token.receiveArgs)) OnReceived(token.socket, token.receiveArgs);
@@ -289,7 +285,7 @@ namespace WebuSocketCore {
 			var nextAdditionalBytesLength = token.socket.Available;
 		
 			if (0 < nextAdditionalBytesLength && token.readableDataLength == token.receiveBuffer.Length) {
-				Debug.Log("次のデータが来るのが確定していて、かつバッファサイズが足りない。");
+				Debug.LogError("次のデータが来るのが確定していて、かつバッファサイズが足りない。");
 				Array.Resize(ref token.receiveBuffer, token.receiveArgs.Buffer.Length + nextAdditionalBytesLength);
 			}
 			
@@ -312,7 +308,7 @@ namespace WebuSocketCore {
 				this causes token.receiveBuffer's pointer change & length change.
 			*/
 			if (0 < nextAdditionalBytesLength && token.receiveBuffer.Length - token.readableDataLength < nextAdditionalBytesLength) {
-				Debug.Log("次のデータが来るのが確定していて、かつバッファサイズが足りない。2");
+				Debug.LogError("次のデータが来るのが確定していて、かつバッファサイズが足りない。2");
 				Array.Resize(ref token.receiveBuffer, token.receiveArgs.Buffer.Length + nextAdditionalBytesLength);
 			}
 			
@@ -402,7 +398,7 @@ namespace WebuSocketCore {
 			
 			int messageHead = 0;
 			int cursor = 0;
-			
+			int lastDataEnd = 0;
 			while (cursor < bufferLength) {
 				messageHead = cursor;
 				
@@ -453,6 +449,7 @@ namespace WebuSocketCore {
 				// read payload data.
 				if (bufferLength < cursor + length) break;
 				
+				Debug.LogError("opCode:" + opCode);
 				// payload is fully contained!
 				switch (opCode) {
 					case WebSocketByteGenerator.OP_CONTINUATION: {
@@ -482,11 +479,14 @@ namespace WebuSocketCore {
 					}
 				}
 				
-				cursor = cursor + length; 
+				cursor = cursor + length;
+				
+				// set end of data.
+				lastDataEnd = cursor;
 			}
 			
 			// finally return payload data indexies.
-			return new Results(receivedDataSegments, cursor);
+			return new Results(receivedDataSegments, lastDataEnd);
 		}
 		
 		private struct Results {
@@ -531,6 +531,7 @@ namespace WebuSocketCore {
 		}
 		
 		private void PongReceived () {
+			Debug.LogError("pong受け取った");
 			if (OnPonged != null) OnPonged();
 		}
 	}

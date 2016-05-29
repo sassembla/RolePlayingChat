@@ -71,7 +71,7 @@ public class OnExecute : MonoBehaviour {
 			複数コマンドを固めたものを受け取った場合、展開して実行
 		*/
 		if (command == Commands.CommandEnum.Datas) {
-			var datas = Commands.FromData<Commands.Datas>(data);
+			var datas = Commands.FromData<Commands.PackedDatas>(data);
 			for (var i = 0; i < datas.datas.Length; i++) {
 				var containedByteData = datas.datas[i].data;
 				var commandAndPlayerId2 = Commands.ReadCommandAndSourceId(containedByteData);

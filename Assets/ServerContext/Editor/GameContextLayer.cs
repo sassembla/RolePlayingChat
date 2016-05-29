@@ -42,7 +42,7 @@ public class GameContextLayer {
 	
 	
 	
-	private Queue<DataPack> dataQueue = new Queue<DataPack>();
+	private Queue<DataPack> gameDataQueue = new Queue<DataPack>();
 	
 	private readonly string gameLayerId;
 	
@@ -75,14 +75,15 @@ public class GameContextLayer {
 			var playerId = PlayerIdFromConnectionId(connectionId);
 			var datas = stackedData[connectionId];
 			
+			// count the number of data to target player.
 			if (datas.Count == 1) {
 				Publish(connectionId, datas[0].ToData());
 				continue;
 			}
 			
-			// publish as multiple combined data.
+			// publish multiple data as combined 1 data.
 			var byteDatas = stackedData[connectionId].Select(command => command.ToData()).ToArray();
-			var combinedData = new Commands.Datas(playerId, byteDatas).ToData();
+			var combinedData = new Commands.PackedDatas(playerId, byteDatas).ToData();
 			
 			Publish(connectionId, combinedData);
 		}
@@ -156,11 +157,11 @@ public class GameContextLayer {
 			return;
 		}
 		
-		lock (dataQueue) dataQueue.Enqueue(new DataPack(playerId, data));
+		lock (gameDataQueue) gameDataQueue.Enqueue(new DataPack(playerId, data));
 	}
 	
 	public void EnqueOnDisconnect (string playerId, byte[] data) {
-		lock (dataQueue) dataQueue.Enqueue(new DataPack(playerId, data));
+		lock (gameDataQueue) gameDataQueue.Enqueue(new DataPack(playerId, data));
 	}
 	
 	/**
@@ -223,9 +224,9 @@ public class GameContextLayer {
 	
 	
 	private void UpdateXrossPeer (int frame) {
-		lock (dataQueue) {
-			while (dataQueue.Any()) {
-				var dataPack = dataQueue.Dequeue();
+		lock (gameDataQueue) {
+			while (gameDataQueue.Any()) {
+				var dataPack = gameDataQueue.Dequeue();
 				InputToXrossPeer(gameFrame, dataPack.playerId, dataPack.data);
 			}
 		};

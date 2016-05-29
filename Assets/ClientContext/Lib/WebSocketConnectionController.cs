@@ -51,18 +51,19 @@ namespace WebSocketControl {
 			);
 			
 			w2 = new WebuSocket(
-				WEBSOCKET_ENTRYPOINT, 
-				1024 * 100, 
+				WEBSOCKET_ENTRYPOINT,
+				1, 
+				// 1024 * 100,
 				() => {
 					Debug.LogError("connected,");
 					
-					for (var i = 0; i < 100; i++) {
-						w2.Ping(
-							() => {
-								Debug.LogError("receive pong.");
-							}
-						);
-					}
+					// for (var i = 0; i < 100; i++) {
+					// 	w2.Ping(
+					// 		() => {
+					// 			Debug.LogError("receive pong.");
+					// 		}
+					// 	);
+					// }
 					
 					// var a = "";
 					// MainThreadDispatcher.Post(

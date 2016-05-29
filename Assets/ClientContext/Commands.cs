@@ -34,9 +34,9 @@ public static class Commands {
         Log,
     }
 	
-	[Serializable] public class Datas : BaseData {
+	[Serializable] public class PackedDatas : BaseData {
 		[SerializeField] public PackedData[] datas;
-		public Datas (string playerId, byte[][] datas) : base (CommandEnum.Datas, playerId) {
+		public PackedDatas (string playerId, byte[][] datas) : base (CommandEnum.Datas, playerId) {
 			this.datas = datas.Select(data => new PackedData(data)).ToArray();
 		}
 	}
