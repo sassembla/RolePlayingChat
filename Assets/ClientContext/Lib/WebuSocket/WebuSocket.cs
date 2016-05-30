@@ -3,12 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using System.Security.Cryptography;
 using System.Text;
 using UnityEngine;
 
 namespace WebuSocketCore {
-	public enum SocketState {
+    public enum SocketState {
 		CONNECTING,
 		OPENING,
 		OPENED,
@@ -17,8 +16,6 @@ namespace WebuSocketCore {
 	}
 	
 	public class WebuSocket {
-		private static RNGCryptoServiceProvider randomGen = new RNGCryptoServiceProvider();
-		
 		private readonly EndPoint endPoint;
 		
 		private SocketToken socketToken;
@@ -55,13 +52,15 @@ namespace WebuSocketCore {
 			}
 		}
 		
-		private int baseBufferSize;
+		private readonly int baseBufferSize;
 		
 		private readonly Action OnConnected;
 		private readonly Action OnPinged;
 		private readonly Action<Queue<ArraySegment<byte>>> OnMessage;
 		private readonly Action<string> OnClosed;
 		private readonly Action<string, Exception> OnError;
+		
+		private readonly string base64Key;
 		
 		public WebuSocket (
 			string url,
@@ -76,7 +75,9 @@ namespace WebuSocketCore {
 			this.webSocketConnectionId = Guid.NewGuid().ToString();
 			this.baseBufferSize = baseBufferSize;
 			
-			var requstBytesAndHostAndPort = WebuSocketClient.GenerateRequestData(url, additionalHeaderParams);
+			this.base64Key = WebSocketByteGenerator.GeneratePrivateBase64Key();
+			
+			var requstBytesAndHostAndPort = GenerateRequestData(url, additionalHeaderParams, base64Key);
 			this.endPoint = new IPEndPoint(IPAddress.Parse(requstBytesAndHostAndPort.host), requstBytesAndHostAndPort.port);
 			
 			this.OnConnected = OnConnected;
@@ -85,21 +86,72 @@ namespace WebuSocketCore {
 			this.OnClosed = OnClosed;
 			this.OnError = OnError;
 			
-			
 			StartConnectAsync(requstBytesAndHostAndPort.requestDataBytes);
 		}
 		
+		
+		private const string CRLF = "\r\n";
+		private const string WEBSOCKET_VERSION = "13"; 
+		
+		private static RequestDataBytesAndHostAndPort GenerateRequestData (string urlSource, Dictionary<string, string> additionalHeaderParams, string base64Key) {
+			var uri = new Uri(urlSource);
+			
+			var method = "GET";
+			var host = uri.Host;
+			var schm = uri.Scheme;
+			var port = uri.Port;
+			
+			Debug.LogError("wss setting.");
+			var requestHeaderParams = new Dictionary<string, string>{
+				{"Host", (port == 80 && schm == "ws") || (port == 443 && schm == "wss") ? uri.DnsSafeHost : uri.Authority},
+				{"Upgrade", "websocket"},
+				{"Connection", "Upgrade"},
+				{"Sec-WebSocket-Key", base64Key},
+				{"Sec-WebSocket-Version", WEBSOCKET_VERSION}
+			};
+			
+			if (additionalHeaderParams != null) { 
+				foreach (var key in additionalHeaderParams.Keys) requestHeaderParams[key] = additionalHeaderParams[key];
+			}
+			
+			/*
+				construct request bytes data.
+			*/
+			var requestData = new StringBuilder();
+			
+			requestData.AppendFormat("{0} {1} HTTP/{2}{3}", method, uri, "1.1", CRLF);
+
+			foreach (var key in requestHeaderParams.Keys) requestData.AppendFormat("{0}: {1}{2}", key, requestHeaderParams[key], CRLF);
+
+			requestData.Append(CRLF);
+
+			var entity = string.Empty;
+			requestData.Append(entity);
+			
+			return new RequestDataBytesAndHostAndPort(host, port, Encoding.UTF8.GetBytes(requestData.ToString().ToCharArray()));
+		}
+		
+		
+		public struct RequestDataBytesAndHostAndPort {
+			public string host;
+			public int port;
+			public byte[] requestDataBytes;
+			
+			public RequestDataBytesAndHostAndPort (string host, int port, byte[] requestDataBytes) {
+				this.host = host;
+				this.port = port;
+				this.requestDataBytes = requestDataBytes;
+			}
+		}
+		
+		
 		private void StartConnectAsync (byte[] requestData) {
+			Debug.LogError("timeout setting.");
 			var timeout = 1000;
-			
-			
-			Debug.LogError("起動時に、asyncでtcp -> ヘッダ送る -> レスポンス得る、というのをやってしまう。完了後はargs系を塗り替えるはず。");
 			
 			socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 			socket.NoDelay = true;
 			socket.SendTimeout = timeout;
-			
-			// receiveのargsと、sendのargsを用意する。receiveを立てて云々。全部書ききることができるかな〜〜
 			
 			var clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 			clientSocket.NoDelay = true;
@@ -135,7 +187,7 @@ namespace WebuSocketCore {
 						token.socketState = SocketState.CLOSED;
 						var error = new Exception("connect error:" + args.SocketError.ToString());
 						
-						Debug.LogError("接続できなかった。");
+						Debug.LogError("接続できなかったエラー1");
 						// SocketClosed(this, error);
 						return;
 					}
@@ -210,7 +262,7 @@ namespace WebuSocketCore {
 						
 						// connection is already closed.
 						if (!IsSocketConnected(token.socket)) {
-							Debug.LogError("すでに切断している。");
+							Debug.LogError("すでに切断している状態での受け取り。");
 							// Disconnect();
 							return;
 						}
@@ -231,6 +283,13 @@ namespace WebuSocketCore {
 					var lineEndCursor = ReadUpgradeLine(args.Buffer, 0, token.readableDataLength);
 					if (lineEndCursor != -1) {
 						var protocolData = new SwitchingProtocolData(Encoding.UTF8.GetString(args.Buffer, 0, lineEndCursor));
+						var expectedKey = WebSocketByteGenerator.GenerateExpectedAcceptedKey(base64Key);
+						
+						Debug.LogError("接続時のバリデーション失敗=偽装サーバとかの可能性");
+						if (protocolData.securityAccept != expectedKey) {
+							Debug.LogError("key not match. protocolData.securityAccept:" + protocolData.securityAccept + " expectedKey:" + expectedKey);
+							throw new Exception("fatal error.");
+						}  
 						token.socketState = SocketState.OPENED;
 						
 						ReadyReceivingNewData(token);
@@ -244,7 +303,6 @@ namespace WebuSocketCore {
 					return;
 				}
 				case SocketState.OPENED: {
-					Debug.LogError("token.receiveBuffer.L:" + token.receiveBuffer.Length);
 					var result = ScanBuffer(token.receiveBuffer, token.readableDataLength);
 					
 					// read completed datas.
@@ -257,8 +315,6 @@ namespace WebuSocketCore {
 						ReadyReceivingNewData(token);
 						return;
 					}
-					
-					// Debug.LogError("receiving rest data! token.readableDataLength:" + token.readableDataLength + " vs result.lastDataTail:" + result.lastDataTail);
 					
 					// rest data exists.
 					
@@ -285,7 +341,7 @@ namespace WebuSocketCore {
 			var nextAdditionalBytesLength = token.socket.Available;
 		
 			if (0 < nextAdditionalBytesLength && token.readableDataLength == token.receiveBuffer.Length) {
-				Debug.LogError("次のデータが来るのが確定していて、かつバッファサイズが足りない。");
+				Debug.LogError("次のデータが来るのが確定していて、かつバッファサイズが足りない。リサイズが発生している。");
 				Array.Resize(ref token.receiveBuffer, token.receiveArgs.Buffer.Length + nextAdditionalBytesLength);
 			}
 			
@@ -308,7 +364,7 @@ namespace WebuSocketCore {
 				this causes token.receiveBuffer's pointer change & length change.
 			*/
 			if (0 < nextAdditionalBytesLength && token.receiveBuffer.Length - token.readableDataLength < nextAdditionalBytesLength) {
-				Debug.LogError("次のデータが来るのが確定していて、かつバッファサイズが足りない。2");
+				Debug.LogError("次のデータが来るのが確定していて、かつバッファサイズが足りない。リサイズが発生している。2");
 				Array.Resize(ref token.receiveBuffer, token.receiveArgs.Buffer.Length + nextAdditionalBytesLength);
 			}
 			
@@ -359,6 +415,7 @@ namespace WebuSocketCore {
 			
 			return true;
 		}
+		
 		public static byte ByteCR = Convert.ToByte('\r');
 		public static byte ByteLF = Convert.ToByte('\n');
 		public static int ReadUpgradeLine (byte[] bytes, int cursor, long length) {
@@ -373,12 +430,11 @@ namespace WebuSocketCore {
 				cursor++;
 			}
 			
-			// Disquuun.Log("overflow detected.");
 			return -1;
 		}
 		
 		
-		private struct SwitchingProtocolData {
+		private class SwitchingProtocolData {
 			// HTTP/1.1 101 Switching Protocols
 			// Server: nginx/1.7.10
 			// Date: Sun, 22 May 2016 18:31:47 GMT
@@ -386,14 +442,61 @@ namespace WebuSocketCore {
 			// Upgrade: websocket
 			// Sec-WebSocket-Accept: C3HoL/ER1LOnEj8yVINdXluouHw=
 			
+			public string protocolDesc;
+			public string httpResponseCode;
+			public string httpMessage;
+			public string serverInfo;
+			public string date;
+			public string connectionType;
+			public string upgradeMethod;
+			public string securityAccept;
+			
 			public SwitchingProtocolData (string source) {
-				Debug.LogError("なんか分解して確認しないとな〜みたいな感じがする。");
+				var acceptedResponseHeaderKeyValues = source.Split('\n');
+				foreach (var line in acceptedResponseHeaderKeyValues) {
+					if (line.StartsWith("HTTP")) {
+						var httpResponseHeaderSplitted = line.Split(' ');
+						this.protocolDesc = httpResponseHeaderSplitted[0];
+						this.httpResponseCode = httpResponseHeaderSplitted[1];
+						this.httpMessage = httpResponseHeaderSplitted[2] + httpResponseHeaderSplitted[3];
+						continue;
+					}
+					
+					if (!line.Contains(": ")) continue;
+					
+					var keyAndValue = line.Replace(": ", ":").Split(':');
+					
+					switch (keyAndValue[0]) {
+						case "Server": {
+							this.serverInfo = keyAndValue[1];
+							break;
+						}
+						case "Date": {
+							this.date = keyAndValue[1];
+							break;
+						}
+						case "Connection": {
+							this.connectionType = keyAndValue[1];
+							break;
+						}
+						case "Upgrade": {
+							this.upgradeMethod = keyAndValue[1];
+							break;
+						}
+						case "Sec-WebSocket-Accept": {
+							this.securityAccept = keyAndValue[1].TrimEnd();
+							break;
+						}
+						default: {
+							Debug.LogError("invalid key value found. line:" + line);
+							throw new Exception("invalid key value found. line:" + line);
+						}
+					}
+				}
 			}
 		}
 		
-		
-		
-		private Results ScanBuffer (byte[] buffer, long bufferLength) {
+		private WebuSocketResults ScanBuffer (byte[] buffer, long bufferLength) {
 			Queue<ArraySegment<byte>> receivedDataSegments = new Queue<ArraySegment<byte>>();
 			
 			int messageHead = 0;
@@ -485,14 +588,14 @@ namespace WebuSocketCore {
 			}
 			
 			// finally return payload data indexies.
-			return new Results(receivedDataSegments, lastDataEnd);
+			return new WebuSocketResults(receivedDataSegments, lastDataEnd);
 		}
 		
-		private struct Results {
+		private struct WebuSocketResults {
 			public Queue<ArraySegment<byte>> segments;
 			public int lastDataTail;
 			
-			public Results (Queue<ArraySegment<byte>> segments, int lastDataTail) {
+			public WebuSocketResults (Queue<ArraySegment<byte>> segments, int lastDataTail) {
 				this.segments = segments;
 				this.lastDataTail = lastDataTail;
 			}
@@ -504,8 +607,17 @@ namespace WebuSocketCore {
 			var pingBytes = WebSocketByteGenerator.Ping();
 			
 			socketToken.sendArgs.SetBuffer(pingBytes, 0, pingBytes.Length);
-			if (!socketToken.socket.SendAsync(socketToken.sendArgs)) OnSend(socketToken.socket, socketToken.sendArgs);		
+			if (!socketToken.socket.SendAsync(socketToken.sendArgs)) OnSend(socketToken.socket, socketToken.sendArgs);	
 		}
+		
+		public void Send (byte[] data) {
+			var payloadBytes = WebSocketByteGenerator.SendBinaryData(data);
+			
+			socketToken.sendArgs.SetBuffer(payloadBytes, 0, payloadBytes.Length);
+			if (!socketToken.socket.SendAsync(socketToken.sendArgs)) OnSend(socketToken.socket, socketToken.sendArgs);
+		}
+		
+		
 		
 		private void CloseReceived () {
 			switch (socketToken.socketState) {
@@ -523,10 +635,11 @@ namespace WebuSocketCore {
 		}
 		
 		private void PingReceived () {
-			Debug.LogError("pingきたのでpong返さねば");
-			var data = WebSocketByteGenerator.Pong();
 			if (OnPinged != null) OnPinged();
 			
+			var pongBytes = WebSocketByteGenerator.Pong();
+			socketToken.sendArgs.SetBuffer(pongBytes, 0, pongBytes.Length);
+			if (!socketToken.socket.SendAsync(socketToken.sendArgs)) OnSend(socketToken.socket, socketToken.sendArgs);	
 		}
 		
 		private void PongReceived () {

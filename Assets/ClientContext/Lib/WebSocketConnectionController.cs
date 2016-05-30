@@ -13,7 +13,7 @@ using WebuSocketCore;
 */
 namespace WebSocketControl {
 	public class WebSocketConnectionController {
-		public static WebuSocketClient webuSocket;
+		// public static WebuSocketClient webuSocket;
 
 		public static string WEBSOCKET_ENTRYPOINT;
 		
@@ -55,23 +55,13 @@ namespace WebSocketControl {
 				1, 
 				// 1024 * 100,
 				() => {
-					Debug.LogError("connected,");
-					
-					// for (var i = 0; i < 100; i++) {
-					// 	w2.Ping(
-					// 		() => {
-					// 			Debug.LogError("receive pong.");
-					// 		}
-					// 	);
-					// }
-					
-					// var a = "";
-					// MainThreadDispatcher.Post(
-					// 	(b) => {
-					// 		connected();
-					// 	},
-					// 	a
-					// );
+					var a = "";
+					MainThreadDispatcher.Post(
+						(b) => {
+							connected();
+						},
+						a
+					);
 				}, 
 				(Queue<ArraySegment<byte>> datas) => {
 					lock (binaryQueue) {
@@ -106,11 +96,11 @@ namespace WebSocketControl {
 		}
 		
 		public static void SendCommandAsync (byte[] command) {
-			if (webuSocket != null) webuSocket.Send(command);
+			if (w2 != null) w2.Send(command);
 		}
 		
 		public static void CloseCurrentConnection () {
-			if (webuSocket != null) webuSocket.CloseSync();
+			if (w2 != null) w2.Disconnect(true);
 		}
 	}
 }

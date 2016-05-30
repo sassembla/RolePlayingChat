@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace WebuSocketCore {
     public static class WebSocketByteGenerator {
@@ -103,7 +105,7 @@ namespace WebuSocketCore {
 				}
 				
 				// client should mask control frame.
-				var maskKey = WebuSocketClient.NewMaskKey();
+				var maskKey = NewMaskKey();
 				dataStream.Write(maskKey, 0, maskKey.Length);
 				
 				// mask data.
@@ -200,10 +202,25 @@ namespace WebuSocketCore {
 			}
 		}
 		
-		public static byte[] SubArray (this byte[] data, uint index, uint length) {
-    		var result = new byte[length];
-    		Array.Copy(data, index, result, 0, length);
-    		return result;
+		private static RNGCryptoServiceProvider randomGen = new RNGCryptoServiceProvider();
+		
+		public static string GenerateExpectedAcceptedKey (string baseStr) {
+			var concat = (baseStr.TrimEnd() + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11");
+			var sha1d = new SHA1CryptoServiceProvider().ComputeHash(Encoding.UTF8.GetBytes(concat));
+			return Convert.ToBase64String(sha1d);
 		}
+		
+		public static string GeneratePrivateBase64Key () {
+			var src = new byte[16];
+			randomGen.GetBytes(src);
+			return Convert.ToBase64String(src);
+		}
+		
+		public static byte[] NewMaskKey () {
+			var maskingKeyBytes = new byte[4];
+			randomGen.GetBytes(maskingKeyBytes);
+			return maskingKeyBytes;
+		}
+		
 	}
 }
