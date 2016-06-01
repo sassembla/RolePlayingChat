@@ -1,5 +1,6 @@
 using UnityEngine;
 
+using D=System.Diagnostics;
 using System;
 using System.Collections.Generic;
 
@@ -52,9 +53,24 @@ namespace WebSocketControl {
 			
 			w2 = new WebuSocket(
 				WEBSOCKET_ENTRYPOINT,
-				1, 
-				// 1024 * 100,
+				1024 * 100,
 				() => {
+					D.Stopwatch sw = new D.Stopwatch();
+					sw.Start();
+				
+					w2.Ping(
+						() => {
+							// これが,nginxまでの往復距離。多分、遅延時間が最大になる要因。
+							/*
+								おっ結構かかるな、、、往復で(tick = 1nano sec = 1/1,000,1000 sec)
+								129200
+								122100
+							*/
+							sw.Stop();
+							Debug.LogError("elapsed:" + sw.ElapsedMilliseconds + " tick:" + sw.ElapsedTicks);
+						}
+					);
+					
 					var a = "";
 					MainThreadDispatcher.Post(
 						(b) => {

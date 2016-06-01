@@ -202,13 +202,14 @@ public class ServerContext {
 			}
 		}
 	}
-	
+	Action<string, byte[]> Send;
 	public void Setup (Action<string, byte[]> Send) {
 		XrossPeer.Log("server ready:" + serverContextId);
 		XrossPeer.TimeAssert(Develop.TIME_ASSERT, "リセットを兼ねることはしない方が良いんだろうか。");
 		
 		// 仮の、ゲームに参加するconnectionIdを保持しておくレイヤ
 		reservationLayer = new ReservationLayer(Send);
+		this.Send = Send;
 	}
 	
 	/**
@@ -238,6 +239,9 @@ public class ServerContext {
 	}
 	
 	public void OnMessage (string connectionId, byte[] data) {
+		// ここで返してしまおう。
+		Send(connectionId, data);
+		
 		var playerIdString = Encoding.UTF8.GetString(data);
 		reservationLayer.EnqueueOnMessage(connectionId, data);
 	}
