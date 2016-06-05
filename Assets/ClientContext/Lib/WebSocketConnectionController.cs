@@ -57,14 +57,23 @@ namespace WebSocketControl {
 				() => {
 					D.Stopwatch sw = new D.Stopwatch();
 					sw.Start();
-				
+					// w2.Ready();
 					w2.Ping(
 						() => {
 							// これが,nginxまでの往復距離。多分、遅延時間が最大になる要因。
 							/*
 								おっ結構かかるな、、、往復で(tick = 1nano sec = 1/1,000,1000 sec)
-								129200
-								122100
+								129,200 10000分の1秒。
+								122,100
+								
+								で、upstreamは、
+								70,050
+								
+								おーーだいたい半分くらいになるね。
+								pingの時間を信じてもよさそうだ。
+								
+								では、こんどはサーバを介したサーバサイドPingを作ってみよう。
+								接続したあとでサーバに行くんで、
 							*/
 							sw.Stop();
 							Debug.LogError("elapsed:" + sw.ElapsedMilliseconds + " tick:" + sw.ElapsedTicks);

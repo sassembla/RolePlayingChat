@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using UnityEngine;
+using D=System.Diagnostics;
 
 namespace WebuSocketCore {
     public enum SocketState {
@@ -223,12 +224,23 @@ namespace WebuSocketCore {
 			}
 		}
 		
+		public void Ready () {
+			sw = new D.Stopwatch();
+			sw.Start();
+		}
+		
+		public static D.Stopwatch sw;
 		private void OnSend (object unused, SocketAsyncEventArgs args) {
 			var socketError = args.SocketError;
 			switch (socketError) {
 				case SocketError.Success: {
 					// do nothing.
-					// Debug.LogError("送信成功してる");
+					if (sw != null) {
+						sw.Stop();
+						var s = sw.ElapsedTicks;
+						Debug.LogError("送信成功してる:" + s);
+						sw = null;
+					}
 					break;
 				}
 				default: {

@@ -7,11 +7,15 @@ using System.Collections.Generic;
 using DisquuunCore;
 using DisquuunCore.Deserialize;
 
-public class DisqueConnectionController {
+/**
+	このレイヤを分解する。
+	Disquuunはゲーム単位で保持しても問題無いし、変換レイヤはstaticで存在していい感じになる。
+*/
+public class ConnectionServerTransformLayer {
 	private ServerContext context;
 	private Disquuun disquuun;
 	
-	public DisqueConnectionController (string contextQueueIdentity) {
+	public ConnectionServerTransformLayer (string contextQueueIdentity) {
 		disquuun = new Disquuun(
 			"127.0.0.1", 7711, 1024 * 100, 3, 
 			conId => {
@@ -75,7 +79,7 @@ public class DisqueConnectionController {
 	public const char HEADER_BINARY	= 'b';
 	public const char HEADER_CONTROL	= 'c';
 
-	// webSocket server state for each connection. syncronized to nginx-lua client.lua code.
+	// webSocket server state for each connection. syncronized to nginx-lua-client.lua code.
 	public const char STATE_CONNECT			= '1';
 	public const char STATE_STRING_MESSAGE		= '2';
 	public const char STATE_BINARY_MESSAGE		= '3';

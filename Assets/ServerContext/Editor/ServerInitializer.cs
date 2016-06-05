@@ -49,7 +49,7 @@ using System.IO;
 	}
 	
 	private ServerContext sContext;
-	private DisqueConnectionController disqueConnectionCont;
+	private ConnectionServerTransformLayer transformLayer;
 	
 	
 	public void Setup () {
@@ -62,8 +62,8 @@ using System.IO;
 		
 		sContext = new ServerContext(settings.ClientToContextKey());
 		
-		disqueConnectionCont = new DisqueConnectionController(settings.ClientToContextKey());
-		disqueConnectionCont.SetContext(sContext);
+		transformLayer = new ConnectionServerTransformLayer(settings.ClientToContextKey());
+		transformLayer.SetContext(sContext);
 	}
 	
 	public void Teardown () {
@@ -72,6 +72,6 @@ using System.IO;
 		XrossPeer.Log("teardown server context....");
 		XrossPeer.Log("----------");
 		sContext.Teardown();
-		disqueConnectionCont.Disconnect();
+		transformLayer.Disconnect();
 	}
 }
