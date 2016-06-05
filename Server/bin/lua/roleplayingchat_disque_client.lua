@@ -7,10 +7,6 @@ IDENTIFIER_CONTEXT = identity .. "_context"
 
 -- identifier-client = UUID. e.g. AD112CD4-3A23-4E49-B562-E07A360DD836 len is 36.
 
-HEADER_STRING	= 's'
-HEADER_BINARY	= 'b'
-HEADER_CONTROL	= 'c'
-
 STATE_CONNECT			= 1
 STATE_STRING_MESSAGE	= 2
 STATE_BINARY_MESSAGE	= 3
@@ -80,7 +76,7 @@ function connectWebSocket()
 	ngx.log(ngx.ERR, "connection:", connectionId, " established. playerId:", playerId, " to context:", IDENTIFIER_CONTEXT)
 
 	-- send connected to gameContext.
-	local data = HEADER_CONTROL..STATE_CONNECT..connectionId..playerId
+	local data = STATE_CONNECT..connectionId..playerId
 	addJobCon:addjob(IDENTIFIER_CONTEXT, data, 0)
 
 	-- start websocket serving.
@@ -89,7 +85,7 @@ function connectWebSocket()
 
 		if ws.fatal then
 			ngx.log(ngx.ERR, "connection:", connectionId, " closing accidentially. ", err)
-			local data = HEADER_CONTROL..STATE_DISCONNECT_ACCIDT..connectionId..playerId
+			local data = STATE_DISCONNECT_ACCIDT..connectionId..playerId
 			addJobCon:addjob(IDENTIFIER_CONTEXT, data, 0)
 			break
 		end
@@ -101,7 +97,7 @@ function connectWebSocket()
 
 		if typ == "close" then
 			ngx.log(ngx.ERR, "connection:", connectionId, " closing intentionally.")
-			local data = HEADER_CONTROL..STATE_DISCONNECT_INTENT..connectionId..playerId
+			local data = STATE_DISCONNECT_INTENT..connectionId..playerId
 			addJobCon:addjob(IDENTIFIER_CONTEXT, data, 0)
 			
 			-- start close.
@@ -119,11 +115,11 @@ function connectWebSocket()
 
 		elseif typ == "text" then
 			-- post message to central.
-			local data = HEADER_STRING..STATE_STRING_MESSAGE..connectionId..recv_data
+			local data = STATE_STRING_MESSAGE..connectionId..recv_data
 			addJobCon:addjob(IDENTIFIER_CONTEXT, data, 0)
 		elseif typ == "binary" then
 			-- post binary data to central.
-			local binData = HEADER_BINARY..STATE_BINARY_MESSAGE..connectionId..recv_data
+			local binData = STATE_BINARY_MESSAGE..connectionId..recv_data
 			addJobCon:addjob(IDENTIFIER_CONTEXT, binData, 0)
 		end
 	end
@@ -156,7 +152,7 @@ function contextReceiving ()
 			local ackRes, ackErr = receiveJobConn:fastack(messageId)
 			if not ackRes then
 				ngx.log(ngx.ERR, "disque, ackに失敗したケース connection:", connectionId, " ackErr:", ackErr)				
-				local data = HEADER_CONTROL..STATE_DISCONNECT_DISQUE_ACKFAILED..connectionId..playerId
+				local data = STATE_DISCONNECT_DISQUE_ACKFAILED..connectionId..playerId
 				addJobCon:addjob(IDENTIFIER_CONTEXT, data, 0)
 				break
 			end
@@ -167,7 +163,7 @@ function contextReceiving ()
 
 			if not bytes then
 				ngx.log(ngx.ERR, "disque, 未解決の、送付失敗時にすべきこと。 connection:", connectionId, " failed to send text to client. err:", err)
-				local data = HEADER_CONTROL..STATE_DISCONNECT_DISQUE_ACCIDT_SENDFAILED..connectionId..sendingData
+				local data = STATE_DISCONNECT_DISQUE_ACCIDT_SENDFAILED..connectionId..sendingData
 				addJobCon:addjob(IDENTIFIER_CONTEXT, data, 0)
 				break
 			end
