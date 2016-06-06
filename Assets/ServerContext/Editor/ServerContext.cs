@@ -239,9 +239,6 @@ public class ServerContext {
 	}
 	
 	public void OnMessage (string connectionId, byte[] data) {
-		// ここで返してしまおう。
-		Send(connectionId, data);
-		
 		var playerIdString = Encoding.UTF8.GetString(data);
 		reservationLayer.EnqueueOnMessage(connectionId, data);
 	}

@@ -1,11 +1,12 @@
 using UnityEngine;
 
-using D=System.Diagnostics;
+using D = System.Diagnostics;
 using System;
 using System.Collections.Generic;
 
 using UniRx;
 using WebuSocketCore;
+using System.Text;
 
 
 /**
@@ -24,7 +25,7 @@ namespace WebSocketControl {
 		public static Queue<ArraySegment<byte>> binaryQueue = new Queue<ArraySegment<byte>>();
 		
 		static WebuSocket w2;
-		
+		static D.Stopwatch st2;
 		public static void InitWebSocketConnection (
 			Dictionary<string, string> customHeaderKeyValues, 
 			string agent,
@@ -51,34 +52,74 @@ namespace WebSocketControl {
 				}
 			);
 			
+			long start = 0;
+			
 			w2 = new WebuSocket(
 				WEBSOCKET_ENTRYPOINT,
 				1024 * 100,
 				() => {
-					D.Stopwatch sw = new D.Stopwatch();
-					sw.Start();
-					// w2.Ready();
+					// Debug.LogError("start1 date:" + DateTime.Now.Ticks);
 					w2.Ping(
 						() => {
-							// これが,nginxまでの往復距離。多分、遅延時間が最大になる要因。
+							// これが、nginxまでの往復距離。多分、遅延時間が最大になる要因。
 							/*
-								おっ結構かかるな、、、往復で(tick = 1nano sec = 1/1,000,1000 sec)
-								129,200 10000分の1秒。
+								おっ結構かかるな、、、往復で(tick = 100 nano sec, 1 nano sec = 1/1000,000,000 sec)
+								
+								ElapsedTicks
+								
+								129,200
 								122,100
 								
 								で、upstreamは、
 								70,050
 								
-								おーーだいたい半分くらいになるね。
-								pingの時間を信じてもよさそうだ。
+								で、打って変わってDateTime.Now.Ticks
 								
-								では、こんどはサーバを介したサーバサイドPingを作ってみよう。
-								接続したあとでサーバに行くんで、
+								ping:
+									start1	636008591925501940
+									end1	636008591925660450
+														158,510 tick.
+									
+								serverPing:						
+									start2	636008591925619370	
+									disq-r	636008591925768230	148860(send -> disque -> server)あ、だいたいTCP ping往復と似たような数字出てるな、、
+									serv-r	636008591925885340	117110(server to push)
+									end2	636008591926057000	171660
+														437,630 tick.
+														
+									このうち、ping部分は 158,510なので、
+														279,120 tick.
+								で、
+								
+								There are 10,000 ticks in a millisecond ってことなんで、
+								0.001 sec = 1msec に、10,000tickが入る。ので、
+								
+								1tickは1/10,000 msec = 1/10,000,000 sec。
+								1tick = 一千万分の1秒。
+								
+								で、
+								
+								1f = 60f/s = 0.016 sec.
+								
+								pingは 158,510 tick -> 0.015851 sec
+								
+								Disqueまわりで無駄に食っている時間は、
+									   279,120 tick -> 0.027912 sec
+								
+								んーサーバ内で1~2f食ってるの無駄だなー、、でもどうせここからさらにサーバ側のフレームレートあるから食うんだよな、、
+								まあnginxのフレームレートが存在するのと、Disqueのメッセージキュー機構が含まれてるんで、不思議ではない。
+								Disqueの往復を挟むとこんな感じになるのか。
+								
+								ちなみにupdate:
+									052,320
+									217,850
+									-> 165,530
 							*/
-							sw.Stop();
-							Debug.LogError("elapsed:" + sw.ElapsedMilliseconds + " tick:" + sw.ElapsedTicks);
 						}
 					);
+					
+					start = DateTime.Now.Ticks;
+					w2.Send(new Commands.Ping("here!").ToData());
 					
 					var a = "";
 					MainThreadDispatcher.Post(
@@ -90,7 +131,16 @@ namespace WebSocketControl {
 				}, 
 				(Queue<ArraySegment<byte>> datas) => {
 					lock (binaryQueue) {
-						while (0 < datas.Count) binaryQueue.Enqueue(datas.Dequeue());
+						while (0 < datas.Count) {
+							var data = datas.Dequeue();
+							var bytes = new byte[data.Count];
+							Buffer.BlockCopy(data.Array, data.Offset, bytes, 0, data.Count);
+							var e = Commands.ReadCommandAndSourceId(bytes);
+							if (e.command == Commands.CommandEnum.Ping) {
+								Debug.LogError("end2 date:" + (DateTime.Now.Ticks - start));
+							}
+							binaryQueue.Enqueue(data);
+						}
 					}
 				}, 
 				() => {

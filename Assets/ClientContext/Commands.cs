@@ -28,6 +28,7 @@ public static class Commands {
 		Messaging,
 		Walk,
 		
+		Ping,
 		
 		WorldData,
 		
@@ -153,9 +154,19 @@ public static class Commands {
 		}
 	}
 	
+	
+	
+	
+	[Serializable] public class Ping : BaseData {
+		public Ping (string playerId) : base (CommandEnum.Ping, playerId) {
+			
+		}
+	}
+	
+	
+	
 	/**
 		送信できる辞書データの基礎クラス
-		お、この型の拡張メソッド作れば良いことありそう。各拡張で勝手に自分の型で取り出せるとちょっとらく。
 	*/
 	[Serializable] public class BaseData {
 		[SerializeField] public CommandEnum command;
@@ -165,6 +176,8 @@ public static class Commands {
 			this.playerId = playerId;
 		}
 	}
+	
+	
 
 	public static byte[] ToData (this Commands.BaseData data) {
 		// json
@@ -192,7 +205,7 @@ public static class Commands {
 	
 	
 	/**
-		定義系を書き換えて、jsonとmsgpackを行き来する感じ。
+		パラメータ取り出し。定義系を書き換えて、jsonとmsgpackを行き来する感じ。
 	*/
 	public static CommandAndPlayerId ReadCommandAndSourceId (byte[] data) {
 		using (var stream = new MemoryStream(data)) {

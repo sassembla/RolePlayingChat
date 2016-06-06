@@ -24,6 +24,9 @@ end
 ip = "127.0.0.1"
 port = 7711
 
+
+-- このへんで、サーバに問い合わせるみたいなのができる。authかけるならここ。かけないと、解析で赤の他人が接続することが可能。必ずRedisとかにhash化されたキーを入れておいて、合わさせること。
+
 -- entrypoint for WebSocket client connection.
 
 
@@ -31,7 +34,7 @@ port = 7711
 local disque = require "disque.disque"
 
 local uuid = require "uuid.uuid"
-local time = ngx.now() * 1000
+local time = ngx.now() * 1000 --millisecond,, should add other parameter. -> playerRandom?
 uuid:setRandomSeed(time)
 
 local connectionId = uuid:getUUID()
@@ -58,7 +61,7 @@ end
 local wsServer = require "ws.websocketServer"
 
 ws, wErr = wsServer:new{
-	timeout = 10000000,
+	timeout = 10000000,-- this should be set good value.
 	max_payload_len = 65535
 }
 
@@ -132,6 +135,7 @@ end
 
 -- loop for receiving messages from game context.
 function contextReceiving ()
+	local localWs = ws
 	while true do
 		-- receive message from disque queue, through connectionId. 
 		-- game context will send message via connectionId.
@@ -158,8 +162,12 @@ function contextReceiving ()
 			end
 			-- ngx.log(ngx.ERR, "messageId:", messageId, " ackRes:", ackRes)
 
+			-- というわけで、ここまででデータは取得できているが、ここで先頭を見て、、みたいなのが必要になってくる。
+			-- 入れる側にもなんかデータ接続が出ちゃうんだなあ。うーん、、まあでもサーバ側なんでいいや。CopyがN回増えるだけだ。
+			-- 残る課題は、ここでヘッダを見る、ってことだね。
+
 			-- send data to client
-			local bytes, err = ws:send_binary(sendingData)
+			local bytes, err = localWs:send_binary(sendingData)
 
 			if not bytes then
 				ngx.log(ngx.ERR, "disque, 未解決の、送付失敗時にすべきこと。 connection:", connectionId, " failed to send text to client. err:", err)
@@ -169,14 +177,27 @@ function contextReceiving ()
 			end
 		end
 	end
-
 	
-	if ws:is_connecting() then
-		ws:send_close()
-	end
-
 	ngx.log(ngx.ERR, "connection:", connectionId, " connection closed by disque error.")
 	ngx.exit(200)
 end
 
 connectWebSocket()
+
+
+-- 別の話、ここに受け入れバッファを持つことは可能か
+
+-- -> なんか切断時コンテキスト混同イレギュラーがあったんだよな〜〜あれの原因探さないとなー
+-- 何が起きていたかっていうと、切断確認が別のクライアントのものをつかんでいた、っていうやつで、
+-- 受け取り時にコネクション状態を見るとおかしくなっている、ていうやつ。
+-- 、、、コネクション状態に関して見るフラッグをngx.thread内で扱ってはいけない、みたいなのがありそう。
+-- ということは、それ以外であれば混同しないのでは。
+
+-- それが解消したらできそうかな？できそうだな。
+-- パラメータを保持させて、か、、まあ親のインスタンスのパラメータに触れるのはしんどいんで、やっぱりluaだと厳しいねっていう話になるのがいい気がする。
+-- 本当にあると嬉しいのは、TCP以外が喋れる、フロントになれるメッセージキューか。
+
+
+
+
+
