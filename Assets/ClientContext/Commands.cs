@@ -156,15 +156,6 @@ public static class Commands {
 	
 	
 	
-	
-	[Serializable] public class Ping : BaseData {
-		public Ping (string playerId) : base (CommandEnum.Ping, playerId) {
-			
-		}
-	}
-	
-	
-	
 	/**
 		送信できる辞書データの基礎クラス
 	*/
@@ -192,14 +183,15 @@ public static class Commands {
 		try {
 			// json
 			var json = Encoding.UTF8.GetString(data);
+			
 			T result = JsonUtility.FromJson<T>(json);
 			
 			// msgpack
 			// T result = packer.Unpack<T>(data);
 			
-			return result;
+			return result;	
 		} catch (Exception e) {
-			throw new Exception("failed to decode data. size:" + data.Length + " e:" + e);
+			throw new Exception("failed to decode data. size:" + data.Length + " e:" + e + " str:" + Encoding.UTF8.GetString(data));
 		}
 	}
 	
@@ -230,7 +222,7 @@ public static class Commands {
 				// 	throw new Exception("failed to unpack rawObject as Dictionary. size:" + data.Length + " error:" + e);
 				// } 
 			} catch (Exception e) {
-				throw new Exception("failed to unpack rawObject. size:" + data.Length + " error:" + e);
+				throw new Exception("failed to unpack rawObject. size:" + data.Length + " error:" + e + " str:" + Encoding.UTF8.GetString(data));
 			}
 			
 			if (!dataDict.ContainsKey("command")) throw new Exception("failed to read command from client:" + rawObject + " size:" + data.Length);

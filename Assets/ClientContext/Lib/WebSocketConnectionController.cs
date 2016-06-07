@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using UniRx;
 using WebuSocketCore;
 using System.Text;
+using XrossPeerUtility;
 
 
 /**
@@ -24,8 +25,9 @@ namespace WebSocketControl {
 		
 		public static Queue<ArraySegment<byte>> binaryQueue = new Queue<ArraySegment<byte>>();
 		
+		static long start = 0;
 		static WebuSocket w2;
-		static D.Stopwatch st2;
+		
 		public static void InitWebSocketConnection (
 			Dictionary<string, string> customHeaderKeyValues, 
 			string agent,
@@ -36,6 +38,7 @@ namespace WebSocketControl {
 			bool autoReconnect,
 			Action reconnected
 		) {
+			XrossPeer.SetupLog("client.log");
 			var keySetting = (StandardAssetsConnectorSettings)ScriptableObject.CreateInstance("StandardAssetsConnectorSettings");
 			WEBSOCKET_ENTRYPOINT = keySetting.DomainKey() + keySetting.ClientKey();
 			
@@ -52,12 +55,13 @@ namespace WebSocketControl {
 				}
 			);
 			
-			long start = 0;
+			
 			
 			w2 = new WebuSocket(
 				WEBSOCKET_ENTRYPOINT,
 				1024 * 100,
 				() => {
+					var s2 = DateTime.Now.Ticks;
 					// Debug.LogError("start1 date:" + DateTime.Now.Ticks);
 					w2.Ping(
 						() => {
@@ -75,7 +79,7 @@ namespace WebSocketControl {
 								
 								で、打って変わってDateTime.Now.Ticks
 								
-								ping:
+								wsping:
 									start1	636008591925501940
 									end1	636008591925660450
 														158,510 tick.
@@ -101,7 +105,7 @@ namespace WebSocketControl {
 								
 								1f = 60f/s = 0.016 sec.
 								
-								pingは 158,510 tick -> 0.015851 sec
+								wspingは 158,510 tick -> 0.015851 sec
 								
 								Disqueまわりで無駄に食っている時間は、
 									   279,120 tick -> 0.027912 sec
@@ -114,12 +118,30 @@ namespace WebSocketControl {
 									052,320
 									217,850
 									-> 165,530
+								
+								結論:間にDisque入れることで往復で1fくらい余計にかかる。というかサーバ内でも結構時間かかる。
+								
+								この時間を加味する必要があるかな。
+								この時間を加味する必要がないほうがいいな〜〜〜
+								
+								計測できるけどな〜〜
+								
+								想定できる遅延は、200ms x 2 とかで、
+								これが230msとかになる。
+								
+								パーセンテージではなく固定なんだけど、うーーん、、まあなるべく高速に返すのは理想として。
+								計測しておけると、安定した効果を期待できる。
+								
+								ConnectionServerにおける理想系みたいなのも持っておくかな。
+								nginx-luajitは結構有能なんで、この派生系みたいなやつ。
 							*/
+							XrossPeer.Log("ping:" + (DateTime.Now.Ticks - s2));
 						}
 					);
 					
-					start = DateTime.Now.Ticks;
-					w2.Send(new Commands.Ping("here!").ToData());
+					// XrossPeer.Log("start:" + DateTime.Now.Ticks);
+					// start = DateTime.Now.Ticks;
+					// w2.Send(new Commands.BaseData(Commands.CommandEnum.Ping, "here!").ToData());// これがあるとエラーが出る、っていう。型のマッチングエラーぽい？
 					
 					var a = "";
 					MainThreadDispatcher.Post(
@@ -137,7 +159,7 @@ namespace WebSocketControl {
 							Buffer.BlockCopy(data.Array, data.Offset, bytes, 0, data.Count);
 							var e = Commands.ReadCommandAndSourceId(bytes);
 							if (e.command == Commands.CommandEnum.Ping) {
-								Debug.LogError("end2 date:" + (DateTime.Now.Ticks - start));
+								// XrossPeer.Log("end2 date:" + (DateTime.Now.Ticks - start));
 							}
 							binaryQueue.Enqueue(data);
 						}

@@ -133,7 +133,9 @@ public class ConnectionServerTransformLayer {
 						var data = new byte[dataLen];
 						Buffer.BlockCopy(dataArray, (1 + CONNECTION_ID_LEN), data, 0, dataLen);
 						var commandAndSomething = Commands.ReadCommandAndSourceId(data);
-						if (commandAndSomething.command == Commands.CommandEnum.Ping) Publish(connectionId, data);
+						if (commandAndSomething.command == Commands.CommandEnum.Ping) {
+							Publish(connectionId, data);
+						}
 						
 						context.OnMessage(connectionId, data);
 					}
