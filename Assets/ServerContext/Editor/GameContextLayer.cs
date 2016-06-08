@@ -240,8 +240,6 @@ public class GameContextLayer {
 		このレイヤがXrossPeerの外側一枚。
 	*/
 	private void InputToXrossPeer (int frame, string playerId, byte[] data) {
-		// 
-		if (true) return;
 		/*
 			validate data.
 		*/

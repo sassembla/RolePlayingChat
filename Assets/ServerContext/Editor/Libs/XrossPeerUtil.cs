@@ -32,17 +32,17 @@ namespace XrossPeerUtility {
 		public static void WriteLog (string message) {
 			Assert(!string.IsNullOrEmpty(logPath), "xrosspeer output path is empty.");
 
-			// // file write
-			// using (var fs = new FileStream(
-			// 	logPath,
-			// 	FileMode.Append,
-			// 	FileAccess.Write,
-			// 	FileShare.ReadWrite)
-			// ) {
-			// 	using (var sr = new StreamWriter(fs)) {
-			// 		sr.WriteLine("log:" + message);
-			// 	}
-			// }
+			// file write
+			using (var fs = new FileStream(
+				logPath,
+				FileMode.Append,
+				FileAccess.Write,
+				FileShare.ReadWrite)
+			) {
+				using (var sr = new StreamWriter(fs)) {
+					sr.WriteLine("log:" + message);
+				}
+			}
 		}
 		
 		
