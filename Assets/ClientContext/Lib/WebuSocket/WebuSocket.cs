@@ -4,7 +4,6 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using UnityEngine;
 
 namespace WebuSocketCore {
     public enum SocketState {
@@ -13,6 +12,13 @@ namespace WebuSocketCore {
 		OPENED,
 		CLOSING,
 		CLOSED
+	}
+
+	public enum WebuSocketErrorEnum {
+		CONNECTION_FAILED,
+		CONNECTION_KEY_UNMATCHED,
+		SEND_FAILED,
+		RECEIVE_FAILED,
 	}
 	
 	public class WebuSocket {
@@ -58,7 +64,7 @@ namespace WebuSocketCore {
 		private readonly Action OnPinged;
 		private readonly Action<Queue<ArraySegment<byte>>> OnMessage;
 		private readonly Action<string> OnClosed;
-		private readonly Action<string, Exception> OnError;
+		private readonly Action<WebuSocketErrorEnum, Exception> OnError;
 		
 		private readonly string base64Key;
 		
@@ -69,7 +75,7 @@ namespace WebuSocketCore {
 			Action<Queue<ArraySegment<byte>>> OnMessage=null,
 			Action OnPinged=null,
 			Action<string> OnClosed=null,
-			Action<string, Exception> OnError=null,
+			Action<WebuSocketErrorEnum, Exception> OnError=null,
 			Dictionary<string, string> additionalHeaderParams=null
 		) {
 			this.webSocketConnectionId = Guid.NewGuid().ToString();
@@ -101,7 +107,7 @@ namespace WebuSocketCore {
 			var schm = uri.Scheme;
 			var port = uri.Port;
 			
-			Debug.LogError("wss setting.");
+			// Debug.LogError("wss setting.");
 			var requestHeaderParams = new Dictionary<string, string>{
 				{"Host", (port == 80 && schm == "ws") || (port == 443 && schm == "wss") ? uri.DnsSafeHost : uri.Authority},
 				{"Upgrade", "websocket"},
@@ -146,7 +152,7 @@ namespace WebuSocketCore {
 		
 		
 		private void StartConnectAsync (byte[] requestData) {
-			Debug.LogError("timeout setting.");
+			// Debug.LogError("timeout setting.");
 			var timeout = 1000;
 			
 			socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -185,10 +191,11 @@ namespace WebuSocketCore {
 				case SocketState.CONNECTING: {
 					if (args.SocketError != SocketError.Success) {
 						token.socketState = SocketState.CLOSED;
-						var error = new Exception("connect error:" + args.SocketError.ToString());
 						
-						Debug.LogError("接続できなかったエラー1");
-						// SocketClosed(this, error);
+						if (OnError != null) {
+							var error = new Exception("connect error:" + args.SocketError.ToString());
+							OnError(WebuSocketErrorEnum.CONNECTION_FAILED, error);
+						} 
 						return;
 					}
 					
@@ -231,11 +238,10 @@ namespace WebuSocketCore {
 					break;
 				}
 				default: {
-					Debug.LogError("まだエラーハンドルしてない。切断の一種なんだけど、非同期実行してるAPIに紐付けることができる。");
-					// if (Error != null) {
-					// 	var error = new Exception("send error:" + socketError.ToString());
-					// 	Error(error);
-					// }
+					if (OnError != null) {
+						var error = new Exception("send error:" + socketError.ToString());
+						OnError(WebuSocketErrorEnum.SEND_FAILED, error);
+					}
 					break;
 				}
 			}
@@ -253,16 +259,14 @@ namespace WebuSocketCore {
 					}
 					default: {
 						// show error, then close or continue receiving.
-						Debug.LogError("まだエラーハンドルしてない2。切断の一種なんだけど、非同期実行してるAPIに紐付けることができる、、、かなあ？　できない気もしてきたぞ。");
-						// if (Error != null) {
-						// 	var error = new Exception("receive error:" + args.SocketError.ToString() + " size:" + args.BytesTransferred);
-						// 	Error(error);
-						// }
+						if (OnError != null) {
+							var error = new Exception("receive error:" + args.SocketError.ToString() + " size:" + args.BytesTransferred);
+							OnError(WebuSocketErrorEnum.RECEIVE_FAILED, error);
+						}
 						
 						// connection is already closed.
 						if (!IsSocketConnected(token.socket)) {
-							Debug.LogError("すでに切断している状態での受け取り。");
-							// Disconnect();
+							Disconnect();
 							return;
 						}
 						
@@ -284,10 +288,11 @@ namespace WebuSocketCore {
 						var protocolData = new SwitchingProtocolData(Encoding.UTF8.GetString(args.Buffer, 0, lineEndCursor));
 						var expectedKey = WebSocketByteGenerator.GenerateExpectedAcceptedKey(base64Key);
 						
-						Debug.LogError("接続時のバリデーション失敗=偽装サーバとかの可能性");
 						if (protocolData.securityAccept != expectedKey) {
-							Debug.LogError("key not match. protocolData.securityAccept:" + protocolData.securityAccept + " expectedKey:" + expectedKey);
-							throw new Exception("fatal error.");
+							if (OnError != null) {
+								var error =  new Exception("WebSocket Key Unmatched.");
+								OnError(WebuSocketErrorEnum.CONNECTION_KEY_UNMATCHED, error);
+							}
 						}  
 						token.socketState = SocketState.OPENED;
 						
@@ -339,10 +344,7 @@ namespace WebuSocketCore {
 			// should read rest.
 			var nextAdditionalBytesLength = token.socket.Available;
 		
-			if (0 < nextAdditionalBytesLength && token.readableDataLength == token.receiveBuffer.Length) {
-				Debug.LogError("次のデータが来るのが確定していて、かつバッファサイズが足りない。リサイズが発生している。");
-				Array.Resize(ref token.receiveBuffer, token.receiveArgs.Buffer.Length + nextAdditionalBytesLength);
-			}
+			if (0 < nextAdditionalBytesLength && token.readableDataLength == token.receiveBuffer.Length) Array.Resize(ref token.receiveBuffer, token.receiveArgs.Buffer.Length + nextAdditionalBytesLength);
 			
 			var receivableCount = token.receiveBuffer.Length - token.readableDataLength;
 			token.receiveArgs.SetBuffer(token.receiveBuffer, token.readableDataLength, receivableCount);
@@ -362,10 +364,7 @@ namespace WebuSocketCore {
 				if next data is too large to read at once, scale up buffer.
 				this causes token.receiveBuffer's pointer change & length change.
 			*/
-			if (0 < nextAdditionalBytesLength && token.receiveBuffer.Length - token.readableDataLength < nextAdditionalBytesLength) {
-				Debug.LogError("次のデータが来るのが確定していて、かつバッファサイズが足りない。リサイズが発生している。2");
-				Array.Resize(ref token.receiveBuffer, token.receiveArgs.Buffer.Length + nextAdditionalBytesLength);
-			}
+			if (0 < nextAdditionalBytesLength && token.receiveBuffer.Length - token.readableDataLength < nextAdditionalBytesLength) Array.Resize(ref token.receiveBuffer, token.receiveArgs.Buffer.Length + nextAdditionalBytesLength);
 			
 			// set buffer size and index with latest length of token.receiveBuffer.
 			token.receiveArgs.SetBuffer(token.receiveBuffer, alreadyReadLength, token.receiveBuffer.Length - token.readableDataLength);
@@ -377,8 +376,9 @@ namespace WebuSocketCore {
 				try {
 					socketToken.socket.Close();
 				} catch (Exception e) {
-					Debug.LogError("e:" + e);
+					// nothing to do.
 				}
+				socketToken.socketState = SocketState.CLOSED;
 				return;
 			}
 			
@@ -487,7 +487,6 @@ namespace WebuSocketCore {
 							break;
 						}
 						default: {
-							Debug.LogError("invalid key value found. line:" + line);
 							throw new Exception("invalid key value found. line:" + line);
 						}
 					}
@@ -621,7 +620,6 @@ namespace WebuSocketCore {
 		private void CloseReceived () {
 			switch (socketToken.socketState) {
 				case SocketState.OPENED: {
-					Debug.LogError("非同期の切断処理に入る。サーバからclose受け取った場合だね。");
 					if (OnClosed != null) OnClosed("disconnected from server.");
 					Disconnect();
 					break;
