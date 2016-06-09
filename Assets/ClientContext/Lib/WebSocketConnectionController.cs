@@ -95,7 +95,7 @@ namespace WebSocketControl {
 						a
 					);
 				}, 
-				(string errorReason, Exception e) => {
+				(errorReason, e) => {
 					Debug.LogError("errorReason:" + errorReason);
 					var a = "";
 					MainThreadDispatcher.Post(
