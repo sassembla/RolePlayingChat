@@ -169,6 +169,9 @@ public class OnExecute : MonoBehaviour {
 					
 					players.Add(playerContext);
 				}
+				
+				Debug.LogError("worldData受け取った");
+
 				return;
 			}
 			

@@ -14,6 +14,13 @@ namespace WebuSocketCore {
 		CLOSED
 	}
 
+	public enum WebuSocketCloseEnum {
+		CLOSED_FORCELY,
+		CLOSED_GRACEFULLY,
+		CLOSED_WHILE_RECEIVING,
+		CLOSED_BY_SERVER
+	}
+
 	public enum WebuSocketErrorEnum {
 		CONNECTION_FAILED,
 		CONNECTION_KEY_UNMATCHED,
@@ -63,7 +70,7 @@ namespace WebuSocketCore {
 		private readonly Action OnConnected;
 		private readonly Action OnPinged;
 		private readonly Action<Queue<ArraySegment<byte>>> OnMessage;
-		private readonly Action<string> OnClosed;
+		private readonly Action<WebuSocketCloseEnum> OnClosed;
 		private readonly Action<WebuSocketErrorEnum, Exception> OnError;
 		
 		private readonly string base64Key;
@@ -74,7 +81,7 @@ namespace WebuSocketCore {
 			Action OnConnected=null,
 			Action<Queue<ArraySegment<byte>>> OnMessage=null,
 			Action OnPinged=null,
-			Action<string> OnClosed=null,
+			Action<WebuSocketCloseEnum> OnClosed=null,
 			Action<WebuSocketErrorEnum, Exception> OnError=null,
 			Dictionary<string, string> additionalHeaderParams=null
 		) {
@@ -224,6 +231,7 @@ namespace WebuSocketCore {
 					break;
 				}
 				default: {
+					if (OnClosed != null) OnClosed(WebuSocketCloseEnum.CLOSED_GRACEFULLY); 
 					token.socketState = SocketState.CLOSED;
 					break;
 				}
@@ -266,6 +274,7 @@ namespace WebuSocketCore {
 						
 						// connection is already closed.
 						if (!IsSocketConnected(token.socket)) {
+							if (OnClosed != null) OnClosed(WebuSocketCloseEnum.CLOSED_WHILE_RECEIVING);
 							Disconnect();
 							return;
 						}
@@ -296,9 +305,9 @@ namespace WebuSocketCore {
 						}  
 						token.socketState = SocketState.OPENED;
 						
-						ReadyReceivingNewData(token);
-						
 						if (OnConnected != null) OnConnected();
+						
+						ReadyReceivingNewData(token);
 						return;
 					}
 					
@@ -379,6 +388,7 @@ namespace WebuSocketCore {
 					// nothing to do.
 				}
 				socketToken.socketState = SocketState.CLOSED;
+				if (OnClosed != null) OnClosed(WebuSocketCloseEnum.CLOSED_FORCELY); 
 				return;
 			}
 			
@@ -614,13 +624,19 @@ namespace WebuSocketCore {
 			socketToken.sendArgs.SetBuffer(payloadBytes, 0, payloadBytes.Length);
 			if (!socketToken.socket.SendAsync(socketToken.sendArgs)) OnSend(socketToken.socket, socketToken.sendArgs);
 		}
+
+		public bool IsConnected () {
+			if (socketToken.socketState == SocketState.OPENED) return true; 
+			return false;
+		}
 		
 		
 		
 		private void CloseReceived () {
 			switch (socketToken.socketState) {
 				case SocketState.OPENED: {
-					if (OnClosed != null) OnClosed("disconnected from server.");
+					socketToken.socketState = SocketState.CLOSED;
+					if (OnClosed != null) OnClosed(WebuSocketCloseEnum.CLOSED_BY_SERVER);
 					Disconnect();
 					break;
 				}

@@ -85,7 +85,7 @@ namespace WebSocketControl {
 				() => {
 					Debug.LogError("pingされたぞ〜");
 				}, 
-				(string closeReason) => {
+				closeReason => {
 					Debug.LogError("closeReason:" + closeReason);
 					var a = "";
 					MainThreadDispatcher.Post(
@@ -114,7 +114,7 @@ namespace WebSocketControl {
 		}
 		
 		public static void CloseCurrentConnection () {
-			if (w2 != null) w2.Disconnect(true);
+			if (w2 != null) w2.Disconnect();
 		}
 	}
 }
