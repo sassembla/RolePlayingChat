@@ -41,6 +41,9 @@ namespace WebSocketControl {
 			var keySetting = (StandardAssetsConnectorSettings)ScriptableObject.CreateInstance("StandardAssetsConnectorSettings");
 			WEBSOCKET_ENTRYPOINT = keySetting.DomainKey() + keySetting.ClientKey();
 			
+			/*
+				OnBinaryMessageをMainThreadで呼ぶためにセットしている
+			*/
 			Observable.EveryUpdate().Subscribe(
 				_ => {
 					if (0 < binaryQueue.Count) {
@@ -53,8 +56,6 @@ namespace WebSocketControl {
 					}
 				}
 			);
-			
-			
 			
 			w2 = new WebuSocket(
 				WEBSOCKET_ENTRYPOINT,
@@ -74,10 +75,6 @@ namespace WebSocketControl {
 							var data = datas.Dequeue();
 							var bytes = new byte[data.Count];
 							Buffer.BlockCopy(data.Array, data.Offset, bytes, 0, data.Count);
-							var e = Commands.ReadCommandAndSourceId(bytes);
-							if (e.command == Commands.CommandEnum.Ping) {
-								// XrossPeer.Log("end2 date:" + (DateTime.Now.Ticks - start));
-							}
 							binaryQueue.Enqueue(data);
 						}
 					}
@@ -87,7 +84,7 @@ namespace WebSocketControl {
 				}, 
 				closeReason => {
 					Debug.LogError("closeReason:" + closeReason);
-					
+
 					var a = "";
 					MainThreadDispatcher.Post(
 						(b) => {
