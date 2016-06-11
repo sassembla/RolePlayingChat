@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -68,7 +67,7 @@ namespace WebuSocketCore {
 			}
 		}
 		
-		private readonly int baseBufferSize;
+		private readonly int baseReceiveBufferSize;
 		
 		private readonly Action OnConnected;
 		private readonly Action OnPinged;
@@ -80,7 +79,7 @@ namespace WebuSocketCore {
 		
 		public WebuSocket (
 			string url,
-			int baseBufferSize,
+			int baseReceiveBufferSize,
 			Action OnConnected=null,
 			Action<Queue<ArraySegment<byte>>> OnMessage=null,
 			Action OnPinged=null,
@@ -89,7 +88,7 @@ namespace WebuSocketCore {
 			Dictionary<string, string> additionalHeaderParams=null
 		) {
 			this.webSocketConnectionId = Guid.NewGuid().ToString();
-			this.baseBufferSize = baseBufferSize;
+			this.baseReceiveBufferSize = baseReceiveBufferSize;
 			
 			this.base64Key = WebSocketByteGenerator.GeneratePrivateBase64Key();
 			
@@ -188,7 +187,7 @@ namespace WebuSocketCore {
 			receiveArgs.RemoteEndPoint = endPoint;
 			receiveArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnReceived);
 						
-			socketToken = new SocketToken(clientSocket, baseBufferSize, connectArgs, sendArgs, receiveArgs); 
+			socketToken = new SocketToken(clientSocket, baseReceiveBufferSize, connectArgs, sendArgs, receiveArgs); 
 			socketToken.socketState = SocketState.CONNECTING;
 			
 			// start connect.
@@ -234,13 +233,15 @@ namespace WebuSocketCore {
 					break;
 				}
 				default: {
+					token.socketState = SocketState.CLOSED;
+					
 					try {
 						token.socket.Close();
 					} catch {
 						// do nothing.
 					}
+
 					if (OnClosed != null) OnClosed(WebuSocketCloseEnum.CLOSED_GRACEFULLY); 
-					token.socketState = SocketState.CLOSED;
 					break;
 				}
 			}
@@ -327,7 +328,7 @@ namespace WebuSocketCore {
 					var result = ScanBuffer(token.receiveBuffer, token.readableDataLength);
 					
 					// read completed datas.
-					if (result.segments.Any()) {
+					if (0 < result.segments.Count) {
 						OnMessage(result.segments);
 					}
 					
@@ -346,7 +347,10 @@ namespace WebuSocketCore {
 					return;
 				}
 				default: {
-					throw new Exception("fatal error, could not detect error, receive condition is strange, token.socketState:" + token.socketState);
+					var error = new Exception("fatal error, could not detect error, receive condition is strange, token.socketState:" + token.socketState);
+					if (OnError != null) OnError(WebuSocketErrorEnum.RECEIVE_FAILED, error);
+					Disconnect(true); 
+					return;
 				}
 			}
 		}
@@ -425,8 +429,6 @@ namespace WebuSocketCore {
 
 			closeEventArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnDisconnected);
 			
-			UnityEngine.Debug.LogError("StartCloseAsync closeData:" + closeData.Length);
-
 			if (!socketToken.socket.SendAsync(closeEventArgs)) OnDisconnected(socketToken.socket, closeEventArgs);
 		}
 		

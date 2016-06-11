@@ -2,9 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Cinemachine;
+using UniRx;
 using UnityEngine;
 using UnityEngine.UI;
-using WebSocketControl;
+using WebuSocketCore;
 
 public class OnExecute : MonoBehaviour {
 	
@@ -20,11 +21,16 @@ public class OnExecute : MonoBehaviour {
 		✔他人の近所にいったら、会話ボタン？どうやってチャット開始しよう。
 		✔突然ウィンドウでるんでいいや。状態としては？
 		✔walk -> 円形近接 -> 歩き終わったタイミングでTalk? Talk終わったらDefault。
-		・
+
+		ToDoのためのAPIを組もう。
+		へいらっしゃい！から始まる問答の入力
 	*/
 	
 	private GameObject uiScreen;
 	
+	private WebuSocket webuSocket;
+
+	private Queue<byte[]> binaryQueue = new Queue<byte[]>();
 	
 	// Use this for initialization
 	void Start () {
@@ -38,30 +44,71 @@ public class OnExecute : MonoBehaviour {
 		playerId = UnityEngine.Random.Range(100, 199).ToString();
 		Debug.LogError("playerId:" + playerId);
 		
-		// クライアント接続を開始して、接続できたら云々。これstaticな必要あるんかな、、まあWebuSocketをそのまま使うよりは楽だな。
-		WebSocketConnectionController.InitWebSocketConnection(
+		
+		var keySetting = (StandardAssetsConnectorSettings)ScriptableObject.CreateInstance("StandardAssetsConnectorSettings");
+		var WEBSOCKET_ENTRYPOINT = keySetting.DomainKey() + keySetting.ClientKey();
+
+		/*
+			ProcessDataをMainThreadで呼ぶためにセットしている
+		*/
+		Observable.EveryUpdate().Subscribe(
+			_ => {
+				lock (binaryQueue) {
+					if (0 == binaryQueue.Count) return;  
+					while (0 < binaryQueue.Count) ProcessData(binaryQueue.Dequeue());
+					binaryQueue.Clear();
+				}
+			}
+		);
+		
+		webuSocket = new WebuSocket(
+			WEBSOCKET_ENTRYPOINT,
+			1024 * 100,
+			() => {
+				MainThreadDispatcher.Post(
+					(b) => {
+						Debug.LogError("connected.");
+					},
+					this
+				);
+			}, 
+			(Queue<ArraySegment<byte>> datas) => {
+				// enqueue datas to local queue.
+				lock (binaryQueue) {
+					while (0 < datas.Count) {
+						var data = datas.Dequeue();
+						var bytes = new byte[data.Count];
+						Buffer.BlockCopy(data.Array, data.Offset, bytes, 0, data.Count);
+						binaryQueue.Enqueue(bytes);
+					}
+				}
+			}, 
+			() => {
+				Debug.LogError("pingされたぞ〜");
+			}, 
+			closeReason => {
+				Debug.LogError("closeReason:" + closeReason);
+				
+				MainThreadDispatcher.Post(
+					(b) => {
+						// run on main thread.
+					},
+					this
+				);
+			}, 
+			(errorReason, e) => {
+				Debug.LogError("errorReason:" + errorReason);
+
+				MainThreadDispatcher.Post(
+					(b) => {
+						// run on main thread.
+					},
+					this
+				);
+			}, 
 			new Dictionary<string, string>{
 				{"playerId", playerId}
-			}, 
-			"rolePlayAgent", // string agent,
-			() => {
-				// Debug.LogError("connected!");
-			}, 
-			datas => {
-				foreach (var data in datas) {
-					var newArray = new byte[data.Count];
-					Array.Copy(data.Array, data.Offset, newArray, 0, data.Count);
-					ProcessData(newArray);
-				};
-			},
-			(connectionFailedReason) => {
-				Debug.LogError("connection failed, connectionFailedReason:" + connectionFailedReason);
-			}, 
-			(disconnectedReason) => {
-				Debug.LogError("disconnected, reason:" + disconnectedReason);
-			},
-			false,
-			() => {}
+			}
 		);
 	}
 	
@@ -168,7 +215,6 @@ public class OnExecute : MonoBehaviour {
 					
 					players.Add(playerContext);
 				}
-				
 				return;
 			}
 			
@@ -505,16 +551,13 @@ public class OnExecute : MonoBehaviour {
 		if (!stackedCommands.Any()) return;
 		 
 		foreach (var command in stackedCommands) {
-			WebSocketConnectionController.SendCommandAsync(command.ToData());
+			webuSocket.Send(command.ToData());
 		}
 		stackedCommands.Clear();
 	}
 	
 	
-	
-	
-	
 	public void OnApplicationQuit () {
-		WebSocketConnectionController.CloseCurrentConnection(true);
+		webuSocket.Disconnect(true);
 	}
 }
