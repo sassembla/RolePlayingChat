@@ -87,6 +87,7 @@ namespace WebSocketControl {
 				}, 
 				closeReason => {
 					Debug.LogError("closeReason:" + closeReason);
+					
 					var a = "";
 					MainThreadDispatcher.Post(
 						(b) => {
@@ -97,6 +98,7 @@ namespace WebSocketControl {
 				}, 
 				(errorReason, e) => {
 					Debug.LogError("errorReason:" + errorReason);
+
 					var a = "";
 					MainThreadDispatcher.Post(
 						(b) => {
@@ -113,8 +115,8 @@ namespace WebSocketControl {
 			if (w2 != null) w2.Send(command);
 		}
 		
-		public static void CloseCurrentConnection () {
-			if (w2 != null) w2.Disconnect();
+		public static void CloseCurrentConnection (bool force=false) {
+			if (w2 != null) w2.Disconnect(force);
 		}
 	}
 }

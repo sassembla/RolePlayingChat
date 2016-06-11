@@ -22,11 +22,14 @@ namespace WebuSocketCore {
 	}
 
 	public enum WebuSocketErrorEnum {
+		UNKNOWN_ERROR,
 		CONNECTION_FAILED,
 		CONNECTION_KEY_UNMATCHED,
 		SEND_FAILED,
 		RECEIVE_FAILED,
-	}
+        CONNECTING,
+        ALREADY_DISCONNECTED,
+    }
 	
 	public class WebuSocket {
 		private readonly EndPoint endPoint;
@@ -231,6 +234,11 @@ namespace WebuSocketCore {
 					break;
 				}
 				default: {
+					try {
+						token.socket.Close();
+					} catch {
+						// do nothing.
+					}
 					if (OnClosed != null) OnClosed(WebuSocketCloseEnum.CLOSED_GRACEFULLY); 
 					token.socketState = SocketState.CLOSED;
 					break;
@@ -384,8 +392,8 @@ namespace WebuSocketCore {
 			if (force) {
 				try {
 					socketToken.socket.Close();
-				} catch (Exception e) {
-					// nothing to do.
+				} catch {
+					// do nothing.
 				}
 				socketToken.socketState = SocketState.CLOSED;
 				if (OnClosed != null) OnClosed(WebuSocketCloseEnum.CLOSED_FORCELY); 
@@ -411,9 +419,15 @@ namespace WebuSocketCore {
 			var closeEventArgs = new SocketAsyncEventArgs();
 			closeEventArgs.UserToken = socketToken;
 			closeEventArgs.AcceptSocket = socketToken.socket;
+
+			var closeData = WebSocketByteGenerator.CloseData();
+			closeEventArgs.SetBuffer(closeData, 0, closeData.Length);
+
 			closeEventArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnDisconnected);
 			
-			if (!socketToken.socket.DisconnectAsync(closeEventArgs)) OnDisconnected(socketToken.socket, closeEventArgs);
+			UnityEngine.Debug.LogError("StartCloseAsync closeData:" + closeData.Length);
+
+			if (!socketToken.socket.SendAsync(closeEventArgs)) OnDisconnected(socketToken.socket, closeEventArgs);
 		}
 		
 		private static bool IsSocketConnected (Socket s) {
@@ -619,6 +633,26 @@ namespace WebuSocketCore {
 		}
 		
 		public void Send (byte[] data) {
+			if (socketToken.socketState != SocketState.OPENED) {
+				WebuSocketErrorEnum ev = WebuSocketErrorEnum.UNKNOWN_ERROR;
+				Exception error = null;
+				switch (socketToken.socketState) {
+					case SocketState.OPENING: {
+						ev = WebuSocketErrorEnum.CONNECTING;
+						error = new Exception("send error:" + "not yet connected.");
+						break;
+					}
+					case SocketState.CLOSING:
+					case SocketState.CLOSED: {
+						ev = WebuSocketErrorEnum.ALREADY_DISCONNECTED;
+						error = new Exception("send error:" + "connection was already closed. please create new connection by new WebuSocket().");
+						break;
+					} 
+				}
+				if (OnError != null) OnError(ev, error);
+				return;
+			}
+
 			var payloadBytes = WebSocketByteGenerator.SendBinaryData(data);
 			
 			socketToken.sendArgs.SetBuffer(payloadBytes, 0, payloadBytes.Length);
@@ -629,8 +663,6 @@ namespace WebuSocketCore {
 			if (socketToken.socketState == SocketState.OPENED) return true; 
 			return false;
 		}
-		
-		
 		
 		private void CloseReceived () {
 			switch (socketToken.socketState) {

@@ -170,8 +170,6 @@ public class OnExecute : MonoBehaviour {
 					players.Add(playerContext);
 				}
 				
-				Debug.LogError("worldData受け取った");
-
 				return;
 			}
 			
@@ -518,6 +516,6 @@ public class OnExecute : MonoBehaviour {
 	
 	
 	public void OnApplicationQuit () {
-		WebSocketConnectionController.CloseCurrentConnection();
+		WebSocketConnectionController.CloseCurrentConnection(true);
 	}
 }
