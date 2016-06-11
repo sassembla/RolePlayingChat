@@ -234,7 +234,7 @@ namespace WebuSocketCore {
 				}
 				default: {
 					token.socketState = SocketState.CLOSED;
-					
+
 					try {
 						token.socket.Close();
 					} catch {
@@ -520,8 +520,11 @@ namespace WebuSocketCore {
 			}
 		}
 		
+		private Queue<ArraySegment<byte>> receivedDataSegments = new Queue<ArraySegment<byte>>();
+		private byte[] continuationBuffer;
+		private int continuationBufferIndex;
 		private WebuSocketResults ScanBuffer (byte[] buffer, long bufferLength) {
-			Queue<ArraySegment<byte>> receivedDataSegments = new Queue<ArraySegment<byte>>();
+			receivedDataSegments.Clear();
 			
 			int messageHead = 0;
 			int cursor = 0;
@@ -579,13 +582,25 @@ namespace WebuSocketCore {
 				// payload is fully contained!
 				switch (opCode) {
 					case WebSocketByteGenerator.OP_CONTINUATION: {
-						throw new Exception("unsupported.");
+						if (continuationBuffer == null) continuationBuffer = new byte[baseReceiveBufferSize];
+						if (continuationBuffer.Length <= continuationBufferIndex + length) Array.Resize(ref continuationBuffer, continuationBufferIndex + length);
+
+						// pool data to continuation buffer.
+						Buffer.BlockCopy(buffer, 0, continuationBuffer, continuationBufferIndex, length);
+						continuationBufferIndex += length;
+						break;
 					}
-					case WebSocketByteGenerator.OP_TEXT: {
-						throw new Exception("unsupported.");						
-					}
+					case WebSocketByteGenerator.OP_TEXT:
 					case WebSocketByteGenerator.OP_BINARY: {
-						receivedDataSegments.Enqueue(new ArraySegment<byte>(buffer, cursor, length));
+						if (continuationBufferIndex == 0) receivedDataSegments.Enqueue(new ArraySegment<byte>(buffer, cursor, length));
+						else {
+							if (continuationBuffer.Length <= continuationBufferIndex + length) Array.Resize(ref continuationBuffer, continuationBufferIndex + length);
+							Buffer.BlockCopy(buffer, 0, continuationBuffer, continuationBufferIndex, length);
+							receivedDataSegments.Enqueue(new ArraySegment<byte>(continuationBuffer, 0, continuationBufferIndex));
+							
+							// reset continuationBuffer index.
+							continuationBufferIndex = 0;
+						}
 						break;
 					}
 					case WebSocketByteGenerator.OP_CLOSE: {
