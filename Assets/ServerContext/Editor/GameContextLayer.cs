@@ -280,7 +280,7 @@ public class GameContextLayer {
 				*/
 				{
 					// 適当な位置をでっち上げる
-					var x = Convert.ToInt32(onConnectedPlayerId)%20;
+					var x = 1;//Convert.ToInt32(onConnectedPlayerId)%20;
 					
 					var newPlayer = new PlayerInServer(onConnectedPlayerId, x, 0, 30, DirectionEnum.East);
 					world.AddPlayer(newPlayer);
@@ -292,8 +292,11 @@ public class GameContextLayer {
 				*/
 				if (AllConnectedIds().Length == 1) {
 					XrossPeer.Log("最初の接続者 onConnectedPlayerId:" + onConnectedPlayerId + " が来たので、ダミーを降らせる。ランダムシードがすげえーー怪しい時があるな。");
-					var xRand = new byte[10];
-					var zRand = new byte[10];
+
+					var dummyCount = 2;
+
+					var xRand = new byte[dummyCount];
+					var zRand = new byte[dummyCount];
 					
 					var r1 = new System.Random();
 					r1.NextBytes(xRand);
@@ -301,10 +304,10 @@ public class GameContextLayer {
 					var r2 = new System.Random();
 					r2.NextBytes(zRand);
 					
-					for (var i = 0; i < 10; i++) {
+					for (var i = 0; i < dummyCount; i++) {
 						var dummyPlayerId = Guid.NewGuid().ToString();
 						var dir = DirectionEnum.South;
-						var dummyPlayer = new PlayerInServer(dummyPlayerId, xRand[i]%40, zRand[i]%40, 30, dir, true);
+						var dummyPlayer = new PlayerInServer(dummyPlayerId, xRand[i]%4, zRand[i]%4, 30, dir, true);
 						world.AddPlayer(dummyPlayer);
 					}
 				}
@@ -373,8 +376,7 @@ public class GameContextLayer {
 					is bot, message turns to "order".
 				*/
 				if (world.IsDummyPlayer(targetPlayerId)) {
-					XrossPeer.Log("ダミープレイヤーなので、即応答を返せる。");
-					StackPublish(new Commands.Messaging(targetPlayerId, senderPlayerId, "村人:" + targetPlayerId + ":" + message + " って何？"), new string[]{senderConnectionId});
+					GenerateAnswer(targetPlayerId, senderPlayerId, message, senderConnectionId);
 					return;
 				}
 				
@@ -388,6 +390,32 @@ public class GameContextLayer {
 			}
 		}
 	}
+
+	private void GenerateAnswer (string targetPlayerId, string senderPlayerId, string message, string senderConnectionId) {
+		if (!message.EndsWith("?")) { 
+			StackPublish(new Commands.Messaging(targetPlayerId, senderPlayerId, "村人:" + targetPlayerId + ":" + message + " って何？"), new string[]{senderConnectionId});
+			return;
+		}
+
+		// ?で終わってる場合、Queryとみて、
+		/*
+			・わかった〜、XXXさんに伝えとく。
+			・XXXさんの部分は適当にその場にいる人からランダムで発生させる。
+			・サーバ側で動作するようなAutoを組んで、その人へと向かっていく -> しゃべる、っていうのを動かす。
+			
+		*/
+		var ourIds = new List<string>{targetPlayerId, senderPlayerId};
+		var anotherTargetId = world.ExceptPlayerIds(ourIds)[0];
+		StackPublish(new Commands.Messaging(targetPlayerId, senderPlayerId, "村人_" + targetPlayerId + ":" + "お、わかった〜、" + anotherTargetId + "に、\"" + message.Substring(0, message.Length - 1) + "\" って伝えとく。"), new string[]{senderConnectionId});
+
+		// で、実際に歩いてく。近づいて行って、最終的にメッセージを伝える。
+		var reservedMessage = message.Substring(0, message.Length - 1);
+		XrossPeer.Log("reservedMessage:" + reservedMessage);
+
+	}
+
+
+
 	
 	private string[] AllConnectedIds () {
 		return connections.Where(con => !string.IsNullOrEmpty(con.connectionId)).Select(con => con.connectionId).ToArray();
@@ -424,6 +452,10 @@ public class World {
 		playersInServer.Add(player);
 	}
 	
+	public List<string> ExceptPlayerIds (List<string> exceptPlayerIds) {
+		return playersInServer.Where(p => !exceptPlayerIds.Contains(p.playerId)).Select(p => p.playerId).ToList();
+	}
+
 	public List<Commands.PlayerIdAndPos> PlayersInfos () {
 		var playerInfos = new List<Commands.PlayerIdAndPos>();
 		foreach (var playerInServer in playersInServer) {
