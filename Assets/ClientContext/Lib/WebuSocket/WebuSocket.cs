@@ -313,7 +313,7 @@ namespace WebuSocketCore {
 							}
 						}  
 						token.socketState = SocketState.OPENED;
-						
+						UnityEngine.Debug.LogError("opened!");
 						if (OnConnected != null) OnConnected();
 						
 						ReadyReceivingNewData(token);
@@ -586,7 +586,7 @@ namespace WebuSocketCore {
 						if (continuationBuffer.Length <= continuationBufferIndex + length) Array.Resize(ref continuationBuffer, continuationBufferIndex + length);
 
 						// pool data to continuation buffer.
-						Buffer.BlockCopy(buffer, 0, continuationBuffer, continuationBufferIndex, length);
+						Buffer.BlockCopy(buffer, cursor, continuationBuffer, continuationBufferIndex, length);
 						continuationBufferIndex += length;
 						break;
 					}
@@ -595,7 +595,9 @@ namespace WebuSocketCore {
 						if (continuationBufferIndex == 0) receivedDataSegments.Enqueue(new ArraySegment<byte>(buffer, cursor, length));
 						else {
 							if (continuationBuffer.Length <= continuationBufferIndex + length) Array.Resize(ref continuationBuffer, continuationBufferIndex + length);
-							Buffer.BlockCopy(buffer, 0, continuationBuffer, continuationBufferIndex, length);
+							Buffer.BlockCopy(buffer, cursor, continuationBuffer, continuationBufferIndex, length);
+							continuationBufferIndex += length;
+							
 							receivedDataSegments.Enqueue(new ArraySegment<byte>(continuationBuffer, 0, continuationBufferIndex));
 							
 							// reset continuationBuffer index.

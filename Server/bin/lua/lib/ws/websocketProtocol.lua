@@ -185,7 +185,7 @@ end
 
 
 local function build_frame(fin, opcode, payload_len, payload, masking)
-    -- XXX optimize this when we have string.buffer in LuaJIT 2.1
+    -- TODO optimize this when we have string.buffer in LuaJIT 2.1
     local fst
     if fin then
         fst = bit.bor(0x80, opcode)

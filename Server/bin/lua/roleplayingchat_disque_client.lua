@@ -56,13 +56,14 @@ if not ok then
 	return
 end
 
+local maxLen = 1024
 
 -- setup websocket client
 local wsServer = require "ws.websocketServer"
 
 ws, wErr = wsServer:new{
 	timeout = 10000000,-- this should be set good value.
-	max_payload_len = 65535
+	max_payload_len = maxLen
 }
 
 if not ws then
@@ -136,6 +137,7 @@ end
 -- loop for receiving messages from game context.
 function contextReceiving ()
 	local localWs = ws
+	local localMaxLen = maxLen
 	while true do
 		-- receive message from disque queue, through connectionId. 
 		-- game context will send message via connectionId.
@@ -166,14 +168,53 @@ function contextReceiving ()
 			-- 入れる側にもなんかデータ接続が出ちゃうんだなあ。うーん、、まあでもサーバ側なんでいいや。CopyがN回増えるだけだ。
 			-- 残る課題は、ここでヘッダを見る、ってことだね。
 
-			-- send data to client
-			local bytes, err = localWs:send_binary(sendingData)
+			if (localMaxLen < #sendingData) then
+				local count = math.floor(#sendingData / localMaxLen)
+				local rest = #sendingData % localMaxLen
 
-			if not bytes then
-				ngx.log(ngx.ERR, "disque, 未解決の、送付失敗時にすべきこと。 connection:", connectionId, " failed to send text to client. err:", err)
-				local data = STATE_DISCONNECT_DISQUE_ACCIDT_SENDFAILED..connectionId..sendingData
-				addJobCon:addjob(IDENTIFIER_CONTEXT, data, 0)
-				break
+				local index = 1
+				local failed = false
+				for i = 1, count do
+					-- send. from index to index + localMaxLen.
+					local continueData = string.sub(sendingData, index, index + localMaxLen - 1)
+
+					local bytes, err = localWs:send_continue(continueData)
+					if not bytes then
+						ngx.log(ngx.ERR, "disque, continue送付の失敗。 connection:", connectionId, " failed to send text to client. err:", err)
+						local data = STATE_DISCONNECT_DISQUE_ACCIDT_SENDFAILED..connectionId..sendingData
+						addJobCon:addjob(IDENTIFIER_CONTEXT, data, 0)
+						failed = true
+						break
+					end
+					index = index + localMaxLen
+				end
+
+				if failed then
+					break
+				end
+
+				-- send rest data as binary.
+				
+				local lastData = string.sub(sendingData, index)
+
+				local bytes, err = localWs:send_binary(lastData)
+				if not bytes then
+					ngx.log(ngx.ERR, "disque, continue送付の失敗。 connection:", connectionId, " failed to send text to client. err:", err)
+					local data = STATE_DISCONNECT_DISQUE_ACCIDT_SENDFAILED..connectionId..sendingData
+					addJobCon:addjob(IDENTIFIER_CONTEXT, data, 0)
+					break
+				end
+
+			else
+				-- send data to client
+				local bytes, err = localWs:send_binary(sendingData)
+
+				if not bytes then
+					ngx.log(ngx.ERR, "disque, 未解決の、送付失敗時にすべきこと。 connection:", connectionId, " failed to send text to client. err:", err)
+					local data = STATE_DISCONNECT_DISQUE_ACCIDT_SENDFAILED..connectionId..sendingData
+					addJobCon:addjob(IDENTIFIER_CONTEXT, data, 0)
+					break
+				end
 			end
 		end
 	end
