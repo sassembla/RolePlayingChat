@@ -313,7 +313,7 @@ namespace WebuSocketCore {
 							}
 						}  
 						token.socketState = SocketState.OPENED;
-						UnityEngine.Debug.LogError("opened!");
+						
 						if (OnConnected != null) OnConnected();
 						
 						ReadyReceivingNewData(token);
