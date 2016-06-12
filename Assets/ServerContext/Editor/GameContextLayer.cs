@@ -391,27 +391,32 @@ public class GameContextLayer {
 		}
 	}
 
+	/**
+		文字列のパターンによって、AIにお願いをすることができる。
+	*/
 	private void GenerateAnswer (string targetPlayerId, string senderPlayerId, string message, string senderConnectionId) {
+		XrossPeer.Log("この時点で、このAIが忙しくなければ、っていう判断をしてもいいかもしれない。localとremoteのAutoのあり方をどうするかな。");
 		if (!message.EndsWith("?")) { 
 			StackPublish(new Commands.Messaging(targetPlayerId, senderPlayerId, "村人:" + targetPlayerId + ":" + message + " って何？"), new string[]{senderConnectionId});
 			return;
 		}
 
-		// ?で終わってる場合、Queryとみて、
-		/*
-			・わかった〜、XXXさんに伝えとく。
-			・XXXさんの部分は適当にその場にいる人からランダムで発生させる。
-			・サーバ側で動作するようなAutoを組んで、その人へと向かっていく -> しゃべる、っていうのを動かす。
-			
-		*/
+		// ?で終わってる場合、Queryとみて、動作開始。
 		var ourIds = new List<string>{targetPlayerId, senderPlayerId};
 		var anotherTargetId = world.ExceptPlayerIds(ourIds)[0];
 		StackPublish(new Commands.Messaging(targetPlayerId, senderPlayerId, "村人_" + targetPlayerId + ":" + "お、わかった〜、" + anotherTargetId + "に、\"" + message.Substring(0, message.Length - 1) + "\" って伝えとく。"), new string[]{senderConnectionId});
 
-		// で、実際に歩いてく。近づいて行って、最終的にメッセージを伝える。
-		var reservedMessage = message.Substring(0, message.Length - 1);
+		// メッセージを保持、実際にターゲットに向かって歩いてく。近づいて行って、最終的にメッセージを伝える。
+		var reservedMessage = "あのね〜 " + senderPlayerId + "からの伝言で、" + "\"" + message.Substring(0, message.Length - 1) + "\"" + "ってさ。";
 		XrossPeer.Log("reservedMessage:" + reservedMessage);
 
+		// サーバ側でAutoをどうやって組もうかな。
+		/*
+			・サーバ側でのAutoを持つ
+			・Autoを初期化する
+			・Autoを適当にスタックする(デフォルト状態もAutoとして持った方がいいのかな。)
+			・
+		*/
 	}
 
 
