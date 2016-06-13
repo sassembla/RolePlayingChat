@@ -48,8 +48,6 @@ public class GameContextLayer {
 	
 	private BattleState state = BattleState.STATE_READY;
 	
-	
-	// private XrossPeerContext xrossPeerContext;
 	/*
 		publish data to specific connection.
 	*/
@@ -407,7 +405,7 @@ public class GameContextLayer {
 		StackPublish(new Commands.Messaging(targetPlayerId, senderPlayerId, "村人_" + targetPlayerId + ":" + "お、わかった〜、" + anotherTargetId + "に、\"" + message.Substring(0, message.Length - 1) + "\" って伝えとく。"), new string[]{senderConnectionId});
 
 		// メッセージを保持、実際にターゲットに向かって歩いてく。近づいて行って、最終的にメッセージを伝える。
-		var reservedMessage = "あのね〜 " + senderPlayerId + "からの伝言で、" + "\"" + message.Substring(0, message.Length - 1) + "\"" + "ってさ。";
+		var reservedMessage = "あのね〜 " + senderPlayerId + "からの伝言で、" + "\"" + message + "\"" + "ってさ。";
 		XrossPeer.Log("reservedMessage:" + reservedMessage);
 
 		// サーバ側でAutoをどうやって組もうかな。
@@ -415,8 +413,15 @@ public class GameContextLayer {
 			・サーバ側でのAutoを持つ
 			・Autoを初期化する
 			・Autoを適当にスタックする(デフォルト状態もAutoとして持った方がいいのかな。)
-			・
+			・Autoからの発信を行う
+			とかか。全部協調動作する必要ないんで、サーバ側で適当なフレームで動かしつつ、時間がきたら実行、っていう感じかな。
+
+			Queryの部分をAutoで積む？
+			・何時頃 とか
+			・何回 とか
+			・どのくらいしつこく とか
 		*/
+		var stackedQuery = new List<Auto<>>
 	}
 
 
