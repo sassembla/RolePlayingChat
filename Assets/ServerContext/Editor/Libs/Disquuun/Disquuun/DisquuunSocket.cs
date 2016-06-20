@@ -29,6 +29,9 @@ namespace DisquuunCore {
 			OPENING,
 			OPENED,			
 			BUSY,
+
+			RECEIVED,
+			SENDED,
 			
 			
 			DISPOSABLE_READY,
@@ -323,6 +326,21 @@ namespace DisquuunCore {
 					break;
 				}
 			}
+			var token = (SocketToken)args.UserToken;
+
+			switch (token.socketState) {
+				case SocketState.RECEIVED: {
+					token.socketState = SocketState.OPENED;
+					break;
+				}
+				case SocketState.BUSY: {
+					token.socketState = SocketState.SENDED;
+					break;
+				}
+				default: {
+					break;
+				}
+			}
 		}
 		
 		private void OnReceived (object unused, SocketAsyncEventArgs args) {
@@ -376,6 +394,10 @@ namespace DisquuunCore {
 					} else {
 						switch (token.socketState) {
 							case SocketState.BUSY: {
+								token.socketState = SocketState.RECEIVED;
+								break;
+							}
+							case SocketState.SENDED: {
 								token.socketState = SocketState.OPENED;
 								break;
 							}

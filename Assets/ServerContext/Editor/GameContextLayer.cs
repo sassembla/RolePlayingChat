@@ -420,8 +420,10 @@ public class GameContextLayer {
 			・何時頃 とか
 			・何回 とか
 			・どのくらいしつこく とか
+
+			worldに持ってるだろうから、ストックしちゃおう。
 		*/
-		var stackedQuery = new List<Auto<>>
+		// var stackedQuery = new List<Auto<>> 
 	}
 
 
