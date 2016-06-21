@@ -16,9 +16,19 @@ public enum DirectionEnum {
 	West
 }
 
+public struct AutoInfo {
+	public string autoName;
+	public List<string> parameters;
+
+	public AutoInfo (string autoName, List<string> parameters) {
+		this.autoName = autoName;
+		this.parameters = parameters;
+	}
+}
+
 public class PlayerContext {
 	public Auto<PlayerContext, List<PlayerContext>> auto;
-	public List<string> stackedDummyAutos;
+	public List<AutoInfo> stackedDummyAutos;
 	public readonly string playerId;
 	
 	public DirectionEnum forward;
@@ -36,6 +46,10 @@ public class PlayerContext {
 
 	public bool isDummy;
 	
+	public string dummyMessage = string.Empty;
+	public string dummyTargetId = string.Empty;
+
+
 	public List<Commands.BaseData> stackedCommands;
 	
 	public PlayerContext (string playerId, Commands.StructVector3 pos, DirectionEnum dir) {
@@ -46,7 +60,7 @@ public class PlayerContext {
 		this.height = pos.height;
 		this.forward = dir;
 
-		this.stackedDummyAutos = new List<string>();
+		this.stackedDummyAutos = new List<AutoInfo>();
 	}
 	
 	public Commands.StructVector3 Position () {

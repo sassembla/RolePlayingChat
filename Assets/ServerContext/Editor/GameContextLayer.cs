@@ -423,9 +423,9 @@ public class GameContextLayer {
 			・何回 とか
 			・どのくらいしつこく とか
 		*/
-		world.StackAutoName(dummyPlayerId, "DoStalk");// 付け回して、相手にメッセージ投げて、それが済んだら
-		world.StackAutoName(dummyPlayerId, "DoNotify");// 終わったよーって通知を出す
-		world.StackAutoName(dummyPlayerId, "DoBack");// メッセージを渡したやつに会いに行く
+		world.StackAutoName(dummyPlayerId, "DoStalk", new List<string>{anotherTargetId, reservedMessage});// 付け回して、相手にメッセージ投げて、それが済んだら
+		world.StackAutoName(dummyPlayerId, "DoNotify", new List<string>{senderPlayerId, anotherTargetId, reservedMessage});// 終わったよーって通知を出す
+		world.StackAutoName(dummyPlayerId, "DoStalk", new List<string>{senderPlayerId, reservedMessage});// メッセージを渡したやつに会いに行く
 		
 		var playerContext = world.GetPlayerInfo(dummyPlayerId);
 		var newAuto = new DoOrder<PlayerContext, List<PlayerContext>>(gameFrame, playerContext);
@@ -459,24 +459,24 @@ public class GameContextLayer {
 
 public class World {
 	public readonly string worldId;
-	private List<PlayerContext> playersInServer;
+	private List<PlayerContext> playerContextsInServer;
 	
 	public World () {
 		this.worldId = Guid.NewGuid().ToString();
-		this.playersInServer = new List<PlayerContext>();
+		this.playerContextsInServer = new List<PlayerContext>();
 	}
 	
 	public void AddPlayer (PlayerContext player) {
-		playersInServer.Add(player);
+		playerContextsInServer.Add(player);
 	}
 	
 	public List<string> ExceptPlayerIds (List<string> exceptPlayerIds) {
-		return playersInServer.Where(p => !exceptPlayerIds.Contains(p.playerId)).Select(p => p.playerId).ToList();
+		return playerContextsInServer.Where(p => !exceptPlayerIds.Contains(p.playerId)).Select(p => p.playerId).ToList();
 	}
 
 	public List<Commands.PlayerIdAndPos> PlayersInfos () {
 		var playerInfos = new List<Commands.PlayerIdAndPos>();
-		foreach (var playerContext in playersInServer) {
+		foreach (var playerContext in playerContextsInServer) {
 			var playerId = playerContext.playerId;
 			var pos = playerContext.Position();
 			var dir = playerContext.forward;
@@ -486,24 +486,26 @@ public class World {
 	}
 	
 	public bool IsDummyPlayer (string playerId) {
-		var playerInServer = playersInServer.Where(p => p.playerId == playerId).FirstOrDefault();
+		var playerInServer = playerContextsInServer.Where(p => p.playerId == playerId).FirstOrDefault();
 		return playerInServer.isDummy;
 	}
 
 	public void UpdateWorld (int frame, Action<Commands.BaseData, string[]> pub) {
-		foreach (var player in playersInServer) {
+		foreach (var player in playerContextsInServer) {
 			if (!player.isDummy) continue;
 			if (player.auto == null) continue;
 			
 			if (player.auto.ShouldFalldown(frame)) {
 				if (player.stackedDummyAutos.Count == 0) continue;
-				var stackedAutoName = player.stackedDummyAutos[0];
+				var stackedAutoInfo = player.stackedDummyAutos[0];
 				player.stackedDummyAutos.RemoveAt(0);
 
 				// stackedAutoName
-				XrossPeer.Log("next stackedAutoName:" + stackedAutoName);
-				switch (stackedAutoName) {
+				XrossPeer.Log("next stackedAutoName:" + stackedAutoInfo);
+				switch (stackedAutoInfo.autoName) {
 					case "DoStalk": {
+						player.dummyTargetId = stackedAutoInfo.parameters[0];
+						player.dummyMessage = stackedAutoInfo.parameters[1];
 						player.auto = player.auto.ChangeTo(new DoStalk<PlayerContext, List<PlayerContext>>(frame, player));
 						break;
 					}
@@ -514,7 +516,7 @@ public class World {
 				// 
 			}
 
-			player.auto.Update(frame, playersInServer);
+			player.auto.Update(frame, playerContextsInServer);
 		}
 	}
 
@@ -528,17 +530,17 @@ public class World {
 		playerContext.auto = newAuto;
     }
 
-	public void StackAutoName (string playerId, string autoName) {
+	public void StackAutoName (string playerId, string autoName, List<string> parameters) {
 		var playerContext = GetPlayerInfo(playerId);
 		if (playerContext == null) {
 			XrossPeer.Log("対象のplayer:" + playerId + " nullだったのでstackに失敗");
 			return;
 		}
 		
-		playerContext.stackedDummyAutos.Add(autoName);
+		playerContext.stackedDummyAutos.Add(new AutoInfo(autoName, parameters));
 	}
 
 	public PlayerContext GetPlayerInfo (string playerId) {
-		return playersInServer.Where(p => p.playerId == playerId).FirstOrDefault();
+		return playerContextsInServer.Where(p => p.playerId == playerId).FirstOrDefault();
 	}
 }
