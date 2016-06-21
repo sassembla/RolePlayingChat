@@ -185,7 +185,7 @@ public class GameContextLayer {
 			case BattleState.STATE_PLAYERS_EXISTS: {
 				// worldにいるユーザー = dummyの挙動を開始する。
 
-				world.Update(gameFrame, StackPublish);
+				world.UpdateWorld(gameFrame, StackPublish);
 				
 				UpdateXrossPeer(gameFrame);
 				
@@ -303,7 +303,7 @@ public class GameContextLayer {
 					for (var i = 0; i < dummyCount; i++) {
 						var dummyPlayerId = Guid.NewGuid().ToString();
 						var dir = DirectionEnum.South;
-						var dummyPlayer = new PlayerContext(dummyPlayerId, new Commands.StructVector3(xRand[i]%4, zRand[i]%4, 30), dir);
+						var dummyPlayer = new PlayerContext(dummyPlayerId, new Commands.StructVector3(xRand[i]%2, zRand[i]%2, 30), dir);
 						dummyPlayer.isDummy = true;
 						world.AddPlayer(dummyPlayer);
 					}
@@ -391,10 +391,10 @@ public class GameContextLayer {
 	/**
 		文字列のパターンによって、AIにお願いをすることができる。
 	*/
-	private void GenerateAnswer (string targetPlayerId, string senderPlayerId, string message, string senderConnectionId) {
+	private void GenerateAnswer (string dummyPlayerId, string senderPlayerId, string message, string senderConnectionId) {
 		XrossPeer.Log("この時点で、このAIが忙しくなければ、っていう判断をしてもいいかもしれない。localとremoteのAutoのあり方をどうするかな。");
 		if (!message.EndsWith("?")) { 
-			StackPublish(new Commands.Messaging(targetPlayerId, senderPlayerId, "村人:" + targetPlayerId + ":" + message + " って何？"), new string[]{senderConnectionId});
+			StackPublish(new Commands.Messaging(dummyPlayerId, senderPlayerId, "村人:" + dummyPlayerId + ":" + message + " って何？"), new string[]{senderConnectionId});
 			return;
 		}
 
@@ -402,9 +402,9 @@ public class GameContextLayer {
 
 		// 今回は問答なしで、追いかけて行って云々っていう感じにする。まずカメラ引いてしまおう。
 
-		var ourIds = new List<string>{targetPlayerId, senderPlayerId};
+		var ourIds = new List<string>{dummyPlayerId, senderPlayerId};
 		var anotherTargetId = world.ExceptPlayerIds(ourIds)[0];
-		StackPublish(new Commands.Messaging(targetPlayerId, senderPlayerId, "村人_" + targetPlayerId + ":" + "お、わかった〜、" + anotherTargetId + "に、\"" + message.Substring(0, message.Length - 1) + "\" って伝えとく。"), new string[]{senderConnectionId});
+		StackPublish(new Commands.Messaging(dummyPlayerId, senderPlayerId, "村人_" + dummyPlayerId + ":" + "お、わかった〜、" + anotherTargetId + "に、\"" + message.Substring(0, message.Length - 1) + "\" って伝えとく。"), new string[]{senderConnectionId});
 		
 		// メッセージを保持、実際にターゲットに向かって歩いてく。近づいて行って、最終的にメッセージを伝える。
 		var reservedMessage = "あのね〜 " + senderPlayerId + "からの伝言で、" + "\"" + message + "\"" + "ってさ。";
@@ -422,10 +422,14 @@ public class GameContextLayer {
 			・何時頃 とか
 			・何回 とか
 			・どのくらいしつこく とか
-
-			worldに持ってるだろうから、ストックしちゃおう。
 		*/
-		var newAuto = new DoOrder<int, int>(gameFrame, 0);
+		world.StackAutoName(dummyPlayerId, "DoStalk");// 付け回して、相手にメッセージ投げて、それが済んだら
+		world.StackAutoName(dummyPlayerId, "DoNotify");// 終わったよーって通知を出す
+		world.StackAutoName(dummyPlayerId, "DoBack");// メッセージを渡したやつに会いに行く
+		
+		var playerContext = world.GetPlayerInfo(dummyPlayerId);
+		var newAuto = new DoOrder<PlayerContext, List<PlayerContext>>(gameFrame, playerContext);
+		world.SetAuto(dummyPlayerId, newAuto, gameFrame);
 	}
 
 
@@ -486,12 +490,55 @@ public class World {
 		return playerInServer.isDummy;
 	}
 
-	public void Update (int frame, Action<Commands.BaseData, string[]> pub) {
+	public void UpdateWorld (int frame, Action<Commands.BaseData, string[]> pub) {
 		foreach (var player in playersInServer) {
 			if (!player.isDummy) continue;
-			if (player.auto == null) continue; 
-			// ここからダミーだけの話。
+			if (player.auto == null) continue;
+			
+			if (player.auto.ShouldFalldown(frame)) {
+				if (player.stackedDummyAutos.Count == 0) continue;
+				var stackedAutoName = player.stackedDummyAutos[0];
+				player.stackedDummyAutos.RemoveAt(0);
+
+				// stackedAutoName
+				XrossPeer.Log("next stackedAutoName:" + stackedAutoName);
+				switch (stackedAutoName) {
+					case "DoStalk": {
+						player.auto = player.auto.ChangeTo(new DoStalk<PlayerContext, List<PlayerContext>>(frame, player));
+						break;
+					}
+					default: {
+						break;
+					}
+				}
+				// 
+			}
+
 			player.auto.Update(frame, playersInServer);
 		}
+	}
+
+    public void SetAuto (string playerId, Auto<PlayerContext, List<PlayerContext>> newAuto, int frame) {
+        var playerContext = GetPlayerInfo(playerId);
+		if (playerContext == null) {
+			XrossPeer.Log("対象のplayer:" + playerId + " nullだったのでstackに失敗");
+			return;
+		}
+		
+		playerContext.auto = newAuto;
+    }
+
+	public void StackAutoName (string playerId, string autoName) {
+		var playerContext = GetPlayerInfo(playerId);
+		if (playerContext == null) {
+			XrossPeer.Log("対象のplayer:" + playerId + " nullだったのでstackに失敗");
+			return;
+		}
+		
+		playerContext.stackedDummyAutos.Add(autoName);
+	}
+
+	public PlayerContext GetPlayerInfo (string playerId) {
+		return playersInServer.Where(p => p.playerId == playerId).FirstOrDefault();
 	}
 }

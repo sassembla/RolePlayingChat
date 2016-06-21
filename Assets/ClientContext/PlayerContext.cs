@@ -18,6 +18,7 @@ public enum DirectionEnum {
 
 public class PlayerContext {
 	public Auto<PlayerContext, List<PlayerContext>> auto;
+	public List<string> stackedDummyAutos;
 	public readonly string playerId;
 	
 	public DirectionEnum forward;
@@ -44,6 +45,8 @@ public class PlayerContext {
 		this.z = (int)(pos.z * RolePlayingChatDefinitions.FloorUnit);
 		this.height = pos.height;
 		this.forward = dir;
+
+		this.stackedDummyAutos = new List<string>();
 	}
 	
 	public Commands.StructVector3 Position () {
