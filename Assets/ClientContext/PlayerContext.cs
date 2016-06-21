@@ -32,6 +32,10 @@ public class PlayerContext {
 	public string talkingPlayerId = string.Empty;
 	
 	public string messageSend = string.Empty;
+
+	public bool isDummy;
+	
+	public List<Commands.BaseData> stackedCommands;
 	
 	public PlayerContext (string playerId, Commands.StructVector3 pos, DirectionEnum dir) {
 		this.playerId = playerId;
@@ -42,4 +46,7 @@ public class PlayerContext {
 		this.forward = dir;
 	}
 	
+	public Commands.StructVector3 Position () {
+		return new Commands.StructVector3((int)this.x, (int)this.z, (int)this.height);
+	}
 }

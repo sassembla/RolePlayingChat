@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using Automatine;
 using XrossPeerUtility;
 
 /**
@@ -182,15 +183,13 @@ public class GameContextLayer {
 			*/
 			case BattleState.STATE_NOPLAYERS: 
 			case BattleState.STATE_PLAYERS_EXISTS: {
-				// if (xrossPeerContext.PlayerExists()) {
-				// 	XrossPeer.TimeAssert(Develop.TIME_ASSERT, "ゲームにプレイヤーがいることでの時間制限とかを付けるならこのへん。");
-				// 	state = BattleState.STATE_PLAYERS_EXISTS;
-				// }
+				// worldにいるユーザー = dummyの挙動を開始する。
+
+				world.Update(gameFrame, StackPublish);
 				
 				UpdateXrossPeer(gameFrame);
 				
-				// XrossPeer.Log("仮でメッセージを送っていた。");
-				// StackPublish(new Commands.Message("aaa", "message from server."), AllConnectedIds());
+				
 				
 				gameFrame++;
 				break;
@@ -228,8 +227,6 @@ public class GameContextLayer {
 				InputToXrossPeer(gameFrame, dataPack.playerId, dataPack.data);
 			}
 		};
-		
-		// xrossPeerContext.Update(frame);
 	}
 	
 	
@@ -280,11 +277,12 @@ public class GameContextLayer {
 					// 適当な位置をでっち上げる
 					var x = 1;//Convert.ToInt32(onConnectedPlayerId)%20;
 					
-					var newPlayer = new PlayerInServer(onConnectedPlayerId, x, 0, 30, DirectionEnum.East);
+					var newPlayer = new PlayerContext(onConnectedPlayerId, new Commands.StructVector3(x, 0, 30), DirectionEnum.East);
 					world.AddPlayer(newPlayer);
-					StackPublish(new Commands.EntriedId(onConnectedPlayerId, newPlayer.pos, newPlayer.dir), AllConnectedIds());
+					StackPublish(new Commands.EntriedId(onConnectedPlayerId, newPlayer.Position(), newPlayer.forward), AllConnectedIds());
 				}
 				
+
 				/*
 					ダミーを10人くらい降らせよう。
 				*/
@@ -305,7 +303,8 @@ public class GameContextLayer {
 					for (var i = 0; i < dummyCount; i++) {
 						var dummyPlayerId = Guid.NewGuid().ToString();
 						var dir = DirectionEnum.South;
-						var dummyPlayer = new PlayerInServer(dummyPlayerId, xRand[i]%4, zRand[i]%4, 30, dir, true);
+						var dummyPlayer = new PlayerContext(dummyPlayerId, new Commands.StructVector3(xRand[i]%4, zRand[i]%4, 30), dir);
+						dummyPlayer.isDummy = true;
 						world.AddPlayer(dummyPlayer);
 					}
 				}
@@ -400,10 +399,13 @@ public class GameContextLayer {
 		}
 
 		// ?で終わってる場合、Queryとみて、動作開始。
+
+		// 今回は問答なしで、追いかけて行って云々っていう感じにする。まずカメラ引いてしまおう。
+
 		var ourIds = new List<string>{targetPlayerId, senderPlayerId};
 		var anotherTargetId = world.ExceptPlayerIds(ourIds)[0];
 		StackPublish(new Commands.Messaging(targetPlayerId, senderPlayerId, "村人_" + targetPlayerId + ":" + "お、わかった〜、" + anotherTargetId + "に、\"" + message.Substring(0, message.Length - 1) + "\" って伝えとく。"), new string[]{senderConnectionId});
-
+		
 		// メッセージを保持、実際にターゲットに向かって歩いてく。近づいて行って、最終的にメッセージを伝える。
 		var reservedMessage = "あのね〜 " + senderPlayerId + "からの伝言で、" + "\"" + message + "\"" + "ってさ。";
 		XrossPeer.Log("reservedMessage:" + reservedMessage);
@@ -423,7 +425,7 @@ public class GameContextLayer {
 
 			worldに持ってるだろうから、ストックしちゃおう。
 		*/
-		// var stackedQuery = new List<Auto<>> 
+		var newAuto = new DoOrder<int, int>(gameFrame, 0);
 	}
 
 
@@ -453,14 +455,14 @@ public class GameContextLayer {
 
 public class World {
 	public readonly string worldId;
-	private List<PlayerInServer> playersInServer;
+	private List<PlayerContext> playersInServer;
 	
 	public World () {
 		this.worldId = Guid.NewGuid().ToString();
-		this.playersInServer = new List<PlayerInServer>();
+		this.playersInServer = new List<PlayerContext>();
 	}
 	
-	public void AddPlayer (PlayerInServer player) {
+	public void AddPlayer (PlayerContext player) {
 		playersInServer.Add(player);
 	}
 	
@@ -470,10 +472,10 @@ public class World {
 
 	public List<Commands.PlayerIdAndPos> PlayersInfos () {
 		var playerInfos = new List<Commands.PlayerIdAndPos>();
-		foreach (var playerInServer in playersInServer) {
-			var playerId = playerInServer.playerId;
-			var pos = playerInServer.pos;
-			var dir = playerInServer.dir;
+		foreach (var playerContext in playersInServer) {
+			var playerId = playerContext.playerId;
+			var pos = playerContext.Position();
+			var dir = playerContext.forward;
 			playerInfos.Add(new Commands.PlayerIdAndPos(playerId, pos, dir));
 		}
 		return playerInfos;
@@ -483,22 +485,13 @@ public class World {
 		var playerInServer = playersInServer.Where(p => p.playerId == playerId).FirstOrDefault();
 		return playerInServer.isDummy;
 	}
-}
 
-public class PlayerInServer {
-	public readonly string playerId;
-	
-	public Commands.StructVector3 pos;
-	
-	public DirectionEnum dir;
-	
-	public readonly bool isDummy;
-	
-	public PlayerInServer (string playerId, int x, int z, int height, DirectionEnum dir, bool isDummy=false) {
-		this.playerId = playerId;
-		this.pos = new Commands.StructVector3(x, z, height);
-		this.dir = dir;
-		
-		this.isDummy = isDummy;
+	public void Update (int frame, Action<Commands.BaseData, string[]> pub) {
+		foreach (var player in playersInServer) {
+			if (!player.isDummy) continue;
+			if (player.auto == null) continue; 
+			// ここからダミーだけの話。
+			player.auto.Update(frame, playersInServer);
+		}
 	}
 }
