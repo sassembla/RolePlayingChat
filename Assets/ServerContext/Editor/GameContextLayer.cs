@@ -95,8 +95,11 @@ public class GameContextLayer {
 	
 	public GameContextLayer (List<string> reservedPlayerIds, Action<string, byte[]> publish) {
 		gameLayerId = Guid.NewGuid().ToString();
-		
-		world = new World(StackPublish);
+		Action<Commands.BaseData, string[]> SendById = (Commands.BaseData command, string[] playerIds) => {
+			var connectionIds = playerIds.Select(i => ConnectionIdFromPlayerId(i)).ToArray();
+			StackPublish(command, connectionIds);
+		};
+		world = new World(SendById);
 		
 		/*
 			ready player's connection slot.
@@ -522,10 +525,13 @@ public class World {
 			player.auto.Update(frame, playerContextsInServer);
 
 			if (player.stackedCommands.Any()) {
-				var allPlayerIds = playerContextsInServer.Select(p => p.playerId).ToArray();
+				var allPlayerIds = playerContextsInServer.Where(p => !p.isDummy).Select(p => p.playerId).ToArray();
+				XrossPeer.Log("allPlayerIds:" + allPlayerIds.Length + " allPlayerId:" + allPlayerIds[0]);
+
 				foreach (var stackedCommand in player.stackedCommands) {
 					StackPublish(stackedCommand, allPlayerIds);//全員に向けて発射っていう感じで。
 				}
+				player.stackedCommands.Clear();
 			} 
 		}
 	}
