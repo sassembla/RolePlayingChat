@@ -61,6 +61,7 @@ public class PlayerContext {
 		this.forward = dir;
 
 		this.stackedDummyAutos = new List<AutoInfo>();
+		this.stackedCommands = new List<Commands.BaseData>();
 	}
 	
 	public Commands.StructVector3 Position () {

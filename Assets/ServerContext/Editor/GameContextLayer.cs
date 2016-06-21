@@ -96,7 +96,7 @@ public class GameContextLayer {
 	public GameContextLayer (List<string> reservedPlayerIds, Action<string, byte[]> publish) {
 		gameLayerId = Guid.NewGuid().ToString();
 		
-		world = new World();
+		world = new World(StackPublish);
 		
 		/*
 			ready player's connection slot.
@@ -458,12 +458,15 @@ public class GameContextLayer {
 }
 
 public class World {
+	private readonly Action<Commands.BaseData, string[]> StackPublish;
+
 	public readonly string worldId;
 	private List<PlayerContext> playerContextsInServer;
 	
-	public World () {
+	public World (Action<Commands.BaseData, string[]> StackPublish) {
 		this.worldId = Guid.NewGuid().ToString();
 		this.playerContextsInServer = new List<PlayerContext>();
+		this.StackPublish = StackPublish;
 	}
 	
 	public void AddPlayer (PlayerContext player) {
@@ -501,7 +504,7 @@ public class World {
 				player.stackedDummyAutos.RemoveAt(0);
 
 				// stackedAutoName
-				XrossPeer.Log("next stackedAutoName:" + stackedAutoInfo);
+				XrossPeer.Log("next stackedAutoName:" + stackedAutoInfo.autoName);
 				switch (stackedAutoInfo.autoName) {
 					case "DoStalk": {
 						player.dummyTargetId = stackedAutoInfo.parameters[0];
@@ -510,13 +513,20 @@ public class World {
 						break;
 					}
 					default: {
+						XrossPeer.Log("未定義の状態:" + stackedAutoInfo.autoName);
 						break;
 					}
 				}
-				// 
 			}
 
 			player.auto.Update(frame, playerContextsInServer);
+
+			if (player.stackedCommands.Any()) {
+				var allPlayerIds = playerContextsInServer.Select(p => p.playerId).ToArray();
+				foreach (var stackedCommand in player.stackedCommands) {
+					StackPublish(stackedCommand, allPlayerIds);//全員に向けて発射っていう感じで。
+				}
+			} 
 		}
 	}
 
