@@ -27,6 +27,7 @@ public static class Commands {
 		
 		Messaging,
 		Walk,
+		ForceMove,
 		
 		Ping,
 		
@@ -125,6 +126,15 @@ public static class Commands {
 		[SerializeField] public DirectionEnum direction;
 		[SerializeField] public StructVector3 pos;
 		public Walk (string playerId, DirectionEnum direction, StructVector3 pos) : base (CommandEnum.Walk, playerId) {	
+			this.direction = direction;
+			this.pos = pos;
+		}
+	}
+
+	[Serializable] public class ForceMove : BaseData {
+		[SerializeField] public DirectionEnum direction;
+		[SerializeField] public StructVector3 pos;
+		public ForceMove (string playerId, DirectionEnum direction, StructVector3 pos) : base (CommandEnum.ForceMove, playerId) {	
 			this.direction = direction;
 			this.pos = pos;
 		}

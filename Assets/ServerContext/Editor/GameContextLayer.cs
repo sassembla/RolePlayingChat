@@ -278,9 +278,7 @@ public class GameContextLayer {
 				*/
 				{
 					// 適当な位置をでっち上げる
-					var x = 1;//Convert.ToInt32(onConnectedPlayerId)%20;
-					
-					var newPlayer = new PlayerContext(onConnectedPlayerId, new Commands.StructVector3(x, 0, 30), DirectionEnum.East);
+					var newPlayer = new PlayerContext(onConnectedPlayerId, new Commands.StructVector3(0, 0, 30), DirectionEnum.East);
 					world.AddPlayer(newPlayer);
 					StackPublish(new Commands.EntriedId(onConnectedPlayerId, newPlayer.Position(), newPlayer.forward), AllConnectedIds());
 				}
@@ -303,10 +301,19 @@ public class GameContextLayer {
 					var r2 = new System.Random();
 					r2.NextBytes(zRand);
 					
-					for (var i = 0; i < dummyCount; i++) {
+					 
+					{
 						var dummyPlayerId = Guid.NewGuid().ToString();
 						var dir = DirectionEnum.South;
-						var dummyPlayer = new PlayerContext(dummyPlayerId, new Commands.StructVector3(xRand[i]%2, zRand[i]%2, 30), dir);
+						var dummyPlayer = new PlayerContext(dummyPlayerId, new Commands.StructVector3(1, 1, 30), dir);
+						dummyPlayer.isDummy = true;
+						world.AddPlayer(dummyPlayer);
+					}
+
+					{
+						var dummyPlayerId = Guid.NewGuid().ToString();
+						var dir = DirectionEnum.South;
+						var dummyPlayer = new PlayerContext(dummyPlayerId, new Commands.StructVector3(1, 0, 30), dir);
 						dummyPlayer.isDummy = true;
 						world.AddPlayer(dummyPlayer);
 					}
@@ -358,6 +365,12 @@ public class GameContextLayer {
 				var walkBasePos = walkData.pos;
 				
 				StackPublish(new Commands.Walk(walkingPlayerId, walkingDir, walkBasePos), AllConnectedIds());
+
+				
+				if (!world.IsDummyPlayer(walkingPlayerId)) {
+					var playerInfo = world.GetPlayerInfo(walkingPlayerId);
+					playerInfo.auto = new Walk<PlayerContext, List<PlayerContext>>(gameFrame, playerInfo);
+				}
 				return;
 			}
 			case Commands.CommandEnum.Messaging: {
@@ -498,26 +511,34 @@ public class World {
 
 	public void UpdateWorld (int frame, Action<Commands.BaseData, string[]> pub) {
 		foreach (var player in playerContextsInServer) {
-			if (!player.isDummy) continue;
 			if (player.auto == null) continue;
-			
-			if (player.auto.ShouldFalldown(frame)) {
-				if (player.stackedDummyAutos.Count == 0) continue;
-				var stackedAutoInfo = player.stackedDummyAutos[0];
-				player.stackedDummyAutos.RemoveAt(0);
 
-				// stackedAutoName
-				XrossPeer.Log("next stackedAutoName:" + stackedAutoInfo.autoName);
-				switch (stackedAutoInfo.autoName) {
-					case "DoStalk": {
-						player.dummyTargetId = stackedAutoInfo.parameters[0];
-						player.dummyMessage = stackedAutoInfo.parameters[1];
-						player.auto = player.auto.ChangeTo(new DoStalk<PlayerContext, List<PlayerContext>>(frame, player));
-						break;
-					}
-					default: {
-						XrossPeer.Log("未定義の状態:" + stackedAutoInfo.autoName);
-						break;
+			if (!player.isDummy) {
+				if (player.auto.ShouldFalldown(frame)) {
+					continue;
+				}
+			} else {
+				
+				// dummy.
+				if (player.auto.ShouldFalldown(frame)) {
+					if (player.stackedDummyAutos.Count == 0) continue;
+					var stackedAutoInfo = player.stackedDummyAutos[0];
+					player.stackedDummyAutos.RemoveAt(0);
+
+					// stackedAutoName
+					XrossPeer.Log("next stackedAutoName:" + stackedAutoInfo.autoName);
+					switch (stackedAutoInfo.autoName) {
+						case "DoStalk": {
+							player.dummyTargetId = stackedAutoInfo.parameters[0];
+							player.dummyMessage = stackedAutoInfo.parameters[1];
+							player.auto = player.auto.ChangeTo(new DoStalk<PlayerContext, List<PlayerContext>>(frame, player));
+							// つくったときに、位置情報を係数系に更新できてないんだ。
+							break;
+						}
+						default: {
+							XrossPeer.Log("未定義の状態:" + stackedAutoInfo.autoName);
+							break;
+						}
 					}
 				}
 			}

@@ -240,6 +240,22 @@ public class OnExecute : MonoBehaviour {
 				playerContext.auto = new Walk<PlayerContext, List<PlayerContext>>(clientFrame, playerContext);
 				return;
 			}
+			case Commands.CommandEnum.ForceMove: {
+				var forceMoveData = Commands.FromData<Commands.ForceMove>(data);
+				var movingPlayerId = forceMoveData.playerId;
+				var movingPlayerDir = forceMoveData.direction;
+				var movingPlayerPos = forceMoveData.pos;
+
+				// サーバ側でプレイヤー位置とかどうなってんだろ、それに合わせるチャンスがあるはず。
+				
+				// 係数系が異なる。そのままマッピングしてもダメだな＝＝
+				// var playerContext = ChoosePlayerContext(movingPlayerId);
+				// playerContext.x = movingPlayerPos.x;
+				// playerContext.z = movingPlayerPos.z;
+				// playerContext.height = 0;
+				// playerContext.forward = movingPlayerDir;
+				return;
+			}
 			case Commands.CommandEnum.Messaging: {
 				var messageData = Commands.FromData<Commands.Messaging>(data);
 				var messageTargetPlayer = messageData.targetPlayerId;
