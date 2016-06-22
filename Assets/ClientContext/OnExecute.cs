@@ -244,15 +244,11 @@ public class OnExecute : MonoBehaviour {
 				var movingPlayerDir = forceMoveData.direction;
 				var movingPlayerPos = forceMoveData.pos;
 
-				// サーバ側でプレイヤー位置とかどうなってんだろ、それに合わせるチャンスがあるはず。
-				Debug.LogError("ForceMove きました");
-
-				// 係数系が異なる。そのままマッピングしてもダメだな＝＝
-				// var playerContext = ChoosePlayerContext(movingPlayerId);
-				// playerContext.x = movingPlayerPos.x;
-				// playerContext.z = movingPlayerPos.z;
-				// playerContext.height = 0;
-				// playerContext.forward = movingPlayerDir;
+				var playerContext = ChoosePlayerContext(movingPlayerId);
+				playerContext.x = movingPlayerPos.x;
+				playerContext.z = movingPlayerPos.z;
+				playerContext.height = 0;
+				playerContext.forward = movingPlayerDir;
 				return;
 			}
 			case Commands.CommandEnum.Messaging: {
