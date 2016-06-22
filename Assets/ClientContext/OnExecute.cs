@@ -141,14 +141,13 @@ public class OnExecute : MonoBehaviour {
 	}
 	
 	private PlayerContext NewPlayerContext (string playerId, Commands.StructVector3 pos, DirectionEnum dir) {
-		var playerContext = new PlayerContext(playerId, pos, dir);
+		var playerContext = new PlayerContext(playerId, pos, dir);		
 		var auto = new Spawning<PlayerContext, List<PlayerContext>>(clientFrame, playerContext);
 		
 		playerContext.auto = auto;
 		
 		var prefab = Resources.Load("Chara") as GameObject;
 		playerModels[playerId] = Instantiate(prefab, new Vector3(playerContext.x, playerContext.height, playerContext.z), Quaternion.identity) as GameObject;
-		
 		return playerContext;
 	}
 	
@@ -224,7 +223,6 @@ public class OnExecute : MonoBehaviour {
 				var walkingDir = walkData.direction;
 				var walkBasePos = walkData.pos;
 				
-				
 				if (walkingPlayerId == this.playerId) {
 					// ignore.
 					// Debug.LogError("自分が歩いてる");
@@ -247,7 +245,8 @@ public class OnExecute : MonoBehaviour {
 				var movingPlayerPos = forceMoveData.pos;
 
 				// サーバ側でプレイヤー位置とかどうなってんだろ、それに合わせるチャンスがあるはず。
-				
+				Debug.LogError("ForceMove きました");
+
 				// 係数系が異なる。そのままマッピングしてもダメだな＝＝
 				// var playerContext = ChoosePlayerContext(movingPlayerId);
 				// playerContext.x = movingPlayerPos.x;
@@ -317,7 +316,8 @@ public class OnExecute : MonoBehaviour {
 			/*
 				dir, posの同期
 			*/
-			playerModels[playerContext.playerId].transform.position = new Vector3(playerContext.x, playerModels[playerContext.playerId].transform.position.y, playerContext.z);
+			
+			playerModels[playerContext.playerId].transform.position = new Vector3(playerContext.x * RolePlayingChatDefinitions.FloorUnit, 0, playerContext.z * RolePlayingChatDefinitions.FloorUnit);
 			var targetAngle = new Vector3(0, 90 * ((int)playerContext.forward - 1), 0);
 			playerModels[playerContext.playerId].transform.GetChild(0).transform.eulerAngles = targetAngle;
 			

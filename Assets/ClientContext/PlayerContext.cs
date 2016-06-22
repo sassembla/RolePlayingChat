@@ -55,10 +55,8 @@ public class PlayerContext {
 	public PlayerContext (string playerId, Commands.StructVector3 pos, DirectionEnum dir) {
 		this.playerId = playerId;
 		this.forward = DirectionEnum.North;
-		this.x = (int)(pos.x * RolePlayingChatDefinitions.FloorUnit);
-
-		Debug.LogError("x:" + x);
-		this.z = (int)(pos.z * RolePlayingChatDefinitions.FloorUnit);
+		this.x = pos.x;
+		this.z = pos.z;
 		this.height = pos.height;
 		this.forward = dir;
 

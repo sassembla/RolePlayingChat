@@ -6,9 +6,9 @@ public class RolePlayingChatDefinitions {
 	public const int FRAMERATE = 60;
 	
 	public const float FloorUnit = 10f;// 適当に地面のユニットを作った。10f x 10fのサイズ。
-	public const float StepUnit = 0.5f;
+	public const float StepUnit = 0.1f;
 	
-	public const double TalkRange = 100;// 超適当。
+	public const float TalkRange = 0.25f;// 超適当。
 }
 
 

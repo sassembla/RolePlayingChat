@@ -277,10 +277,11 @@ public class GameContextLayer {
 					このタイミングで、サーバへのプレイヤーのログインが完了してる。
 				*/
 				{
+					var pos = new Commands.StructVector3(0, 0, 30);
 					// 適当な位置をでっち上げる
-					var newPlayer = new PlayerContext(onConnectedPlayerId, new Commands.StructVector3(0, 0, 30), DirectionEnum.East);
+					var newPlayer = new PlayerContext(onConnectedPlayerId, pos, DirectionEnum.East);
 					world.AddPlayer(newPlayer);
-					StackPublish(new Commands.EntriedId(onConnectedPlayerId, newPlayer.Position(), newPlayer.forward), AllConnectedIds());
+					StackPublish(new Commands.EntriedId(onConnectedPlayerId, pos, newPlayer.forward), AllConnectedIds());
 				}
 				
 
@@ -305,15 +306,17 @@ public class GameContextLayer {
 					{
 						var dummyPlayerId = Guid.NewGuid().ToString();
 						var dir = DirectionEnum.South;
-						var dummyPlayer = new PlayerContext(dummyPlayerId, new Commands.StructVector3(1, 1, 30), dir);
+						var pos = new Commands.StructVector3(10, 10, 30);
+						var dummyPlayer = new PlayerContext(dummyPlayerId, pos, dir);
 						dummyPlayer.isDummy = true;
 						world.AddPlayer(dummyPlayer);
 					}
-
+					
 					{
 						var dummyPlayerId = Guid.NewGuid().ToString();
 						var dir = DirectionEnum.South;
-						var dummyPlayer = new PlayerContext(dummyPlayerId, new Commands.StructVector3(1, 0, 30), dir);
+						var pos = new Commands.StructVector3(10, 0, 30);
+						var dummyPlayer = new PlayerContext(dummyPlayerId, pos, dir);
 						dummyPlayer.isDummy = true;
 						world.AddPlayer(dummyPlayer);
 					}
