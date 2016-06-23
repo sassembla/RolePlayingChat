@@ -199,8 +199,6 @@ public partial class Tests {
 }
 
 
-
-
 public static class TestLogger {
 	public static string logPath;
 	

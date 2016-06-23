@@ -70,6 +70,6 @@ using System.IO;
 		XrossPeer.Log("teardown server context....");
 		XrossPeer.Log("----------");
 		if (sContext != null) sContext.Teardown();
-		transformLayer.Disconnect();
+		if (transformLayer != null) transformLayer.Disconnect();
 	}
 }

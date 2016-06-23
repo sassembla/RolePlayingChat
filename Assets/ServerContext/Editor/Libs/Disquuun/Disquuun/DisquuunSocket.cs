@@ -234,8 +234,7 @@ namespace DisquuunCore {
 				}
 			}
 		}
-		
-		
+
 		/*
 			default pooled socket + disposable socket shared 
 		*/
@@ -379,7 +378,7 @@ namespace DisquuunCore {
 							
 							// rewrite sendArgs.
 							token.sendArgs = sendArgs;
-						} 
+						}
 						token.sendArgs.SetBuffer(token.currentSendingBytes, 0, token.currentSendingBytes.Length);
 						if (!token.socket.SendAsync(token.sendArgs)) OnSend(token.socket, token.sendArgs);
 					} else {
@@ -394,7 +393,7 @@ namespace DisquuunCore {
 									
 									// rewrite sendArgs.
 									token.sendArgs = sendArgs;
-								} 
+								}
 								token.socketState = SocketState.OPENED;
 								break;
 							}
@@ -440,13 +439,14 @@ namespace DisquuunCore {
 						Array.Resize(ref token.receiveBuffer, token.receiveArgs.Buffer.Length + nextAdditionalBytesLength);
 					}
 					
+
 					var receivableCount = token.receiveBuffer.Length - token.readableDataLength;
 					token.receiveArgs.SetBuffer(token.receiveBuffer, token.readableDataLength, receivableCount);
+
 					if (!token.socket.ReceiveAsync(token.receiveArgs)) OnReceived(token.socket, token.receiveArgs);
 				}	
 			}
 		}
-		
 		
 		public void Disconnect (bool force=false) {
 			if (force) {
@@ -475,7 +475,6 @@ namespace DisquuunCore {
 			}
 		}
 		
-		
 		/*
 			utils
 		*/
@@ -488,8 +487,7 @@ namespace DisquuunCore {
 			
 			return true;
 		}
-	}
-	
+	}	
 	
 	public static class DisquuunExtension {
 		public static DisquuunResult[] DEPRICATED_Sync (this DisquuunInput input) {	
