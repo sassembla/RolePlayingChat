@@ -29,10 +29,6 @@ namespace DisquuunCore {
 			OPENING,
 			OPENED,			
 			BUSY,
-
-			RECEIVED,
-			SENDED,
-			
 			
 			DISPOSABLE_READY,
 			DISPOSABLE_OPENING,
@@ -52,7 +48,7 @@ namespace DisquuunCore {
 			public int readableDataLength;
 			
 			public readonly SocketAsyncEventArgs connectArgs;
-			public readonly SocketAsyncEventArgs sendArgs;
+			public SocketAsyncEventArgs sendArgs;
 			public readonly SocketAsyncEventArgs receiveArgs;
 			
 			public DisqueCommand currentCommand;
@@ -326,21 +322,6 @@ namespace DisquuunCore {
 					break;
 				}
 			}
-			var token = (SocketToken)args.UserToken;
-
-			switch (token.socketState) {
-				case SocketState.RECEIVED: {
-					token.socketState = SocketState.OPENED;
-					break;
-				}
-				case SocketState.BUSY: {
-					token.socketState = SocketState.SENDED;
-					break;
-				}
-				default: {
-					break;
-				}
-			}
 		}
 		
 		private void OnReceived (object unused, SocketAsyncEventArgs args) {
@@ -389,15 +370,31 @@ namespace DisquuunCore {
 						token.receiveArgs.SetBuffer(token.receiveBuffer, 0, token.receiveBuffer.Length);
 						if (!token.socket.ReceiveAsync(token.receiveArgs)) OnReceived(token.socket, token.receiveArgs);
 						
+						// treat send event args as "Sended." if send is not yet succeeded.
+						if (token.sendArgs.SocketError != SocketError.Success) {
+							var sendArgs = new SocketAsyncEventArgs();
+							sendArgs.AcceptSocket = token.socket;
+							sendArgs.RemoteEndPoint = token.sendArgs.RemoteEndPoint;
+							sendArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnSend);
+							
+							// rewrite sendArgs.
+							token.sendArgs = sendArgs;
+						} 
 						token.sendArgs.SetBuffer(token.currentSendingBytes, 0, token.currentSendingBytes.Length);
 						if (!token.socket.SendAsync(token.sendArgs)) OnSend(token.socket, token.sendArgs);
 					} else {
 						switch (token.socketState) {
 							case SocketState.BUSY: {
-								token.socketState = SocketState.RECEIVED;
-								break;
-							}
-							case SocketState.SENDED: {
+								// treat send event args as "Sended." if send is not yet succeeded.
+								if (token.sendArgs.SocketError != SocketError.Success) {
+									var sendArgs = new SocketAsyncEventArgs();
+									sendArgs.AcceptSocket = token.socket;
+									sendArgs.RemoteEndPoint = token.sendArgs.RemoteEndPoint;
+									sendArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnSend);
+									
+									// rewrite sendArgs.
+									token.sendArgs = sendArgs;
+								} 
 								token.socketState = SocketState.OPENED;
 								break;
 							}

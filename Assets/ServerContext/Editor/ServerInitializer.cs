@@ -19,13 +19,11 @@ using System.IO;
 	}
 	
 	
-	
-	
 	public ServerInitializer () {
 		XrossPeer.SetupLog(Path.Combine(Directory.GetParent(Application.dataPath).ToString(), "server.log"));
-		Setup();
+		// Setup();
 		
-		// DisquuunTests.Start();
+		DisquuunTests.Start();
 		
 		EditorApplication.playmodeStateChanged += DetectPlayStart;
 		EditorApplication.update += DetectCompileStart;
@@ -71,7 +69,7 @@ using System.IO;
 		XrossPeer.Log("----------");
 		XrossPeer.Log("teardown server context....");
 		XrossPeer.Log("----------");
-		sContext.Teardown();
+		if (sContext != null) sContext.Teardown();
 		transformLayer.Disconnect();
 	}
 }
