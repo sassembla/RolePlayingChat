@@ -271,20 +271,21 @@ namespace DisquuunCore {
 			switch (command) {
 				case DisqueCommand.ADDJOB: {
 					switch (sourceBuffer[cursor]) {
-						// case ByteError: {
-						// 	// -
-						// 	var lineEndCursor = ReadLine(sourceBuffer, cursor);
-						// 	cursor = cursor + 1;// add header byte size = 1.
+						case ByteError: {
+							// -
+							// var lineEndCursor = ReadLine(sourceBuffer, cursor);
+							// cursor = cursor + 1;// add header byte size = 1.
 							
-						// 	if (Failed != null) {
-						// 		var errorStr = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor - cursor);
-						// 		// Disquuun.Log("errorStr:" + errorStr);
-						// 		Failed(currentCommand, errorStr);
-						// 	}
+							// if (Failed != null) {
+							// 	var errorStr = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor - cursor);
+							// 	// Disquuun.Log("errorStr:" + errorStr);
+							// 	Failed(currentCommand, errorStr);
+							// }
 							
-						// 	cursor = lineEndCursor + 2;// CR + LF
-						// 	break;
-						// }
+							// cursor = lineEndCursor + 2;// CR + LF
+							// break;
+							throw new Exception("ADDJOB fail");
+						}
 						case ByteStatus: {
 							// + count
 							var lineEndCursor = ReadLine(sourceBuffer, cursor, length);
@@ -302,11 +303,13 @@ namespace DisquuunCore {
 							return new ScanResult(true, new DisquuunResult[]{new DisquuunResult(countBuffer)});
 						}
 						default: {
-							Disquuun.Log("command:" + command + " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer));
-							break;
+							throw new Exception("ADDJOB fail" + " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer));
+							// Disquuun.Log("command:" + command + " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer));
+							// break;
 						}
 					}
 					break;
+
 				}
 				case DisqueCommand.GETJOB: {
 					switch (sourceBuffer[cursor]) {
@@ -494,23 +497,30 @@ namespace DisquuunCore {
 							if (jobDatas != null && 0 < jobDatas.Length) return new ScanResult(true, jobDatas);
 							break;
 						}
-						// case ByteError: {
-						// 	// -
-						// 	var lineEndCursor = ReadLine2(sourceBuffer, cursor, length);
-						// 	cursor = cursor + 1;// add header byte size = 1.
-							
-						// 	if (Failed != null) {
-						// 		var errorStr = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor - cursor);
-						// 		// Disquuun.Log("errorStr:" + errorStr);
-						// 		Failed(currentCommand, errorStr);
-						// 	}
-							
-						// 	cursor = lineEndCursor + 2;// CR + LF
-						// 	break;
-						// }
-						default: {
-							Disquuun.Log("command:" + command + " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer));
+						case 43: {
+							throw new Exception("GetJob error. 43, "+ ByteStatus);
 							break;
+						}
+						case ByteError: {
+							// -
+							Disquuun.Log("-");
+							throw new Exception("GetJob error.");
+							// var lineEndCursor = ReadLine2(sourceBuffer, cursor, length);
+							// cursor = cursor + 1;// add header byte size = 1.
+							
+							// if (Failed != null) {
+							// 	var errorStr = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor - cursor);
+							// 	// Disquuun.Log("errorStr:" + errorStr);
+							// 	Failed(currentCommand, errorStr);
+							// }
+							
+							// cursor = lineEndCursor + 2;// CR + LF
+							break;
+						}
+						default: {
+							throw new Exception("GETJOB fail" + " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer));
+							// Disquuun.Log("command:" + command + " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer));
+							// break;
 						}
 					}
 					break;
@@ -545,13 +555,13 @@ namespace DisquuunCore {
 						// 		// Disquuun.Log("errorStr:" + errorStr);
 						// 		Failed(currentCommand, errorStr);
 						// 	}
-							
 						// 	cursor = lineEndCursor + 2;// CR + LF
 						// 	break;
 						// }
 						default: {
 							Disquuun.Log("command:" + command + " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer));
-							break;
+							throw new Exception("FastAckError");
+							// break;
 						}
 					}
 					break;

@@ -21,8 +21,8 @@ using System.IO;
 	
 	public ServerInitializer () {
 		XrossPeer.SetupLog(Path.Combine(Directory.GetParent(Application.dataPath).ToString(), "server.log"));
-		// Setup();
 		
+		// Setup();
 		DisquuunTests.Start();
 		
 		EditorApplication.playmodeStateChanged += DetectPlayStart;

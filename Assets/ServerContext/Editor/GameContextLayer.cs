@@ -535,7 +535,6 @@ public class World {
 							player.dummyTargetId = stackedAutoInfo.parameters[0];
 							player.dummyMessage = stackedAutoInfo.parameters[1];
 							player.auto = player.auto.ChangeTo(new DoStalk<PlayerContext, List<PlayerContext>>(frame, player));
-							// つくったときに、位置情報を係数系に更新できてないんだ。
 							break;
 						}
 						default: {
@@ -550,10 +549,9 @@ public class World {
 
 			if (player.stackedCommands.Any()) {
 				var allPlayerIds = playerContextsInServer.Where(p => !p.isDummy).Select(p => p.playerId).ToArray();
-				XrossPeer.Log("allPlayerIds:" + allPlayerIds.Length + " allPlayerId:" + allPlayerIds[0]);
 
 				foreach (var stackedCommand in player.stackedCommands) {
-					StackPublish(stackedCommand, allPlayerIds);//全員に向けて発射っていう感じで。
+					StackPublish(stackedCommand, allPlayerIds);
 				}
 				player.stackedCommands.Clear();
 			} 
