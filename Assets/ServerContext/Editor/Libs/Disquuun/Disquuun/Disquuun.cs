@@ -165,7 +165,8 @@ namespace DisquuunCore {
 					}
 				}
 				
-				return new DisquuunSocket(endPoint, bufferSize);
+				// return new DisquuunSocket(endPoint, bufferSize);
+				throw new Exception("no socket available.");
 			}
 		}
 		

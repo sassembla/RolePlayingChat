@@ -139,9 +139,7 @@ public partial class Tests {
 		disquuun2.Info().Async(
 			(command, data) => {
 				var result = DisquuunDeserializer.Info(data);
-				
 				restJobCount = result.jobs.registered_jobs;
-				
 				TestLogger.Log("all tests over. rest unconsumed job:" + restJobCount + " connected_clients:" + result.clients.connected_clients);
 			}
 		);
@@ -210,7 +208,7 @@ public static class TestLogger {
 			logs.AppendLine(message);
 			return;
 		}
-
+		
 		logPath = "test.log";
 		
 		// file write
@@ -221,7 +219,8 @@ public static class TestLogger {
 			FileShare.ReadWrite)
 		) {
 			using (var sr = new StreamWriter(fs)) {
-				sr.WriteLine("log:" + message + ":" + logs.ToString());
+				sr.WriteLine("log:" + ":" + logs.ToString());
+				sr.WriteLine("logend:" + message);
 			}
 		}
 	}

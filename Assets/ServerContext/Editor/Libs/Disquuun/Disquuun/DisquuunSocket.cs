@@ -181,7 +181,6 @@ namespace DisquuunCore {
 				// continue reading data from socket.
 				// if need, prepare for next 1 byte.
 				if (socketToken.receiveBuffer.Length == readableLength) {
-					Disquuun.Log("サイズオーバーの拡張をしてて、さらにもう1byte以上読む必要がある。");
 					Array.Resize(ref socketToken.receiveBuffer, socketToken.receiveBuffer.Length + 1);
 				}
 			}
@@ -311,6 +310,7 @@ namespace DisquuunCore {
 		}
 		
 		private void OnSend (object unused, SocketAsyncEventArgs args) {
+			try {
 			var socketError = args.SocketError;
 			switch (socketError) {
 				case SocketError.Success: {
@@ -322,7 +322,7 @@ namespace DisquuunCore {
 							token.socketState = SocketState.SENDED;
 							break;
 						}
-						case SocketState.RECEIVED: {// very annoying windows native behaviour. but possible.
+						case SocketState.RECEIVED: {
 							if (token.continuation) {
 								Disquuun.Log("1 cont received ------------------------- " + socketId);
 								// ready for next loop receive.
@@ -351,11 +351,16 @@ namespace DisquuunCore {
 					return;
 				}
 			}
+			} catch (Exception e) {
+				Disquuun.Log("OnSend e:" + e);
+			}
 		}
+
+		
 		
 		private void OnReceived (object unused, SocketAsyncEventArgs args) {
+			try {
 			var token = (SocketToken)args.UserToken;
-			
 			if (args.SocketError != SocketError.Success) { 
 				switch (token.socketState) {
 					case SocketState.CLOSING:
@@ -383,101 +388,118 @@ namespace DisquuunCore {
 				}
 			}
 			
-			if (0 < args.BytesTransferred) {
-				var bytesAmount = args.BytesTransferred;
-				
-				// update as read completed.
-				token.readableDataLength = token.readableDataLength + bytesAmount;
-				
-				var result = DisquuunAPI.ScanBuffer(token.currentCommand, token.receiveBuffer, token.readableDataLength);
-				
-				if (result.isDone) {
-					var continuation = token.AsyncCallback(token.currentCommand, result.data);
+			if (args.BytesTransferred == 0) return;
 
-					// update continuation status.
-					token.continuation = continuation;
+			var bytesAmount = args.BytesTransferred;
+			
+			// update as read completed.
+			token.readableDataLength = token.readableDataLength + bytesAmount;
+			
+			var result = DisquuunAPI.ScanBuffer(token.currentCommand, token.receiveBuffer, token.readableDataLength);
+			
+			if (result.isDone) {
+				var continuation = token.AsyncCallback(token.currentCommand, result.data);
 
-					if (continuation) {
-						Disquuun.Log("2 recv continuation " + socketId);
-						switch (token.socketState) {
-							case SocketState.BUSY: {
-								Disquuun.Log("2 cont recv done " + socketId);
-								token.socketState = SocketState.RECEIVED;
-								break;
-							}
-							case SocketState.SENDED: {
-								Disquuun.Log("2 cont recv sended " + socketId);
-								// ready for next loop receive.
-								token.readableDataLength = 0;
-								token.receiveArgs.SetBuffer(token.receiveBuffer, 0, token.receiveBuffer.Length);
-								if (!token.socket.ReceiveAsync(token.receiveArgs)) OnReceived(token.socket, token.receiveArgs);
-								
-								token.sendArgs.SetBuffer(token.currentSendingBytes, 0, token.currentSendingBytes.Length);
-								if (!token.socket.SendAsync(token.sendArgs)) OnSend(token.socket, token.sendArgs);
-								break;
-							}
+				// update continuation status.
+				token.continuation = continuation;
+
+				if (continuation) {
+					Disquuun.Log("2 recv continuation " + socketId);
+					switch (token.socketState) {
+						case SocketState.BUSY: {
+							Disquuun.Log("2 cont recv done " + socketId);
+							token.socketState = SocketState.RECEIVED;
+							break;
 						}
-					} else {
-						switch (token.socketState) {
-							case SocketState.BUSY: {
-								Disquuun.Log("2 recv done " + socketId);
-								token.socketState = SocketState.RECEIVED;
-								break;
-							}
-							case SocketState.SENDED: {
-								Disquuun.Log("2 recv sended " + socketId);
-								token.socketState = SocketState.OPENED;
-								break;
-							}
-							case SocketState.DISPOSABLE_BUSY: {
-								Disquuun.Log("2 recv disposable " + socketId);
-								// disposable connection should be close after used.
-								StartCloseAsync();
-								break;
-							}
+						case SocketState.SENDED: {
+							Disquuun.Log("2 cont recv sended " + socketId);
+							// ready for next loop receive.
+							token.readableDataLength = 0;
+							token.receiveArgs.SetBuffer(token.receiveBuffer, 0, token.receiveBuffer.Length);
+							if (!token.socket.ReceiveAsync(token.receiveArgs)) OnReceived(token.socket, token.receiveArgs);
+							
+							token.sendArgs.SetBuffer(token.currentSendingBytes, 0, token.currentSendingBytes.Length);
+							if (!token.socket.SendAsync(token.sendArgs)) OnSend(token.socket, token.sendArgs);
+							break;
+						}
+						default: {
+							Disquuun.Log("oya>>>>? state:" + token.socketState + " " + socketId);
+							break;
 						}
 					}
 					return;
 				}
+				// not loop or end of async.
 
-				/*
-					note that,
-					
-					SetBuffer([buffer], offset, count)'s "count" is, actually not count.
-						
-					it's "offset" is "offset of receiving-data-window against buffer",
-					but the "count" is actually "size limitation of next receivable data size".
-					
-					this "size" should be smaller than size of current bufferSize - offset && larger than 0.
-					
-					e.g.
-						if buffer is buffer[10], offset can set 0 ~ 8, and,
-						count should be 9 ~ 1.
-					
-					if vaiolate to this rule, ReceiveAsync never receive data. not good behaviour.
-					
-					and, the "buffer" is treated as pointer. this API treats the pointer of buffer directly.
-					this means, when the byteTransferred is reaching to the size of "buffer", then you resize it to proper size,
-					
-					you should re-set the buffer's pointer by using SetBuffer API.
-					
-					
-					actually, SetBuffer's parameters are below.
-					
-					socket.SetBuffer([bufferAsPointer], additionalDataOffset, receiveSizeLimit)
-				*/
-				
-				var nextAdditionalBytesLength = token.socket.Available;
-				
-				if (token.readableDataLength == token.receiveBuffer.Length) {
-					Disquuun.Log("次のデータが来るのが確定していて、かつバッファサイズが足りない。");
-					Array.Resize(ref token.receiveBuffer, token.receiveArgs.Buffer.Length + nextAdditionalBytesLength);
+				switch (token.socketState) {
+					case SocketState.BUSY: {
+						Disquuun.Log("2 recv done " + socketId);
+						token.socketState = SocketState.RECEIVED;
+						break;
+					}
+					case SocketState.SENDED: {
+						Disquuun.Log("2 recv sended " + socketId);
+						token.socketState = SocketState.OPENED;
+						break;
+					}
+					case SocketState.DISPOSABLE_BUSY: {
+						Disquuun.Log("2 recv disposable " + socketId);
+						// disposable connection should be close after used.
+						StartCloseAsync();
+						break;
+					}
+					default: {
+						Disquuun.Log("oya2>>>>? state:" + token.socketState + " " + socketId);
+						break;
+					}
 				}
-				
-				var receivableCount = token.receiveBuffer.Length - token.readableDataLength;
-				token.receiveArgs.SetBuffer(token.receiveBuffer, token.readableDataLength, receivableCount);
+				return;
+			}
 
-				if (!token.socket.ReceiveAsync(token.receiveArgs)) OnReceived(token.socket, token.receiveArgs);
+			// not yet received all data.
+			// continue receiving.
+
+			/*
+				note that,
+				
+				SetBuffer([buffer], offset, count)'s "count" is, actually not count.
+					
+				it's "offset" is "offset of receiving-data-window against buffer",
+				but the "count" is actually "size limitation of next receivable data size".
+				
+				this "size" should be smaller than size of current bufferSize - offset && larger than 0.
+				
+				e.g.
+					if buffer is buffer[10], offset can set 0 ~ 8, and,
+					count should be 9 ~ 1.
+				
+				if vaiolate to this rule, ReceiveAsync never receive data. not good behaviour.
+				
+				and, the "buffer" is treated as pointer. this API treats the pointer of buffer directly.
+				this means, when the byteTransferred is reaching to the size of "buffer", then you resize it to proper size,
+				
+				you should re-set the buffer's pointer by using SetBuffer API.
+				
+				
+				actually, SetBuffer's parameters are below.
+				
+				socket.SetBuffer([bufferAsPointer], additionalDataOffset, receiveSizeLimit)
+			*/
+			
+			
+			var nextAdditionalBytesLength = token.socket.Available;
+			
+			if (token.readableDataLength == token.receiveBuffer.Length) {
+				Disquuun.Log("adding buffer size.");
+				Array.Resize(ref token.receiveBuffer, token.receiveArgs.Buffer.Length + nextAdditionalBytesLength);
+			}
+			
+			var receivableCount = token.receiveBuffer.Length - token.readableDataLength;
+			token.receiveArgs.SetBuffer(token.receiveBuffer, token.readableDataLength, receivableCount);
+
+			if (!token.socket.ReceiveAsync(token.receiveArgs)) OnReceived(token.socket, token.receiveArgs);
+			} catch (Exception e) {
+				Disquuun.Log("receive e:" + e);
 			}
 		}
 		

@@ -101,8 +101,9 @@ public partial class Tests {
 				}
 			);
 
-			WaitUntil(() => (index == 2), 5);
-			
+			WaitUntil(() => (index == 2), 1);
+			Disquuun.Log("b");
+
 			var fastacked = false;
 			disquuun.GetJob(new string[]{queueId}, "count", 2).Async(
 				(command, data) => {
@@ -117,7 +118,7 @@ public partial class Tests {
 				}
 			);
 			
-			WaitUntil(() => fastacked, 5);
+			WaitUntil(() => fastacked, 1);
 		}
 	}
 	

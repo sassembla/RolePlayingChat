@@ -271,7 +271,7 @@ namespace DisquuunCore {
 			switch (command) {
 				case DisqueCommand.ADDJOB: {
 					switch (sourceBuffer[cursor]) {
-						case ByteError: {
+						// case ByteError: {
 							// -
 							// var lineEndCursor = ReadLine(sourceBuffer, cursor);
 							// cursor = cursor + 1;// add header byte size = 1.
@@ -284,8 +284,7 @@ namespace DisquuunCore {
 							
 							// cursor = lineEndCursor + 2;// CR + LF
 							// break;
-							throw new Exception("ADDJOB fail");
-						}
+						// }
 						case ByteStatus: {
 							// + count
 							var lineEndCursor = ReadLine(sourceBuffer, cursor, length);
@@ -303,13 +302,13 @@ namespace DisquuunCore {
 							return new ScanResult(true, new DisquuunResult[]{new DisquuunResult(countBuffer)});
 						}
 						default: {
+							// スペース開けてなんか入ることがあるな。
 							throw new Exception("ADDJOB fail" + " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer));
 							// Disquuun.Log("command:" + command + " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer));
 							// break;
 						}
 					}
 					break;
-
 				}
 				case DisqueCommand.GETJOB: {
 					switch (sourceBuffer[cursor]) {
