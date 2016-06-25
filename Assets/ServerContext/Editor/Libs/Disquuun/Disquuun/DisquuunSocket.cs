@@ -178,7 +178,7 @@ namespace DisquuunCore {
 				currentLength = currentLength + available;
 				
 				scanResult = DisquuunAPI.ScanBuffer(command, socketToken.receiveBuffer, currentLength, socketId);
-				if (scanResult.isDone) break;
+				if (scanResult.cursor == currentLength) break;
 				
 				// continue reading data from socket.
 				// if need, prepare for next 1 byte.
@@ -250,7 +250,7 @@ namespace DisquuunCore {
 		private void StartReceiveAndSendDataAsync (DisqueCommand command, byte[] data, Func<DisqueCommand, DisquuunResult[], bool> Callback) {
 			// ready for receive.
 			socketToken.readableDataLength = 0;
-			for (var i = 0; i < socketToken.receiveBuffer.Length; i++) socketToken.receiveBuffer[i] = 0;
+			for (var i = 0; i < socketToken.receiveBuffer.Length; i++) socketToken.receiveBuffer[i] = 0;// この行はいらないはず
 			socketToken.receiveArgs.SetBuffer(socketToken.receiveBuffer, 0, socketToken.receiveBuffer.Length);
 			if (!socketToken.socket.ReceiveAsync(socketToken.receiveArgs)) OnReceived(socketToken.socket, socketToken.receiveArgs);
 			
@@ -316,15 +316,12 @@ namespace DisquuunCore {
 		}
 		
 		private void OnSend (object unused, SocketAsyncEventArgs args) {
-			try {
-			
 			switch (args.SocketError) {
 				case SocketError.Success: {
 					var token = args.UserToken as SocketToken;
 					
 					switch (token.socketState) {
 						case SocketState.BUSY: {
-							Disquuun.Log("1 sended " + socketId);
 							token.socketState = SocketState.SENDED;
 							break;
 						}
@@ -357,15 +354,11 @@ namespace DisquuunCore {
 					return;
 				}
 			}
-			} catch (Exception e) {
-				Disquuun.Log("socketId:" + socketId + " OnSend e:" + e);
-			}
 		}
 
 		
 		
 		private void OnReceived (object unused, SocketAsyncEventArgs args) {
-			try {
 			var token = (SocketToken)args.UserToken;
 			if (args.SocketError != SocketError.Success) { 
 				switch (token.socketState) {
@@ -401,26 +394,20 @@ namespace DisquuunCore {
 			// update as read completed.
 			token.readableDataLength = token.readableDataLength + bytesAmount;
 
-
-			Disquuun.Log("doings:" + string.Join(", ", doingCommands.Select(t => t.ToString()).ToArray()) + " ScanBuffer token.readableDataLength:" + token.readableDataLength + " vs bytesAmount:" + bytesAmount);
 			var result = DisquuunAPI.ScanBuffer(token.currentCommand, token.receiveBuffer, token.readableDataLength, socketId);
-			
-			if (result.isDone) {
+			if (result.cursor == token.readableDataLength) {
 				var continuation = token.AsyncCallback(token.currentCommand, result.data);
 
 				// update continuation status.
 				token.continuation = continuation;
 
 				if (continuation) {
-					Disquuun.Log("2 recv continuation " + socketId);
 					switch (token.socketState) {
 						case SocketState.BUSY: {
-							Disquuun.Log("2 cont recv done " + socketId);
 							token.socketState = SocketState.RECEIVED;
 							break;
 						}
 						case SocketState.SENDED: {
-							Disquuun.Log("2 cont recv sended " + socketId);
 							// ready for next loop receive.
 							token.readableDataLength = 0;
 							token.receiveArgs.SetBuffer(token.receiveBuffer, 0, token.receiveBuffer.Length);
@@ -441,17 +428,14 @@ namespace DisquuunCore {
 
 				switch (token.socketState) {
 					case SocketState.BUSY: {
-						Disquuun.Log("2 recv done " + socketId);
 						token.socketState = SocketState.RECEIVED;
 						break;
 					}
 					case SocketState.SENDED: {
-						Disquuun.Log("2 recv sended " + socketId);
 						token.socketState = SocketState.OPENED;
 						break;
 					}
 					case SocketState.DISPOSABLE_BUSY: {
-						Disquuun.Log("2 recv disposable " + socketId);
 						// disposable connection should be close after used.
 						StartCloseAsync();
 						break;
@@ -496,18 +480,12 @@ namespace DisquuunCore {
 			
 			var nextAdditionalBytesLength = token.socket.Available;
 			
-			if (token.readableDataLength == token.receiveBuffer.Length) {
-				Disquuun.Log("adding buffer size.");
-				Array.Resize(ref token.receiveBuffer, token.receiveArgs.Buffer.Length + nextAdditionalBytesLength);
-			}
+			if (token.readableDataLength == token.receiveBuffer.Length) Array.Resize(ref token.receiveBuffer, token.receiveArgs.Buffer.Length + nextAdditionalBytesLength);
 			
 			var receivableCount = token.receiveBuffer.Length - token.readableDataLength;
 			token.receiveArgs.SetBuffer(token.receiveBuffer, token.readableDataLength, receivableCount);
 
 			if (!token.socket.ReceiveAsync(token.receiveArgs)) OnReceived(token.socket, token.receiveArgs);
-			} catch (Exception e) {
-				Disquuun.Log("socketId:" + socketId + " receive e:" + e);
-			}
 		}
 		
 		public void Disconnect (bool force=false) {

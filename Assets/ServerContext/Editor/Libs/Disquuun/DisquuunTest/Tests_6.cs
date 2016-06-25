@@ -47,8 +47,8 @@ public partial class Tests {
 
 	public void _6_2_LargeSizeSendThenSmallSizeSendMakeEmitOnSendAfterOnReceived (Disquuun disquuun) {
 		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
-		for (var i = 0; i < 10; i++) {
-			Disquuun.Log("_6_2_LargeSizeSendThenSmallSizeSendMakeEmitOnSendAfterOnReceived_i_" + i);
+		
+		for (var i = 0; i < 100; i++) {
 			var queueId = Guid.NewGuid().ToString();
 			
 			var sended = false;
@@ -80,11 +80,11 @@ public partial class Tests {
 			WaitUntil(() => fastacked, 5);
 		}
 	}
-
+	
 	public void _6_3_LargeSizeSendThenSmallSizeSendLoopMakeEmitOnSendAfterOnReceived (Disquuun disquuun) {
 		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		
 		for (var i = 0; i < 100; i++) {
-			Disquuun.Log("_6_3_LargeSizeSendThenSmallSizeSendLoopMakeEmitOnSendAfterOnReceived_i:" + i);
 			var queueId = Guid.NewGuid().ToString();
 			
 			var index = 0;
@@ -102,13 +102,10 @@ public partial class Tests {
 			);
 
 			WaitUntil(() => (index == 2), 1);
-			Disquuun.Log("b");
-
+			
 			var fastacked = false;
 			disquuun.GetJob(new string[]{queueId}, "count", 20).Async(
 				(command, data) => {
-					Disquuun.Log("GetJob command:" + command);
-
 					var jobDatas = DisquuunDeserializer.GetJob(data);
 					var jobIds = jobDatas.Select(j => j.jobId).ToArray();
 					disquuun.FastAck(jobIds).Async(
@@ -122,8 +119,4 @@ public partial class Tests {
 			WaitUntil(() => fastacked, 1);
 		}
 	}
-
-
-
-
 }

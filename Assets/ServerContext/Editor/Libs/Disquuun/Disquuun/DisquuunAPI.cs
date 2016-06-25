@@ -253,20 +253,22 @@ namespace DisquuunCore {
 		}
 		
 		public struct ScanResult {
-			public readonly bool isDone;
+			public readonly int cursor;
 			public readonly DisquuunResult[] data;
-			public ScanResult (bool isDone, DisquuunResult[] data) {
-				this.isDone = isDone;
+			
+			public ScanResult (int cursor, DisquuunResult[] data) {
+				this.cursor = cursor;
 				this.data = data;
 			}
-			public ScanResult (bool isDone) {
-				this.isDone = isDone;
+			public ScanResult (bool dummy=false) {
+				this.cursor = -1;
 				this.data = null;
 			}
 		}
 		
 		public static ScanResult ScanBuffer (DisqueCommand command, byte[] sourceBuffer, long length, string socketId) {
 			var cursor = 0;
+			
 			switch (command) {
 				case DisqueCommand.ADDJOB: {
 					switch (sourceBuffer[cursor]) {
@@ -287,21 +289,19 @@ namespace DisquuunCore {
 						case ByteStatus: {
 							// + count
 							var lineEndCursor = ReadLine(sourceBuffer, cursor, length);
-							if (lineEndCursor == -1) return new ScanResult(false); 
+							if (lineEndCursor == -1) return new ScanResult(false);
 							cursor = cursor + 1;// add header byte size = 1.
-							
-							// var idStr = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor - cursor);
-							// Disquuun.Log("idStr:" + idStr);
 							
 							var countBuffer = new byte[lineEndCursor - cursor];
 							Array.Copy(sourceBuffer, cursor, countBuffer, 0, lineEndCursor - cursor);
 							
 							cursor = lineEndCursor + 2;// CR + LF
-							
-							return new ScanResult(true, new DisquuunResult[]{new DisquuunResult(countBuffer)});
+							// if (cursor != length) return new ScanResult(false);
+
+							return new ScanResult(cursor, new DisquuunResult[]{new DisquuunResult(countBuffer)});
 						}
 						default: {
-							throw new Exception("socketId:" + socketId + " cursor:" + cursor + " length:" + length + " ADDJOB fail" + " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer));
+							throw new Exception("command:" + command + " socketId:" + socketId + " cursor:" + cursor + " length:" + length + " fail" + " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer));
 							// throw new Exception("error command:" + command + " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer)); " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer));
 							// break;
 						}
@@ -327,7 +327,7 @@ namespace DisquuunCore {
 								
 								
 								// trigger when GETJOB NOHANG
-								if (bulkCountNum < 0) return new ScanResult(true, new DisquuunResult[]{});
+								if (bulkCountNum < 0) return new ScanResult(cursor, new DisquuunResult[]{});
 								
 								
 								jobDatas = new DisquuunResult[bulkCountNum];
@@ -493,8 +493,7 @@ namespace DisquuunCore {
 							}
 							
 							if (jobDatas != null && 0 < jobDatas.Length) {
-								Disquuun.Log("getjob socketId:" + socketId);
-								return new ScanResult(true, jobDatas);
+								return new ScanResult(cursor, jobDatas);
 							}
 							break;
 						}
@@ -544,7 +543,7 @@ namespace DisquuunCore {
 							var byteData = new DisquuunResult(countBuffer);
 							
 							cursor = lineEndCursor + 2;// CR + LF
-							return new ScanResult(true, new DisquuunResult[]{byteData});
+							return new ScanResult(cursor, new DisquuunResult[]{byteData});
 						}
 						// case ByteError: {
 						// 	// -
@@ -591,7 +590,7 @@ namespace DisquuunCore {
 								
 								cursor = cursor + countNum + 2;// CR + LF
 								
-								return new ScanResult(true, new DisquuunResult[]{new DisquuunResult(newBuffer)});
+								return new ScanResult(cursor, new DisquuunResult[]{new DisquuunResult(newBuffer)});
 							}
 						}
 						default: {
@@ -775,7 +774,7 @@ namespace DisquuunCore {
 								byteDatas[index + 1] = new DisquuunResult(nodeId, ip, port, priority);
 							}
 							
-							return new ScanResult(true, byteDatas);
+							return new ScanResult(cursor, byteDatas);
 						}
 						default: {
 							throw new Exception("error command:" + command + " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer));
@@ -798,7 +797,7 @@ namespace DisquuunCore {
 							
 							cursor = lineEndCursor + 2;// CR + LF
 							
-							return new ScanResult(true, new DisquuunResult[]{byteData});
+							return new ScanResult(cursor, new DisquuunResult[]{byteData});
 						}
 						default: {
 							throw new Exception("error command:" + command + " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer));
@@ -897,7 +896,7 @@ namespace DisquuunCore {
 							results[i] = new DisquuunResult(keyBytes, valBytes);
 						}
 					}
-					return new ScanResult(true, results);
+					return new ScanResult(cursor, results);
 				}
 				default: {
 					throw new Exception("not yet supported." + command + " data:" + Encoding.UTF8.GetString(sourceBuffer, cursor, (int)length));
@@ -905,7 +904,7 @@ namespace DisquuunCore {
 			}
 			return new ScanResult(false);
 		}
-		
+
 		private static bool ShortageOfReadableLength (byte[] source, int cursor, int length) {
 			if (cursor + length < source.Length) return false;
 			return true;

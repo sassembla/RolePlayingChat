@@ -147,7 +147,6 @@ namespace DisquuunCore {
 			return connectionState;
 		}
 		
-		
 		public void Disconnect (bool force=false) {
 			connectionState = ConnectionState.ALLCLOSING;
 			lock (socketPool) {
@@ -165,8 +164,7 @@ namespace DisquuunCore {
 					}
 				}
 				
-				// return new DisquuunSocket(endPoint, bufferSize);
-				throw new Exception("no socket available.");
+				return new DisquuunSocket(endPoint, bufferSize);
 			}
 		}
 		
