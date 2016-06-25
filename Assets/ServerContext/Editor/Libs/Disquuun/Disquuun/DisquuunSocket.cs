@@ -175,7 +175,7 @@ namespace DisquuunCore {
 				socketToken.socket.Receive(socketToken.receiveBuffer, currentLength, available, SocketFlags.None);
 				currentLength = currentLength + available;
 				
-				scanResult = DisquuunAPI.ScanBuffer(command, socketToken.receiveBuffer, currentLength);
+				scanResult = DisquuunAPI.ScanBuffer(command, socketToken.receiveBuffer, currentLength, socketId);
 				if (scanResult.isDone) break;
 				
 				// continue reading data from socket.
@@ -311,8 +311,8 @@ namespace DisquuunCore {
 		
 		private void OnSend (object unused, SocketAsyncEventArgs args) {
 			try {
-			var socketError = args.SocketError;
-			switch (socketError) {
+			
+			switch (args.SocketError) {
 				case SocketError.Success: {
 					var token = args.UserToken as SocketToken;
 					
@@ -343,7 +343,7 @@ namespace DisquuunCore {
 					return;
 				}
 				default: {
-					Disquuun.Log("まだエラーハンドルしてない。切断の一種なんだけど、非同期実行してるAPIに紐付けることができる。");
+					Disquuun.Log("onsend error, " + args.SocketError);
 					// if (Error != null) {
 					// 	var error = new Exception("send error:" + socketError.ToString());
 					// 	Error(error);
@@ -352,7 +352,7 @@ namespace DisquuunCore {
 				}
 			}
 			} catch (Exception e) {
-				Disquuun.Log("OnSend e:" + e);
+				Disquuun.Log("socketId:" + socketId + " OnSend e:" + e);
 			}
 		}
 
@@ -370,7 +370,7 @@ namespace DisquuunCore {
 					}
 					default: {
 						// show error, then close or continue receiving.
-						Disquuun.Log("まだエラーハンドルしてない2。切断の一種なんだけど、非同期実行してるAPIに紐付けることができる、、、かなあ？　できない気もしてきたぞ。");
+						Disquuun.Log("onReceive error:" + args.SocketError);
 						// if (Error != null) {
 						// 	var error = new Exception("receive error:" + args.SocketError.ToString() + " size:" + args.BytesTransferred);
 						// 	Error(error);
@@ -395,7 +395,7 @@ namespace DisquuunCore {
 			// update as read completed.
 			token.readableDataLength = token.readableDataLength + bytesAmount;
 			
-			var result = DisquuunAPI.ScanBuffer(token.currentCommand, token.receiveBuffer, token.readableDataLength);
+			var result = DisquuunAPI.ScanBuffer(token.currentCommand, token.receiveBuffer, token.readableDataLength, socketId);
 			
 			if (result.isDone) {
 				var continuation = token.AsyncCallback(token.currentCommand, result.data);
@@ -486,7 +486,6 @@ namespace DisquuunCore {
 				socket.SetBuffer([bufferAsPointer], additionalDataOffset, receiveSizeLimit)
 			*/
 			
-			
 			var nextAdditionalBytesLength = token.socket.Available;
 			
 			if (token.readableDataLength == token.receiveBuffer.Length) {
@@ -499,7 +498,7 @@ namespace DisquuunCore {
 
 			if (!token.socket.ReceiveAsync(token.receiveArgs)) OnReceived(token.socket, token.receiveArgs);
 			} catch (Exception e) {
-				Disquuun.Log("receive e:" + e);
+				Disquuun.Log("socketId:" + socketId + " receive e:" + e);
 			}
 		}
 		

@@ -83,7 +83,7 @@ public partial class Tests {
 
 	public void _6_3_LargeSizeSendThenSmallSizeSendLoopMakeEmitOnSendAfterOnReceived (Disquuun disquuun) {
 		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
-		for (var i = 0; i < 10; i++) {
+		for (var i = 0; i < 100; i++) {
 			Disquuun.Log("_6_3_LargeSizeSendThenSmallSizeSendLoopMakeEmitOnSendAfterOnReceived_i:" + i);
 			var queueId = Guid.NewGuid().ToString();
 			
@@ -105,13 +105,14 @@ public partial class Tests {
 			Disquuun.Log("b");
 
 			var fastacked = false;
-			disquuun.GetJob(new string[]{queueId}, "count", 2).Async(
+			disquuun.GetJob(new string[]{queueId}, "count", 20).Async(
 				(command, data) => {
+					Disquuun.Log("GetJob command:" + command);
+
 					var jobDatas = DisquuunDeserializer.GetJob(data);
 					var jobIds = jobDatas.Select(j => j.jobId).ToArray();
 					disquuun.FastAck(jobIds).Async(
 						(command2, data2) => {
-
 							fastacked = true;
 						}
 					);
@@ -121,5 +122,8 @@ public partial class Tests {
 			WaitUntil(() => fastacked, 1);
 		}
 	}
-	
+
+
+
+
 }
