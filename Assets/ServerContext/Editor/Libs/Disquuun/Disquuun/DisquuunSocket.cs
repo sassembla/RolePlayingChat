@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 
@@ -213,11 +215,14 @@ namespace DisquuunCore {
 				}
 			}
 		}
+
+		List<DisqueCommand> doingCommands = new List<DisqueCommand>();
 		
 		/**
 			method for start Looping of specific Disque command.
 		*/
 		public void Loop (DisqueCommand command, byte[] data, Func<DisqueCommand, DisquuunResult[], bool> Callback) {
+			doingCommands.Add(command);
 			switch (socketToken.socketState) {
 				case SocketState.BUSY: {
 					StartReceiveAndSendDataAsync(command, data, Callback);
@@ -245,6 +250,7 @@ namespace DisquuunCore {
 		private void StartReceiveAndSendDataAsync (DisqueCommand command, byte[] data, Func<DisqueCommand, DisquuunResult[], bool> Callback) {
 			// ready for receive.
 			socketToken.readableDataLength = 0;
+			for (var i = 0; i < socketToken.receiveBuffer.Length; i++) socketToken.receiveBuffer[i] = 0;
 			socketToken.receiveArgs.SetBuffer(socketToken.receiveBuffer, 0, socketToken.receiveBuffer.Length);
 			if (!socketToken.socket.ReceiveAsync(socketToken.receiveArgs)) OnReceived(socketToken.socket, socketToken.receiveArgs);
 			
@@ -394,7 +400,9 @@ namespace DisquuunCore {
 			
 			// update as read completed.
 			token.readableDataLength = token.readableDataLength + bytesAmount;
-			
+
+
+			Disquuun.Log("doings:" + string.Join(", ", doingCommands.Select(t => t.ToString()).ToArray()) + " ScanBuffer token.readableDataLength:" + token.readableDataLength + " vs bytesAmount:" + bytesAmount);
 			var result = DisquuunAPI.ScanBuffer(token.currentCommand, token.receiveBuffer, token.readableDataLength, socketId);
 			
 			if (result.isDone) {

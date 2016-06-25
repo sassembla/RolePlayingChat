@@ -267,7 +267,6 @@ namespace DisquuunCore {
 		
 		public static ScanResult ScanBuffer (DisqueCommand command, byte[] sourceBuffer, long length, string socketId) {
 			var cursor = 0;
-			
 			switch (command) {
 				case DisqueCommand.ADDJOB: {
 					switch (sourceBuffer[cursor]) {
@@ -302,8 +301,7 @@ namespace DisquuunCore {
 							return new ScanResult(true, new DisquuunResult[]{new DisquuunResult(countBuffer)});
 						}
 						default: {
-							// スペース開けてなんか入ることがあるな。
-							throw new Exception("ADDJOB fail" + " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer));
+							throw new Exception("socketId:" + socketId + " cursor:" + cursor + " length:" + length + " ADDJOB fail" + " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer));
 							// throw new Exception("error command:" + command + " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer)); " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer));
 							// break;
 						}
@@ -521,7 +519,7 @@ namespace DisquuunCore {
 						// 	break;
 						// }
 						default: {
-							throw new Exception("GETJOB fail" + " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer));
+							throw new Exception("GETJOB fail" + " unhandled:" + sourceBuffer[cursor] + " length:" + length + " data:" + Encoding.UTF8.GetString(sourceBuffer));
 							// throw new Exception("error command:" + command + " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer)); " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer));
 							// break;
 						}
