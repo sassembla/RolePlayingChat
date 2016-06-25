@@ -441,7 +441,6 @@ namespace DisquuunCore {
 						break;
 					}
 					default: {
-						Disquuun.Log("oya2>>>>? state:" + token.socketState + " " + socketId);
 						break;
 					}
 				}

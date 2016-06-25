@@ -117,7 +117,7 @@ public partial class Tests {
 		tests.Add(_7_0_AddJob1000);
 		tests.Add(_7_1_GetJob1000);
 		
-		TestLogger.Log("tests started.");
+		TestLogger.Log("tests started.", true);
 		
 		foreach (var test in tests) {
 			try {
@@ -167,14 +167,14 @@ public partial class Tests {
 						var distanceSeconds = (current - startTime).Seconds;
 						
 						if (timeoutSec < distanceSeconds) {
-							TestLogger.Log("xxxxxxxxxxxxxxxx timeout:" + methodName);
+							TestLogger.Log("timeout:" + methodName, true);
 							break;
 						}
 						
 						System.Threading.Thread.Sleep(10);
 					}
 				} catch (Exception e) {
-					TestLogger.Log("methodName:" + methodName + " error:" + e);
+					TestLogger.Log("methodName:" + methodName + " error:" + e, true);
 				}
 				
 				resetEvent.Set();
@@ -219,8 +219,8 @@ public static class TestLogger {
 			FileShare.ReadWrite)
 		) {
 			using (var sr = new StreamWriter(fs)) {
-				sr.WriteLine("log:" + ":" + logs.ToString());
-				sr.WriteLine("logend:" + message);
+				if (0 < logs.Length) sr.WriteLine(logs.ToString());
+				sr.WriteLine("log:" + message);
 			}
 		}
 	}

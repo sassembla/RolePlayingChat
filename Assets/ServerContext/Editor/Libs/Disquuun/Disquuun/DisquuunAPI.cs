@@ -300,11 +300,6 @@ namespace DisquuunCore {
 
 							return new ScanResult(cursor, new DisquuunResult[]{new DisquuunResult(countBuffer)});
 						}
-						default: {
-							throw new Exception("command:" + command + " socketId:" + socketId + " cursor:" + cursor + " length:" + length + " fail" + " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer));
-							// throw new Exception("error command:" + command + " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer)); " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer));
-							// break;
-						}
 					}
 					break;
 				}
@@ -497,10 +492,6 @@ namespace DisquuunCore {
 							}
 							break;
 						}
-						case 43: {
-							throw new Exception("GetJob error. 43, "+ ByteStatus);
-							break;
-						}
 						// case ByteError: {
 						// 	// -
 						// 	Disquuun.Log("-");
@@ -517,11 +508,6 @@ namespace DisquuunCore {
 						// 	// cursor = lineEndCursor + 2;// CR + LF
 						// 	break;
 						// }
-						default: {
-							throw new Exception("GETJOB fail" + " unhandled:" + sourceBuffer[cursor] + " length:" + length + " data:" + Encoding.UTF8.GetString(sourceBuffer));
-							// throw new Exception("error command:" + command + " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer)); " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer));
-							// break;
-						}
 					}
 					break;
 				}
@@ -592,10 +578,6 @@ namespace DisquuunCore {
 								
 								return new ScanResult(cursor, new DisquuunResult[]{new DisquuunResult(newBuffer)});
 							}
-						}
-						default: {
-							throw new Exception("error command:" + command + " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer));
-							break;
 						}
 					}
 					break;
@@ -899,7 +881,7 @@ namespace DisquuunCore {
 					return new ScanResult(cursor, results);
 				}
 				default: {
-					throw new Exception("not yet supported." + command + " data:" + Encoding.UTF8.GetString(sourceBuffer, cursor, (int)length));
+					throw new Exception("error command:" + command + " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer));
 				}
 			}
 			return new ScanResult(false);
