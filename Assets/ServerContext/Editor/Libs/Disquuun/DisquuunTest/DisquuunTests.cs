@@ -94,7 +94,7 @@ public partial class Tests {
 		
 		// multiSocket.
 		tests.Add(_3_0_Nested2AsyncSocket);
-		tests.Add(_3_1_NestedMultipleAsyncSocket);
+		tests.Add(_3_1_NestedMultipleAsyncSocket);// これが重い。うーーん?
 		
 		// buffer over.
 		tests.Add(_4_0_ByfferOverWithSingleSyncGetJob_Sync);
@@ -104,50 +104,51 @@ public partial class Tests {
 		tests.Add(_4_4_ByfferOverWithMultipleSyncGetJob_Async);
 		tests.Add(_4_5_ByfferOverWithSokcetOverSyncGetJob_Async);
 		
-		// error handling.
-		// tests.Add(_5_0_Error)// connect時に出るエラー、接続できないとか、あとjobの失敗時のハンドリング、ハングしないケースとかいっぱいある。
+		// // error handling.
+		// // tests.Add(_5_0_Error)// connect時に出るエラー、接続できないとか、あとjobの失敗時のハンドリング、ハングしないケースとかいっぱいある。
 		
 		// adding async request over busy-socket num.
 		tests.Add(_6_0_ExceededSocketNo3In2);
 		tests.Add(_6_1_ExceededSocketNo100In2);
-		tests.Add(_6_2_LargeSizeSendThenSmallSizeSendMakeEmitOnSendAfterOnReceived);
-		tests.Add(_6_3_LargeSizeSendThenSmallSizeSendLoopMakeEmitOnSendAfterOnReceived);
-
+		
 		// benchmarks.
 		tests.Add(_7_0_AddJob1000);
 		tests.Add(_7_1_GetJob1000);
-		
-		TestLogger.Log("tests started.", true);
-		
-		foreach (var test in tests) {
-			try {
-				var disquuun = new Disquuun(DisquuunTests.TestDisqueHostStr, DisquuunTests.TestDisquePortNum, 2020008, 2);// this buffer size is just for 100byte job x 10000 then receive 1 GetJob(count 1000).
-				test(disquuun);
-				if (disquuun != null) {
-					disquuun.Disconnect(true);
-					disquuun = null;
+
+		// data size bounding case.
+		tests.Add(_8_0_LargeSizeSendThenSmallSizeSendMakeEmitOnSendAfterOnReceived);
+		tests.Add(_8_1_LargeSizeSendThenSmallSizeSendLoopMakeEmitOnSendAfterOnReceived);
+
+		try {
+			TestLogger.Log("tests started.", true);
+			
+			var disquuunForResultInfo = new Disquuun(DisquuunTests.TestDisqueHostStr, DisquuunTests.TestDisquePortNum, 10240, 1);
+			WaitUntil(() => (disquuunForResultInfo.State() == Disquuun.ConnectionState.OPENED), 5);
+
+			foreach (var test in tests) {
+				try {
+					var disquuun = new Disquuun(DisquuunTests.TestDisqueHostStr, DisquuunTests.TestDisquePortNum, 2020008, 2);// this buffer size is just for 100byte job x 10000 then receive 1 GetJob(count 1000).
+					test(disquuun);
+					if (disquuun != null) {
+						disquuun.Disconnect(true);
+						disquuun = null;
+					}
+
+					var info = disquuunForResultInfo.Info().DEPRICATED_Sync();
+					var result = DisquuunDeserializer.Info(info);
+					var restJobCount = result.jobs.registered_jobs;
+					if (restJobCount != 0) TestLogger.Log("test:" + test.Method + " rest job:" + restJobCount, true);
+					else TestLogger.Log("test:" + test.Method + " passed. no job exists.", true);
+				} catch (Exception e) {
+					TestLogger.Log("test:" + test.Method + " FAILED by exception:" + e);
 				}
-			} catch (Exception e) {
-				TestLogger.Log("test:" + test + " FAILED by exception:" + e);
 			}
+
+			disquuunForResultInfo.Disconnect(true);
+			TestLogger.Log("tests end.", true);
+		} catch (Exception e) {
+			TestLogger.Log("tests failed:" + e, true);
 		}
-		
-		var restJobCount = -1;
-		
-		var disquuun2 = new Disquuun(DisquuunTests.TestDisqueHostStr, DisquuunTests.TestDisquePortNum, 10240, 1);
-		WaitUntil(() => (disquuun2.State() == Disquuun.ConnectionState.OPENED), 5);
-		disquuun2.Info().Async(
-			(command, data) => {
-				var result = DisquuunDeserializer.Info(data);
-				restJobCount = result.jobs.registered_jobs;
-				TestLogger.Log("all tests over. rest unconsumed job:" + restJobCount + " connected_clients:" + result.clients.connected_clients);
-			}
-		);
-		
-		WaitUntil(() => (restJobCount != -1), 5);
-		
-		disquuun2.Disconnect(true);
-		TestLogger.Log("tests end.", true);
 	}
 	
 	
@@ -219,7 +220,10 @@ public static class TestLogger {
 			FileShare.ReadWrite)
 		) {
 			using (var sr = new StreamWriter(fs)) {
-				if (0 < logs.Length) sr.WriteLine(logs.ToString());
+				if (0 < logs.Length) {
+					sr.WriteLine(logs.ToString());
+					logs = new StringBuilder();
+				}
 				sr.WriteLine("log:" + message);
 			}
 		}

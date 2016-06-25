@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 
@@ -152,8 +151,6 @@ namespace DisquuunCore {
 		public DisquuunResult[] DEPRECATED_Sync (DisqueCommand command, byte[] data) {
 			socketToken.socket.Send(data);
 			
-			// Disquuun.Log("send失敗とかもありえるはず。");
-			
 			var currentLength = 0;
 			var scanResult = new DisquuunAPI.ScanResult(false);
 			
@@ -215,14 +212,11 @@ namespace DisquuunCore {
 				}
 			}
 		}
-
-		List<DisqueCommand> doingCommands = new List<DisqueCommand>();
 		
 		/**
 			method for start Looping of specific Disque command.
 		*/
 		public void Loop (DisqueCommand command, byte[] data, Func<DisqueCommand, DisquuunResult[], bool> Callback) {
-			doingCommands.Add(command);
 			switch (socketToken.socketState) {
 				case SocketState.BUSY: {
 					StartReceiveAndSendDataAsync(command, data, Callback);
@@ -327,7 +321,6 @@ namespace DisquuunCore {
 						}
 						case SocketState.RECEIVED: {
 							if (token.continuation) {
-								Disquuun.Log("1 cont received ------------------------- " + socketId);
 								// ready for next loop receive.
 								token.readableDataLength = 0;
 								token.receiveArgs.SetBuffer(token.receiveBuffer, 0, token.receiveBuffer.Length);
@@ -338,7 +331,6 @@ namespace DisquuunCore {
 								return;
 							}
 							
-							Disquuun.Log("1 received ------------------------- " + socketId);
 							token.socketState = SocketState.OPENED;
 							return;
 						}
@@ -418,7 +410,7 @@ namespace DisquuunCore {
 							break;
 						}
 						default: {
-							Disquuun.Log("oya>>>>? state:" + token.socketState + " " + socketId);
+							// closing or other state. should close.
 							break;
 						}
 					}
