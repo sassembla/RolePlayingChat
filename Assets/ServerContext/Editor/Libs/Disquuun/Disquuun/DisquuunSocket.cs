@@ -539,7 +539,6 @@ namespace DisquuunCore
 			if (force) {
 				try {
 					socketToken.socketState = SocketState.CLOSING;
-					socketToken.socket.Shutdown(SocketShutdown.Both);
 					socketToken.socket.Close();
 					socketToken.socketState = SocketState.CLOSED;
 				} catch (Exception e) {

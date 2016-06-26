@@ -20,11 +20,11 @@ public partial class Tests {
 			1, 
 			(conId) => {}, 
 			(info, e) => {
-				TestLogger.Log("failed! e:" + e);
+				// TestLogger.Log("failed! e:" + e);
 				error = e;
 			}
 		);
-
+		
 		WaitUntil(() => (error != null), 5);
 	}
 	public void _5_1_ConnectionFailedMultiple (Disquuun disquuun) {
@@ -38,7 +38,7 @@ public partial class Tests {
 			5,
 			(conId) => {}, 
 			(info, e) => {
-				TestLogger.Log("failed! info:"+ info + " e:" + e);
+				// TestLogger.Log("failed! info:"+ info + " e:" + e);
 				errors.Add(e);
 			}
 		);
