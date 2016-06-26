@@ -19,6 +19,9 @@ public partial class Tests {
 		disquuun = new Disquuun(DisquuunTests.TestDisqueHostStr, DisquuunTests.TestDisquePortNum, 1024, 10,
 			disquuunId => {
 				connectedCount++;
+			},
+			(info, e) => {
+				TestLogger.Log("error, info:" + info + " e:" + e);
 			}
 		);
 		
@@ -66,37 +69,41 @@ public partial class Tests {
 	public void _7_1_GetJob1000 (Disquuun disquuun) {
 		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
 		
-		var count = 1000;
+		var addingJobCount = 1000;
 		
-		var connectedCount = 0;
+		var connected = false;
 		disquuun = new Disquuun(DisquuunTests.TestDisqueHostStr, DisquuunTests.TestDisquePortNum, 1024, 10,
 			disquuunId => {
-				connectedCount++;
+				connected = true;
+			},
+			(info, e) => {
+				TestLogger.Log("error, info:" + info + " e:" + e);
 			}
 		);
 		
-		WaitUntil(() => (connectedCount == 1), 5);
+		WaitUntil(() => connected, 5);
 		
 		var addedCount = 0;
 		
 		var queueId = Guid.NewGuid().ToString();
 		
-		for (var i = 0; i < count; i++) {
+		for (var i = 0; i < addingJobCount; i++) {
 			disquuun.AddJob(queueId, new byte[10]).Async(
 				(command, data) => {
 					lock (this) addedCount++;
 				}
 			);
 		}
+
 		
-		WaitUntil(() => (addedCount == count), 10);
+		WaitUntil(() => (addedCount == addingJobCount), 10);
 		
 		var gotJobData = new List<DisquuunResult[]>();
 		
 		
 		var w = new Stopwatch();
 		w.Start();
-		for (var i = 0; i < count; i++) {
+		for (var i = 0; i < addingJobCount; i++) {
 			disquuun.GetJob(new string[]{queueId}).Async(
 				(command, data) => {
 					lock (this) {
@@ -106,8 +113,9 @@ public partial class Tests {
 			);
 		}
 		
-		WaitUntil(() => (gotJobData.Count == count), 10);
+		WaitUntil(() => (gotJobData.Count == addingJobCount), 10);
 		
+
 		w.Stop();
 		TestLogger.Log("_7_1_GetJob1000000 w:" + w.ElapsedMilliseconds + " tick:" + w.ElapsedTicks);
 		
@@ -117,7 +125,7 @@ public partial class Tests {
 		
 		var result = DisquuunDeserializer.FastAck(disquuun.FastAck(allGotJobIds).DEPRICATED_Sync());
 		
-		Assert(count, result, "not match.");
+		Assert(addingJobCount, result, "not match.");
 		disquuun.Disconnect(true);
 	}
 	
