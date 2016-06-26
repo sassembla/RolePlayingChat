@@ -19,6 +19,9 @@ public partial class Tests {
 		disquuun = new Disquuun(DisquuunTests.TestDisqueHostStr, DisquuunTests.TestDisquePortNum, 1024, 10,
 			disquuunId => {
 				connectedCount++;
+			},
+			(info, e) => {
+				TestLogger.Log("error, info:" + info + " e:" + e);
 			}
 		);
 		
@@ -66,58 +69,61 @@ public partial class Tests {
 	public void _7_1_GetJob1000 (Disquuun disquuun) {
 		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
 		
-		var count = 1000;
+		var addingJobCount = 1000;
 		
-		var connectedCount = 0;
+		var connected = false;
 		disquuun = new Disquuun(DisquuunTests.TestDisqueHostStr, DisquuunTests.TestDisquePortNum, 1024, 10,
 			disquuunId => {
-				connectedCount++;
+				connected = true;
+			},
+			(info, e) => {
+				TestLogger.Log("error, info:" + info + " e:" + e);
 			}
 		);
 		
-		WaitUntil(() => (connectedCount == 1), 5);
+		WaitUntil(() => connected, 5);
 		
 		var addedCount = 0;
 		
 		var queueId = Guid.NewGuid().ToString();
 		
-		for (var i = 0; i < count; i++) {
+		for (var i = 0; i < addingJobCount; i++) {
 			disquuun.AddJob(queueId, new byte[10]).Async(
 				(command, data) => {
 					lock (this) addedCount++;
 				}
 			);
 		}
+
 		
-		WaitUntil(() => (addedCount == count), 10);
+		WaitUntil(() => (addedCount == addingJobCount), 10);
 		
-		var gotJobData = new List<DisquuunResult[]>();
+		var gotJobDataIds = new List<string>();
 		
 		
 		var w = new Stopwatch();
 		w.Start();
-		for (var i = 0; i < count; i++) {
+		for (var i = 0; i < addingJobCount; i++) {
 			disquuun.GetJob(new string[]{queueId}).Async(
 				(command, data) => {
 					lock (this) {
-						gotJobData.Add(data);
+						var jobDatas = DisquuunDeserializer.GetJob(data);
+						var jobIds = jobDatas.Select(j => j.jobId).ToList();
+						gotJobDataIds.AddRange(jobIds);
 					}
 				}
 			);
 		}
 		
-		WaitUntil(() => (gotJobData.Count == count), 10);
+		WaitUntil(() => (gotJobDataIds.Count == addingJobCount), 10);
 		
+
 		w.Stop();
 		TestLogger.Log("_7_1_GetJob1000000 w:" + w.ElapsedMilliseconds + " tick:" + w.ElapsedTicks);
 		
+		var result = DisquuunDeserializer.FastAck(disquuun.FastAck(gotJobDataIds.ToArray()).DEPRICATED_Sync());
 		
-		var allGotJobs = gotJobData.Select(j => DisquuunDeserializer.GetJob(j)).SelectMany(j => j).ToArray();
-		var allGotJobIds = allGotJobs.Select(j => j.jobId).ToArray();
-		
-		var result = DisquuunDeserializer.FastAck(disquuun.FastAck(allGotJobIds).DEPRICATED_Sync());
-		
-		Assert(count, result, "not match.");
+		Assert(addingJobCount, result, "result not match.");
 		disquuun.Disconnect(true);
 	}
 	

@@ -10,7 +10,7 @@ using DisquuunCore.Deserialize;
 public class DisquuunTests {
 	public const string TestDisqueHostStr = "127.0.0.1";
 	public const int TestDisquePortNum = 7711;
-		
+	public const int TestDisqueDummyPortNum = 7712;
 	
 	public static Tests tests;
 	
@@ -94,7 +94,7 @@ public partial class Tests {
 		
 		// multiSocket.
 		tests.Add(_3_0_Nested2AsyncSocket);
-		tests.Add(_3_1_NestedMultipleAsyncSocket);// これが重い。うーーん?
+		tests.Add(_3_1_NestedMultipleAsyncSocket);
 		
 		// buffer over.
 		tests.Add(_4_0_ByfferOverWithSingleSyncGetJob_Sync);
@@ -104,14 +104,15 @@ public partial class Tests {
 		tests.Add(_4_4_ByfferOverWithMultipleSyncGetJob_Async);
 		tests.Add(_4_5_ByfferOverWithSokcetOverSyncGetJob_Async);
 		
-		// // error handling.
-		// // tests.Add(_5_0_Error)// connect時に出るエラー、接続できないとか、あとjobの失敗時のハンドリング、ハングしないケースとかいっぱいある。
+		// error handling.
+		tests.Add(_5_0_ConnectionFailed);
+		tests.Add(_5_1_ConnectionFailedMultiple);
 		
-		// adding async request over busy-socket num.
+		// // adding async request over busy-socket num.
 		tests.Add(_6_0_ExceededSocketNo3In2);
 		tests.Add(_6_1_ExceededSocketNo100In2);
 		
-		// benchmarks.
+		// // benchmarks.
 		tests.Add(_7_0_AddJob1000);
 		tests.Add(_7_1_GetJob1000);
 
@@ -196,7 +197,7 @@ public partial class Tests {
 	public void Assert (object expected, object actual, string message) {
 		System.Diagnostics.StackTrace stack  = new System.Diagnostics.StackTrace(false);
 		var methodName = stack.GetFrame(1).GetMethod().Name;
-		if (expected.ToString() != actual.ToString()) TestLogger.Log("test:" + methodName + " FAILED:" + message + " expected:" + expected + " actual:" + actual); 
+		if (expected.ToString() != actual.ToString()) TestLogger.Log("test:" + methodName + " FAILED:" + message + " expected:" + expected + " actual:" + actual + " stack:" + stack); 
 	}
 }
 

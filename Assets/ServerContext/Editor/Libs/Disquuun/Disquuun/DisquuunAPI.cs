@@ -292,11 +292,9 @@ namespace DisquuunCore {
 							if (lineEndCursor == -1) return new ScanResult(false);
 							cursor = cursor + 1;// add header byte size = 1.
 							
-							var countBuffer = new byte[lineEndCursor - cursor];
-							Array.Copy(sourceBuffer, cursor, countBuffer, 0, lineEndCursor - cursor);
+							var countBuffer = new ArraySegment<byte>(sourceBuffer, cursor, lineEndCursor - cursor);
 							
 							cursor = lineEndCursor + 2;// CR + LF
-							// if (cursor != length) return new ScanResult(false);
 
 							return new ScanResult(cursor, new DisquuunResult[]{new DisquuunResult(countBuffer)});
 						}
@@ -366,7 +364,7 @@ namespace DisquuunCore {
 									}
 									
 									// jobId
-									byte[] jobIdBytes;
+									ArraySegment<byte> jobIdBytes;
 									{
 										// $ count.
 										var lineEndCursor3 = ReadLine(sourceBuffer, cursor, length);
@@ -383,8 +381,7 @@ namespace DisquuunCore {
 										
 										// $ bulk.
 										if (ShortageOfReadableLength(sourceBuffer, cursor, strNum)) return new ScanResult(false);
-										jobIdBytes = new byte[strNum];
-										Array.Copy(sourceBuffer, cursor, jobIdBytes, 0, strNum);
+										jobIdBytes = new ArraySegment<byte>(sourceBuffer, cursor, strNum);
 										// var jobIdStr = Encoding.UTF8.GetString(jobIdBytes);
 										// Disquuun.Log("jobIdStr:" + jobIdStr);
 										
@@ -393,8 +390,7 @@ namespace DisquuunCore {
 									
 									
 									// jobData
-									byte[] dataBytes;
-									
+									ArraySegment<byte> dataBytes;
 									{
 										// $ count.
 										var lineEndCursor3 = ReadLine(sourceBuffer, cursor, length);
@@ -410,8 +406,7 @@ namespace DisquuunCore {
 										
 										// $ bulk.
 										if (ShortageOfReadableLength(sourceBuffer, cursor, strNum)) return new ScanResult(false);
-										dataBytes = new byte[strNum];
-										Array.Copy(sourceBuffer, cursor, dataBytes, 0, strNum);
+										dataBytes = new ArraySegment<byte>(sourceBuffer, cursor, strNum);
 										
 										cursor = cursor + strNum + 2;// CR + LF
 									}
@@ -425,7 +420,7 @@ namespace DisquuunCore {
 									
 									// withcounters response.
 									if (itemCount == 7) {
-										byte[] nackCountBytes;
+										ArraySegment<byte> nackCountBytes;
 										{
 											// $
 											var lineEndCursor3 = ReadLine(sourceBuffer, cursor, length);
@@ -442,19 +437,18 @@ namespace DisquuunCore {
 											// ignore params. 
 										
 											cursor = cursor + strNum + 2;// CR + LF
-										
+
 											// :
 											var lineEndCursor4 = ReadLine(sourceBuffer, cursor, length);
 											if (lineEndCursor4 == -1) return new ScanResult(false);
 											cursor = cursor + 1;// add header byte size = 1.
 											
-											nackCountBytes = new byte[lineEndCursor4 - cursor];
-											Array.Copy(sourceBuffer, cursor, nackCountBytes, 0, nackCountBytes.Length);
+											nackCountBytes = new ArraySegment<byte>(sourceBuffer, cursor, lineEndCursor4 - cursor);
 											
 											cursor = lineEndCursor4 + 2;// CR + LF
 										}
 										
-										byte[] additionalDeliveriesCountBytes;
+										ArraySegment<byte> additionalDeliveriesCountBytes;
 										{
 											// $
 											var lineEndCursor3 = ReadLine(sourceBuffer, cursor, length);
@@ -476,8 +470,7 @@ namespace DisquuunCore {
 											if (lineEndCursor4 == -1) return new ScanResult(false);
 											cursor = cursor + 1;// add header byte size = 1.
 											
-											additionalDeliveriesCountBytes = new byte[lineEndCursor4 - cursor];
-											Array.Copy(sourceBuffer, cursor, additionalDeliveriesCountBytes, 0, additionalDeliveriesCountBytes.Length);
+											additionalDeliveriesCountBytes = new ArraySegment<byte>(sourceBuffer, cursor, lineEndCursor4 - cursor);
 											
 											jobDatas[i] = new DisquuunResult(jobIdBytes, dataBytes, nackCountBytes, additionalDeliveriesCountBytes);
 											
@@ -523,8 +516,7 @@ namespace DisquuunCore {
 							// var countStr = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor - cursor);
 							// Disquuun.Log("countStr:" + countStr);
 							
-							var countBuffer = new byte[lineEndCursor - cursor];
-							Array.Copy(sourceBuffer, cursor, countBuffer, 0, countBuffer.Length);
+							var countBuffer = new ArraySegment<byte>(sourceBuffer, cursor, lineEndCursor - cursor);
 							
 							var byteData = new DisquuunResult(countBuffer);
 							
@@ -544,10 +536,6 @@ namespace DisquuunCore {
 						// 	cursor = lineEndCursor + 2;// CR + LF
 						// 	break;
 						// }
-						default: {
-							throw new Exception("socketId:" + socketId + " ADDJOB fail" + " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer));
-							// break;
-						}
 					}
 					break;
 				}
@@ -571,8 +559,7 @@ namespace DisquuunCore {
 							{// readbulk string.
 								if (ShortageOfReadableLength(sourceBuffer, cursor, countNum)) return new ScanResult(false);
 								
-								var newBuffer = new byte[countNum];
-								Array.Copy(sourceBuffer, cursor, newBuffer, 0, countNum);
+								var newBuffer = new ArraySegment<byte>(sourceBuffer, cursor, countNum);
 								
 								cursor = cursor + countNum + 2;// CR + LF
 								
@@ -585,9 +572,9 @@ namespace DisquuunCore {
 				case DisqueCommand.HELLO: {
 					switch (sourceBuffer[cursor]) {
 						case ByteMultiBulk: {
-							string version;
-							string thisNodeId;
-							List<string> nodeIdsAndInfos = new List<string>();
+							ArraySegment<byte> version;
+							ArraySegment<byte> thisNodeId;
+							List<ArraySegment<byte>> nodeIdsAndInfos = new List<ArraySegment<byte>>();
 							/*
 								:*3
 									:1 version [0][0]
@@ -628,7 +615,7 @@ namespace DisquuunCore {
 								
 								cursor = cursor + 1;// add header byte size = 1.
 								
-								version = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor - cursor);
+								version = new ArraySegment<byte>(sourceBuffer, cursor, lineEndCursor - cursor);
 								// Disquuun.Log(":version:" + version);
 								
 								cursor = lineEndCursor + 2;// CR + LF
@@ -648,7 +635,7 @@ namespace DisquuunCore {
 								cursor = lineEndCursor + 2;// CR + LF
 								
 								if (ShortageOfReadableLength(sourceBuffer, cursor, strNum)) return new ScanResult(false);
-								thisNodeId = Encoding.UTF8.GetString(sourceBuffer, cursor, strNum);
+								thisNodeId = new ArraySegment<byte>(sourceBuffer, cursor, strNum);
 								// Disquuun.Log("thisNodeId:" + thisNodeId);
 								
 								cursor = cursor + strNum + 2;// CR + LF
@@ -667,7 +654,7 @@ namespace DisquuunCore {
 								
 								// nodeId, ip, port, priority.
 								for (var i = 0; i < bulkCountNum/4; i++) {
-									var idStr = string.Empty;
+									ArraySegment<byte> idStr;
 									
 									// $ nodeId
 									{
@@ -681,7 +668,7 @@ namespace DisquuunCore {
 										cursor = lineEndCursor2 + 2;// CR + LF
 										
 										if (ShortageOfReadableLength(sourceBuffer, cursor, strNum)) return new ScanResult(false);
-										idStr = Encoding.UTF8.GetString(sourceBuffer, cursor, strNum);
+										idStr = new ArraySegment<byte>(sourceBuffer, cursor, strNum);
 										nodeIdsAndInfos.Add(idStr);
 										
 										cursor = cursor + strNum + 2;// CR + LF
@@ -698,7 +685,7 @@ namespace DisquuunCore {
 										cursor = lineEndCursor2 + 2;// CR + LF
 										
 										if (ShortageOfReadableLength(sourceBuffer, cursor, strNum)) return new ScanResult(false);
-										var ipStr = Encoding.UTF8.GetString(sourceBuffer, cursor, strNum);
+										var ipStr = new ArraySegment<byte>(sourceBuffer, cursor, strNum);
 										nodeIdsAndInfos.Add(ipStr);
 										
 										cursor = cursor + strNum + 2;// CR + LF
@@ -715,7 +702,7 @@ namespace DisquuunCore {
 										cursor = lineEndCursor2 + 2;// CR + LF
 										
 										if (ShortageOfReadableLength(sourceBuffer, cursor, strNum)) return new ScanResult(false);
-										var portStr = Encoding.UTF8.GetString(sourceBuffer, cursor, strNum);
+										var portStr = new ArraySegment<byte>(sourceBuffer, cursor, strNum);
 										nodeIdsAndInfos.Add(portStr);
 										
 										cursor = cursor + strNum + 2;// CR + LF
@@ -732,7 +719,7 @@ namespace DisquuunCore {
 										cursor = lineEndCursor2 + 2;// CR + LF
 										
 										if (ShortageOfReadableLength(sourceBuffer, cursor, strNum)) return new ScanResult(false);
-										var priorityStr = Encoding.UTF8.GetString(sourceBuffer, cursor, strNum);
+										var priorityStr = new ArraySegment<byte>(sourceBuffer, cursor, strNum);
 										nodeIdsAndInfos.Add(priorityStr);
 										
 										cursor = cursor + strNum + 2;// CR + LF
@@ -741,25 +728,19 @@ namespace DisquuunCore {
 							}
 							
 							
-							var versionBytes = Encoding.UTF8.GetBytes(version);
-							var thisNodeIdBytes = Encoding.UTF8.GetBytes(thisNodeId);
-							
 							var byteDatas = new DisquuunResult[1 + nodeIdsAndInfos.Count/4];
-							byteDatas[0] = new DisquuunResult(versionBytes,thisNodeIdBytes);
+							byteDatas[0] = new DisquuunResult(version, thisNodeId);
 							
 							for (var index = 0; index < nodeIdsAndInfos.Count/4; index++) {
-								var nodeId = Encoding.UTF8.GetBytes(nodeIdsAndInfos[index*4 + 0]);
-								var ip = Encoding.UTF8.GetBytes(nodeIdsAndInfos[index*4 + 1]);
-								var port = Encoding.UTF8.GetBytes(nodeIdsAndInfos[index*4 + 2]);
-								var priority = Encoding.UTF8.GetBytes(nodeIdsAndInfos[index*4 + 3]);
+								var nodeId = nodeIdsAndInfos[index*4 + 0];
+								var ip = nodeIdsAndInfos[index*4 + 1];
+								var port = nodeIdsAndInfos[index*4 + 2];
+								var priority = nodeIdsAndInfos[index*4 + 3];
 								
 								byteDatas[index + 1] = new DisquuunResult(nodeId, ip, port, priority);
 							}
 							
 							return new ScanResult(cursor, byteDatas);
-						}
-						default: {
-							throw new Exception("error command:" + command + " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer));
 						}
 					}
 					break;
@@ -772,17 +753,13 @@ namespace DisquuunCore {
 							if (lineEndCursor == -1) return new ScanResult(false);
 							cursor = cursor + 1;// add header byte size = 1.
 							
-							var countBuffer = new byte[lineEndCursor - cursor];
-							Array.Copy(sourceBuffer, cursor, countBuffer, 0, countBuffer.Length);
+							var countBuffer = new ArraySegment<byte>(sourceBuffer, cursor, lineEndCursor - cursor);
 							
 							var byteData = new DisquuunResult(countBuffer);
 							
 							cursor = lineEndCursor + 2;// CR + LF
 							
 							return new ScanResult(cursor, new DisquuunResult[]{byteData});
-						}
-						default: {
-							throw new Exception("error command:" + command + " unhandled:" + sourceBuffer[cursor] + " data:" + Encoding.UTF8.GetString(sourceBuffer));
 						}
 					}
 
@@ -808,7 +785,7 @@ namespace DisquuunCore {
 					
 					var results = new DisquuunResult[itemCount];
 					for (var i = 0; i < itemCount; i++) {
-						byte[] keyBytes = null;
+						ArraySegment<byte> keyBytes;
 						{// key ($)
 							var lineEndCursor2 = ReadLine(sourceBuffer, cursor, length);
 							if (lineEndCursor2 == -1) return new ScanResult(false);
@@ -820,14 +797,13 @@ namespace DisquuunCore {
 							cursor = lineEndCursor2 + 2;// CR + LF
 							
 							if (ShortageOfReadableLength(sourceBuffer, cursor, strNum)) return new ScanResult(false);
-							keyBytes = new byte[strNum];
-							Array.Copy(sourceBuffer, cursor, keyBytes, 0, strNum);
+							keyBytes = new ArraySegment<byte>(sourceBuffer, cursor, strNum);
 							
 							cursor = cursor + strNum + 2;// CR + LF
 						}
 												
 						{// value ($ or * or :)
-							byte[] valBytes = null;
+							ArraySegment<byte> valBytes;
 							
 							var type = sourceBuffer[cursor];
 							/*
@@ -848,8 +824,7 @@ namespace DisquuunCore {
 									cursor = lineEndCursor3 + 2;// CR + LF
 									
 									if (ShortageOfReadableLength(sourceBuffer, cursor, strNum)) return new ScanResult(false);
-									valBytes = new byte[strNum];
-									Array.Copy(sourceBuffer, cursor, valBytes, 0, strNum);
+									valBytes = new ArraySegment<byte>(sourceBuffer, cursor, strNum);
 									
 									cursor = cursor + strNum + 2;// CR + LF
 									break;	
@@ -865,14 +840,13 @@ namespace DisquuunCore {
 									var countStr = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor3 - cursor);
 									var strNum = countStr.Length;
 									
-									valBytes = new byte[strNum];
-									Array.Copy(sourceBuffer, cursor, valBytes, 0, strNum);
-										
+									valBytes = new ArraySegment<byte>(sourceBuffer, cursor, strNum);
+									
 									cursor = lineEndCursor3 + 2;// CR + LF
 									break;
 								}
 								default: {
-									throw new Exception("unexpected type:" + type);
+									throw new Exception("qstat unexpected type:" + type);
 								}
 							}
 							results[i] = new DisquuunResult(keyBytes, valBytes);
