@@ -298,8 +298,6 @@ namespace DisquuunCore
 				}
 			}
 		}
-		
-		
 		private void OnClosed (object unused, SocketAsyncEventArgs args) {
 			var token = (SocketToken)args.UserToken;
 			switch (token.socketState) {
@@ -309,11 +307,6 @@ namespace DisquuunCore
 				}
 				default: {
 					token.socketState = SocketState.CLOSED;
-					try {
-						token.socket.Close();
-					} catch (Exception e) {
-						Disquuun.Log("OnClosed e:" + e);
-					}
 					break;
 				}
 			}
@@ -345,13 +338,15 @@ namespace DisquuunCore
 							token.socketState = SocketState.OPENED;
 							return;
 						}
+
+
 						case SocketState.DISPOSABLE_BUSY: {
 							token.socketState = SocketState.DISPOSABLE_SENDED;
 							break;
 						}
 						case SocketState.DISPOSABLE_RECEIVED: {
 							if (token.continuation) {
-								token.socketState = SocketState.DISPOSABLE_BUSY;
+								// token.socketState = SocketState.DISPOSABLE_BUSY;
 
 								// ready for next loop receive.
 								token.readableDataLength = 0;
@@ -434,7 +429,7 @@ namespace DisquuunCore
 							break;
 						}
 						case SocketState.SENDED: {
-							token.socketState = SocketState.BUSY;
+							// token.socketState = SocketState.BUSY;
 
 							// ready for next loop receive.
 							token.readableDataLength = 0;
@@ -452,7 +447,7 @@ namespace DisquuunCore
 							break;
 						}
 						case SocketState.DISPOSABLE_SENDED: {
-							token.socketState = SocketState.DISPOSABLE_BUSY;
+							// token.socketState = SocketState.DISPOSABLE_BUSY;
 
 							// ready for next loop receive.
 							token.readableDataLength = 0;
@@ -470,7 +465,8 @@ namespace DisquuunCore
 					}
 					return;
 				}
-				// not loop or end of async.
+
+				// end of loop or end of async.
 
 				switch (token.socketState) {
 					case SocketState.BUSY: {
