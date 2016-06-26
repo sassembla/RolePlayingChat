@@ -169,7 +169,7 @@ namespace DisquuunCore {
 			lock (lockObject) {
 				for (var i = 0; i < socketPool.Length; i++) {
 					var socket = socketPool[i];
-					if (socket.State() == DisquuunSocket.SocketState.OPENED) {
+					if (socket.IsChoosable()) {
 						socket.SetBusy();
 						return socket;
 					}

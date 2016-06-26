@@ -17,13 +17,13 @@ namespace DisquuunCore
 			return socketToken.socketState;
 		}
 		
-		public bool SetBusy () {
-			if (socketToken.socketState == SocketState.OPENED) {
-				socketToken.socketState = SocketState.BUSY;
-				return true;
-			}
-			
+		public bool IsChoosable () {
+			if (socketToken.socketState == SocketState.OPENED) return true;
 			return false;
+		}
+
+		public void SetBusy () {
+			socketToken.socketState = SocketState.BUSY;
 		}
 		
 		public enum SocketState {
