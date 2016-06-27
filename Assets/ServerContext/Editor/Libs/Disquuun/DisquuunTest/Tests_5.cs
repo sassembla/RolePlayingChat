@@ -26,6 +26,7 @@ public partial class Tests {
 		);
 		
 		WaitUntil(() => (error != null), 5);
+		disquuun2.Disconnect(true);
 	}
 	public void _5_1_ConnectionFailedMultiple (Disquuun disquuun) {
 		WaitUntil(() => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
@@ -36,14 +37,17 @@ public partial class Tests {
 			DisquuunTests.TestDisqueDummyPortNum,// fake port number. 
 			1, 
 			5,
-			(conId) => {}, 
+			(conId) => {},
 			(info, e) => {
-				// TestLogger.Log("failed! info:"+ info + " e:" + e);
-				errors.Add(e);
+				lock (this) {
+					TestLogger.Log("failed! info:"+ info + " e:" + e, true);
+					errors.Add(e);
+				}
 			}
 		);
 
-		WaitUntil(() => (errors.Count == 5), 5);
+		WaitUntil(() => (errors.Count == 5), 10);
+		disquuun2.Disconnect(true);
 	}
 
 	/**
