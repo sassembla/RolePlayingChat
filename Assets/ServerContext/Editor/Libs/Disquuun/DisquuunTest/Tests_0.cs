@@ -59,7 +59,7 @@ public partial class Tests {
 	public void _0_0_3_ReadmeSampleAsync (Disquuun disquuun) {
 		int fastAckedJobCount = 0;
 		
-		disquuun = new Disquuun(DisquuunTests.TestDisqueHostStr, DisquuunTests.TestDisquePortNum, 1024, 2,
+		disquuun = new Disquuun(DisquuunTests.TestDisqueHostStr, DisquuunTests.TestDisquePortNum, 1024, 3,
 			disquuunId => {
 				var queueId = Guid.NewGuid().ToString();
 

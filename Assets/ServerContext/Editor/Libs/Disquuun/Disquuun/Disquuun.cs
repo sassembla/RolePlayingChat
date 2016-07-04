@@ -29,9 +29,9 @@ namespace DisquuunCore {
 	public class DisquuunInput	{
 		public readonly DisqueCommand command;
 		public readonly byte[] data;
-		public readonly DisquuunSocket socket;
+		public readonly StackSocket socket;
 		
-		public DisquuunInput (DisqueCommand command, byte[] data, DisquuunSocket socket) {
+		public DisquuunInput (DisqueCommand command, byte[] data, StackSocket socket) {
 			this.command = command;
 			this.data = data;
 			this.socket = socket;
@@ -65,7 +65,9 @@ namespace DisquuunCore {
 		private DisquuunSocket[] socketPool;
 		private object lockObject = new object();
 		
-		private readonly int minConnectionCount;
+		public readonly int minConnectionCount;
+
+		private StackSocket stackSocket;
 
 		public enum ConnectionState {
 			OPENED,
@@ -87,6 +89,8 @@ namespace DisquuunCore {
 			this.bufferSize = bufferSize;
 			this.endPoint = new IPEndPoint(IPAddress.Parse(host), port);
 			
+			this.stackSocket = new StackSocket();
+
 			this.connectionState = ConnectionState.ALLCLOSED;
 			
 			/*
@@ -110,7 +114,7 @@ namespace DisquuunCore {
 			this.minConnectionCount = minConnectionCount;
 
 			socketPool = new DisquuunSocket[minConnectionCount];
-			for (var i = 0; i < minConnectionCount; i++) socketPool[i] = new DisquuunSocket(endPoint, bufferSize, OnSocketOpened, OnSocketConnectionFailed, -(i+1));
+			for (var i = 0; i < minConnectionCount; i++) socketPool[i] = new DisquuunSocket(endPoint, bufferSize, OnSocketOpened, OnSocketConnectionFailed);
 		}
 		
 		private void OnSocketOpened (DisquuunSocket source, string socketId) {
@@ -164,9 +168,8 @@ namespace DisquuunCore {
 				foreach (var socket in socketPool) socket.Disconnect(force);
 			}
 		}
-		private int newSocketCount = 0;
-
-		private DisquuunSocket ChooseAvailableSocket () {
+		
+		private StackSocket ChooseAvailableSocket () {
 			try {
 			lock (lockObject) {
 				for (var i = 0; i < socketPool.Length; i++) {
@@ -177,8 +180,21 @@ namespace DisquuunCore {
 					}
 				}
 				
-				newSocketCount++;
-				return new DisquuunSocket(endPoint, bufferSize, OnSocketConnectionFailed, newSocketCount);
+				// ここにきてしまったら、すでにすべてのsocketがLOOPだったら、っていう判断をして、
+				// Loopでないコマンドがあれば、stackする。
+
+				// もうちょいよく考えるかな、、、？
+				/*
+					選択肢はどの程度ある？
+					・Loopを使うとソケットを消費する
+					・Loopとそれ以外を区別する必要がある。
+					・Loopを抜ければ自由に使える
+					・自由なソケットがある/ない
+					・自由なソケットが無い場合、エラー？っていう感じで良いか？
+					Disposableやめちゃって良いと思うんだよね。よし、やめよう。
+				*/
+				
+				return stackSocket;
 			}
 			} catch (Exception e) {
 				Disquuun.Log("ChooseAvailableSocket before error,", true);
