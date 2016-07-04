@@ -61,8 +61,9 @@ public partial class Tests {
 			);
 		}
 
-		// とりあえず、ここで1000件の投入が終わっていて、stackedが1000-2で998件あればいい
-		// Assert("_6_2_ExceededSocketShouldStacked", connectCount - disquuun.minConnectionCount, disquuun.StackedCommandCount());
+		var stackedCommandCount = disquuun.StackedCommandCount();
+
+		Assert("_6_2_ExceededSocketShouldStacked", 0 < stackedCommandCount, "not match, " + stackedCommandCount);
 		WaitUntil("_6_2_ExceededSocketShouldStacked", () => (infoCount == connectCount), 5);
 	}
 }

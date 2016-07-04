@@ -28,19 +28,19 @@ public partial class Tests {
 	public void RunTests () {
 		var tests = new List<Action<Disquuun>>();
 		
-		// basement.
-		tests.Add(_0_0_InitWith2Connection);
-		tests.Add(_0_0_1_WaitOnOpen2Connection);
-		tests.Add(_0_0_2_ReadmeSampleSync);
-		tests.Add(_0_0_3_ReadmeSampleAsync);
-		tests.Add(_0_0_4_ConnectedShouldCallOnce);
-		tests.Add(_0_1_ConnectionFailedWithNoDisqueServer);
-		tests.Add(_0_2_SyncInfo);
-		tests.Add(_0_3_SyncInfoTwice);
-		tests.Add(_0_4_AsyncInfo);
-		tests.Add(_0_5_LoopInfo_Once);
-		tests.Add(_0_6_LoopInfo_Twice);
-		tests.Add(_0_7_LoopInfo_100);
+		// // basement.
+		// tests.Add(_0_0_InitWith2Connection);
+		// tests.Add(_0_0_1_WaitOnOpen2Connection);
+		// tests.Add(_0_0_2_ReadmeSampleSync);
+		// tests.Add(_0_0_3_ReadmeSampleAsync);
+		// tests.Add(_0_0_4_ConnectedShouldCallOnce);
+		// tests.Add(_0_1_ConnectionFailedWithNoDisqueServer);
+		// tests.Add(_0_2_SyncInfo);
+		// tests.Add(_0_3_SyncInfoTwice);
+		// tests.Add(_0_4_AsyncInfo);
+		// tests.Add(_0_5_LoopInfo_Once);
+		// tests.Add(_0_6_LoopInfo_Twice);
+		// tests.Add(_0_7_LoopInfo_100);
 		
 		// // sync apis. DEPRECATED.
 		// tests.Add(_1_0_AddJob_Sync);
@@ -109,6 +109,7 @@ public partial class Tests {
 		// adding async request over busy-socket num.
 		tests.Add(_6_0_ExceededSocketNo3In2);
 		tests.Add(_6_1_ExceededSocketNo100In2);
+		tests.Add(_6_2_ExceededSocketShouldStacked);
 		
 		// // benchmarks.
 		// tests.Add(_7_0_AddJob1000);
@@ -119,6 +120,7 @@ public partial class Tests {
 		// // data size bounding case.
 		// tests.Add(_8_0_LargeSizeSendThenSmallSizeSendMakeEmitOnSendAfterOnReceived);
 		// tests.Add(_8_1_LargeSizeSendThenSmallSizeSendLoopMakeEmitOnSendAfterOnReceived);
+
 
 		try {
 			TestLogger.Log("tests started.", true);
@@ -195,6 +197,7 @@ public partial class Tests {
 	public void Assert (string methodName, bool condition, string message) {
 		if (!condition) TestLogger.Log("test:" + methodName + " FAILED:" + message); 
 	}
+	
 	
 	public void Assert (string methodName, object expected, object actual, string message) {
 		if (expected.ToString() != actual.ToString()) TestLogger.Log("test:" + methodName + " FAILED:" + message + " expected:" + expected + " actual:" + actual); 

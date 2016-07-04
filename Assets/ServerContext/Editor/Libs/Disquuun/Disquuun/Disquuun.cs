@@ -48,6 +48,11 @@ namespace DisquuunCore {
 			this.bytesArray = bytesArray;
 		}
 	}
+
+	public enum DisquuunExecuteType {
+		ASYNC,
+		LOOP
+	}
 	
     public class Disquuun {
 		public readonly string connectionId;
@@ -114,9 +119,34 @@ namespace DisquuunCore {
 			this.minConnectionCount = minConnectionCount;
 
 			socketPool = new DisquuunSocket[minConnectionCount];
-			for (var i = 0; i < minConnectionCount; i++) socketPool[i] = new DisquuunSocket(endPoint, bufferSize, OnSocketOpened, OnSocketConnectionFailed);
+			for (var i = 0; i < minConnectionCount; i++) socketPool[i] = new DisquuunSocket(endPoint, bufferSize, OnSocketOpened, OnReloaded, OnSocketConnectionFailed);
+		}
+
+		public void OnReloaded (DisquuunSocket reloadedSocket) {
+			lock (lockObject) {
+				if (reloadedSocket.IsChoosable()) {
+					reloadedSocket.SetBusy();
+					if (0 < stackSocket.stackedDataQueue.Count) {
+						var commandAndData = stackSocket.stackedDataQueue.Dequeue();
+						switch (commandAndData.executeType) {
+							case DisquuunExecuteType.ASYNC: {
+								reloadedSocket.Async(commandAndData.command, commandAndData.data, commandAndData.Callback);
+								return;
+							}
+							case DisquuunExecuteType.LOOP: {
+								reloadedSocket.Loop(commandAndData.command, commandAndData.data, commandAndData.Callback);
+								return;
+							}
+						}
+					}
+				}
+			}
 		}
 		
+		public int StackedCommandCount () {
+			lock (lockObject) return stackSocket.stackedDataQueue.Count;
+		}
+
 		private void OnSocketOpened (DisquuunSocket source, string socketId) {
 			lock (lockObject) {
 				var availableSocketCount = 0;
@@ -170,7 +200,6 @@ namespace DisquuunCore {
 		}
 		
 		private StackSocket ChooseAvailableSocket () {
-			try {
 			lock (lockObject) {
 				for (var i = 0; i < socketPool.Length; i++) {
 					var socket = socketPool[i];
@@ -179,30 +208,10 @@ namespace DisquuunCore {
 						return socket;
 					}
 				}
-				
-				// ここにきてしまったら、すでにすべてのsocketがLOOPだったら、っていう判断をして、
-				// Loopでないコマンドがあれば、stackする。
 
-				// もうちょいよく考えるかな、、、？
-				/*
-					選択肢はどの程度ある？
-					・Loopを使うとソケットを消費する
-					・Loopとそれ以外を区別する必要がある。
-					・Loopを抜ければ自由に使える
-					・自由なソケットがある/ない
-					・自由なソケットが無い場合、エラー？っていう感じで良いか？
-					Disposableやめちゃって良いと思うんだよね。よし、やめよう。
-				*/
-				
 				return stackSocket;
 			}
-			} catch (Exception e) {
-				Disquuun.Log("ChooseAvailableSocket before error,", true);
-				Disquuun.Log("ChooseAvailableSocket e:" + e.Message, true);
-				throw e;
-			}
 		}
-		
 		
 		
 		

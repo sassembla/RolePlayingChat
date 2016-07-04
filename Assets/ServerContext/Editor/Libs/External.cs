@@ -16,4 +16,13 @@ public class External {
 		
 		if (!socketToken.socket.DisconnectAsync(closeEventArgs)) OnClosed(socketToken.socket, closeEventArgs);
     }
+
+    public static void InvokeAsync(DisquuunSocket disquuunSocket) {
+        disquuunSocket.SocketReloaded.BeginInvoke(
+			disquuunSocket,
+			ar => {
+				disquuunSocket.SocketReloaded.EndInvoke(ar); 
+			}, null
+		);
+    }
 }

@@ -7,4 +7,8 @@ public class External {
     	socketToken.socket.Shutdown(SocketShutdown.Both);
 		socketToken.socket.Dispose();
     }
+
+    public static async void InvokeAsync(DisquuunSocket disquuunSocket) {
+         disquuunSocket.SocketReloaded(disquuunSocket);
+    }
 }
