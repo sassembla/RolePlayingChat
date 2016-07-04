@@ -35,3 +35,15 @@ PCClient.app/*
 client.log
 
 iOS/*
+
+CoreCLR/bin/*
+
+CoreCLR/Disquuun/*
+
+CoreCLR/obj/*
+
+nodes.conf
+
+CoreCLR/Disquuun.meta
+
+CoreCLR/DisquuunTest.meta

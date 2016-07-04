@@ -24,13 +24,10 @@ public class DisquuunTests {
 	}
 }
 
-
-
 public partial class Tests {
 	public void RunTests () {
 		var tests = new List<Action<Disquuun>>();
 		
-		for (var i = 0; i < 1; i++) {
 		// basement.
 		tests.Add(_0_0_InitWith2Connection);
 		tests.Add(_0_0_1_WaitOnOpen2Connection);
@@ -107,7 +104,7 @@ public partial class Tests {
 		
 		// error handling.
 		tests.Add(_5_0_ConnectionFailed);
-		// tests.Add(_5_1_ConnectionFailedMultiple);// 連続してるとダメっていう。状態持ってるなどこかに。
+		// tests.Add(_5_1_ConnectionFailedMultiple);// 連続してるとダメっていう。状態持ってるなどこかに。OSぽい。
 		
 		// adding async request over busy-socket num.
 		tests.Add(_6_0_ExceededSocketNo3In2);
@@ -123,16 +120,15 @@ public partial class Tests {
 		tests.Add(_8_0_LargeSizeSendThenSmallSizeSendMakeEmitOnSendAfterOnReceived);
 		tests.Add(_8_1_LargeSizeSendThenSmallSizeSendLoopMakeEmitOnSendAfterOnReceived);
 
-		}
-
-
 		try {
 			TestLogger.Log("tests started.", true);
 			
 			var disquuunForResultInfo = new Disquuun(DisquuunTests.TestDisqueHostStr, DisquuunTests.TestDisquePortNum, 10240, 1);
-			WaitUntil(() => (disquuunForResultInfo.State() == Disquuun.ConnectionState.OPENED), 5);
+			WaitUntil("testRunner:", () => (disquuunForResultInfo.State() == Disquuun.ConnectionState.OPENED), 5);
 			
 			foreach (var test in tests) {
+				var methodName = test.GetType();
+
 				try {
 					var disquuun = new Disquuun(DisquuunTests.TestDisqueHostStr, DisquuunTests.TestDisquePortNum, 2020008, 2);// this buffer size is just for 100byte job x 10000 then receive 1 GetJob(count 1000).
 					test(disquuun);
@@ -140,30 +136,30 @@ public partial class Tests {
 						disquuun.Disconnect(true);
 						disquuun = null;
 					}
-
+					
 					var info = disquuunForResultInfo.Info().DEPRICATED_Sync();
 					var result = DisquuunDeserializer.Info(info);
 					var restJobCount = result.jobs.registered_jobs;
-					if (restJobCount != 0) TestLogger.Log("test:" + test.Method + " rest job:" + restJobCount, true);
-					else TestLogger.Log("test:" + test.Method + " passed. no job exists.", true);
+					
+					if (restJobCount != 0) TestLogger.Log("test:" + methodName + " rest job:" + restJobCount, true);
+					else TestLogger.Log("test:" + methodName + " passed. no job exists.", true);
 				} catch (Exception e) {
-					TestLogger.Log("test:" + test.Method + " FAILED by exception:" + e);
+					TestLogger.Log("before error...", true);
+					TestLogger.Log("test:" + methodName + " FAILED by exception:" + e.Message, true);
 				}
 			}
 
 			disquuunForResultInfo.Disconnect(true);
 			TestLogger.Log("tests end.", true);
 		} catch (Exception e) {
-			TestLogger.Log("tests failed:" + e, true);
+			TestLogger.Log("tests failed:" + e.Message, true);
 		}
 	}
 	
 	
-	public void WaitUntil (Func<bool> WaitFor, int timeoutSec) {
-		System.Diagnostics.StackTrace stack  = new System.Diagnostics.StackTrace(false);
-		var methodName = stack.GetFrame(1).GetMethod().Name;
+	public bool WaitUntil (string methodName, Func<bool> WaitFor, int timeoutSec) {
 		var resetEvent = new ManualResetEvent(false);
-		
+		var succeeded = true;
 		var waitingThread = new Thread(
 			() => {
 				resetEvent.Reset();
@@ -175,14 +171,15 @@ public partial class Tests {
 						var distanceSeconds = (current - startTime).Seconds;
 						
 						if (timeoutSec < distanceSeconds) {
-							TestLogger.Log("timeout:" + methodName, true);
+							TestLogger.Log("timeout:" + methodName);
+							succeeded = false;
 							break;
 						}
 						
 						System.Threading.Thread.Sleep(10);
 					}
 				} catch (Exception e) {
-					TestLogger.Log("methodName:" + methodName + " error:" + e, true);
+					TestLogger.Log("methodName:" + methodName + " error:" + e.Message, true);
 				}
 				
 				resetEvent.Set();
@@ -192,46 +189,48 @@ public partial class Tests {
 		waitingThread.Start();
 		
 		resetEvent.WaitOne();
+		return succeeded;
 	}
 	
-	public void Assert (bool condition, string message) {
-		System.Diagnostics.StackTrace stack  = new System.Diagnostics.StackTrace(false);
-		var methodName = stack.GetFrame(1).GetMethod().Name;
+	public void Assert (string methodName, bool condition, string message) {
 		if (!condition) TestLogger.Log("test:" + methodName + " FAILED:" + message); 
 	}
 	
-	public void Assert (object expected, object actual, string message) {
-		System.Diagnostics.StackTrace stack  = new System.Diagnostics.StackTrace(false);
-		var methodName = stack.GetFrame(1).GetMethod().Name;
-		if (expected.ToString() != actual.ToString()) TestLogger.Log("test:" + methodName + " FAILED:" + message + " expected:" + expected + " actual:" + actual + " stack:" + stack); 
+	public void Assert (string methodName, object expected, object actual, string message) {
+		if (expected.ToString() != actual.ToString()) TestLogger.Log("test:" + methodName + " FAILED:" + message + " expected:" + expected + " actual:" + actual); 
 	}
 }
 
 
+
 public static class TestLogger {
+	private static object lockObject = new object();
+
 	public static string logPath;
 	public static StringBuilder logs = new StringBuilder();
 	public static void Log (string message, bool export=false) {
-		if (!export) {
-			logs.AppendLine(message);
-			return;
-		}
-		
-		logPath = "test.log";
-		
-		// file write
-		using (var fs = new FileStream(
-			logPath,
-			FileMode.Append,
-			FileAccess.Write,
-			FileShare.ReadWrite)
-		) {
-			using (var sr = new StreamWriter(fs)) {
-				if (0 < logs.Length) {
-					sr.WriteLine(logs.ToString());
-					logs = new StringBuilder();
+		lock (lockObject) {
+			if (!export) {
+				logs.AppendLine(message);
+				return;
+			}
+
+			logPath = "test.log";
+			
+			// file write
+			using (var fs = new FileStream(
+				logPath,
+				FileMode.Append,
+				FileAccess.Write,
+				FileShare.ReadWrite)
+			) {
+				using (var sr = new StreamWriter(fs)) {
+					if (0 < logs.Length) {
+						sr.WriteLine(logs.ToString());
+						logs = new StringBuilder();
+					}
+					sr.WriteLine("log:" + message);
 				}
-				sr.WriteLine("log:" + message);
 			}
 		}
 	}
