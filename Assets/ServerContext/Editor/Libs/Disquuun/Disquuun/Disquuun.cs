@@ -197,10 +197,10 @@ namespace DisquuunCore {
 			return connectionState;
 		}
 		
-		public void Disconnect (bool force=false) {
+		public void Disconnect () {
 			connectionState = ConnectionState.ALLCLOSING;
 			lock (lockObject) {
-				foreach (var socket in socketPool) socket.Disconnect(force);
+				foreach (var socket in socketPool) socket.Disconnect();
 			}
 		}
 		

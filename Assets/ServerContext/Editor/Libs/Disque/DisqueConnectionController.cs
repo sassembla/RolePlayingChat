@@ -44,7 +44,7 @@ public class ConnectionServerTransformLayer {
 	}
 	
 	public void Disconnect () {
-		if (disquuun != null) disquuun.Disconnect(true);
+		if (disquuun != null) disquuun.Disconnect();
 	}
 
 	public void SetContext (ServerContext context) {

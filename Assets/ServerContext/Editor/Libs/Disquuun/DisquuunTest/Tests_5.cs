@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using DisquuunCore;
-using DisquuunCore.Deserialize;
 
 /*
 	errors.
@@ -26,8 +24,11 @@ public partial class Tests {
 		);
 		
 		WaitUntil("_5_0_ConnectionFailed", () => (error != null), 5);
-		disquuun2.Disconnect(true);
+		disquuun2.Disconnect();
 	}
+
+	private object _5_1_ConnectionFailedMultipleLockObject = new object();
+
 	public void _5_1_ConnectionFailedMultiple (Disquuun disquuun) {
 		WaitUntil("_5_1_ConnectionFailedMultiple", () => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
 
@@ -39,7 +40,7 @@ public partial class Tests {
 			5,
 			(conId) => {},
 			(info, e) => {
-				lock (this) {
+				lock (_5_1_ConnectionFailedMultipleLockObject) {
 					TestLogger.Log("failed! info:"+ info + " e:" + e, true);
 					errors.Add(e);
 				}
@@ -47,7 +48,7 @@ public partial class Tests {
 		);
 
 		WaitUntil("_5_1_ConnectionFailedMultiple", () => (errors.Count == 5), 10);
-		disquuun2.Disconnect(true);
+		disquuun2.Disconnect();
 	}
 
 	/**

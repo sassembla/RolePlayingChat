@@ -245,13 +245,6 @@ namespace DisquuunCore {
 			} 
 		}
 		
-		private void StartCloseAsync () {
-			try {
-				External.Disconnect(socketToken, OnClosed);
-			} catch (Exception e) {
-				Disquuun.Log("StartCloseAsync:" + e.Message, true);
-			}
-		}
 		
 		/*
 			handlers
@@ -324,7 +317,7 @@ namespace DisquuunCore {
 								}
 
 								token.socketState = SocketState.OPENED;
-								External.InvokeAsync(this);
+								SocketReloaded(this);
 								return;
 							}
 						}
@@ -428,7 +421,7 @@ namespace DisquuunCore {
 						}
 						case SocketState.SENDED: {
 							token.socketState = SocketState.OPENED;
-							External.InvokeAsync(this);
+							SocketReloaded(this);
 							break;
 						}
 						default: {
@@ -482,32 +475,16 @@ namespace DisquuunCore {
 			}
 		}
 
-		public void Disconnect (bool force=false) {
+		public void Disconnect () {
 			// lock (socketLockObject) {
-			if (force) {
 				try {
 					socketToken.socketState = SocketState.CLOSING;
 					External.Disconnect(socketToken, null);
 					socketToken.socketState = SocketState.CLOSED;
 				} catch (Exception e) {
-					Disquuun.Log("Disconnect e:" + e.Message);
+					Disquuun.Log("Disconnect e:" + e.Message, true);
 				}
 				return;
-			}
-			
-			switch (socketToken.socketState) {
-				case SocketState.CLOSING:
-				case SocketState.CLOSED: {
-					// do nothing
-					break;
-				}
-				default: {
-					socketToken.socketState = SocketState.CLOSING;
-					
-					StartCloseAsync();
-					break;
-				}
-			}
 			// }
 		}
 		
