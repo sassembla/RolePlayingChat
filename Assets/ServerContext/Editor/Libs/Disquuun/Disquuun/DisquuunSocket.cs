@@ -18,6 +18,7 @@ namespace DisquuunCore {
 		
 		public SocketState State () {
 			// lock (socketLockObject) {
+				if (socketToken == null) return SocketState.NONE;
 				return socketToken.socketState;
 			// }
 		}
@@ -36,6 +37,7 @@ namespace DisquuunCore {
 		}
 		
 		public enum SocketState {
+			NONE,
 			OPENING,
 			OPENED,			
 			BUSY,

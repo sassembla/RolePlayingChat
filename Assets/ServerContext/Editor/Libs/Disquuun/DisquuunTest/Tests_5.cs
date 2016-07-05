@@ -18,7 +18,6 @@ public partial class Tests {
 			1, 
 			(conId) => {}, 
 			(info, e) => {
-				// TestLogger.Log("failed! e:" + e);
 				error = e;
 			}
 		);
@@ -31,8 +30,9 @@ public partial class Tests {
 
 	public void _5_1_ConnectionFailedMultiple (Disquuun disquuun) {
 		WaitUntil("_5_1_ConnectionFailedMultiple", () => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
-
+		
 		List<Exception> errors = new List<Exception>();
+		
 		var disquuun2 = new Disquuun(
 			DisquuunTests.TestDisqueHostStr, 
 			DisquuunTests.TestDisqueDummyPortNum,// fake port number. 
@@ -41,7 +41,6 @@ public partial class Tests {
 			(conId) => {},
 			(info, e) => {
 				lock (_5_1_ConnectionFailedMultipleLockObject) {
-					TestLogger.Log("failed! info:"+ info + " e:" + e, true);
 					errors.Add(e);
 				}
 			}
@@ -54,12 +53,27 @@ public partial class Tests {
 	/**
 		接続数のロジックとしては、
 		・基礎接続数まで最初に接続
-		・追加接続数上限(これを超えたら実行できなくなる、、、んで、やっぱりできない)はセットしたくない
-		・DISPOSABLEの切断をやめる(接続したあと切断せずスロットを増やす)っていう感じで、スロットを増やすか。DISPOSABLEいらんよな、、
+		・以降は何があっても接続
+		・切断が発生した場合は再度接続(ここがまだない)
+		という感じか。
+
+		切断をフックしたいね。
+
+		OPENINGを定義したんだけど、切断中になっているやつを回復させる場合は、
+
+		・OPENING
+		・OPENED
+		とかの定義ではなく、
 		
-		っていう戦略をとると、
-		・基礎接続数をオーバーした場合は警告が出る
-		っていうだけでいいかな。
+		・生成中
+		・生成完了
+		・欠損回復中(ただし生成完了してるんで使える)
+		とかなので、
+
+		・OPENING
+		・OPENED
+		・OPENED_RECOVERING
+		とかか。一度OPENEDになったら、それ以降は接続数ベースではOPENEDとOPENED_RECOVERINGを行き来するだけで済むな。
 	*/
 	// public void _5_2_追加接続でのエラーを出そう。 (Disquuun disquuun) {
 	// 	WaitUntil("", () => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);

@@ -65,7 +65,6 @@ namespace DisquuunCore {
 		
 		private readonly Action<string> ConnectionOpened;
 		private readonly Action<string, Exception> ConnectionFailed;
-		private readonly Action ConnectionIncreased;
 		
 		private DisquuunSocket[] socketPool;
 		private object lockObject = new object();
@@ -75,7 +74,9 @@ namespace DisquuunCore {
 		private StackSocket stackSocket;
 
 		public enum ConnectionState {
+			OPENING,
 			OPENED,
+			OPENED_RECOVERING,
 			ALLCLOSING,
 			ALLCLOSED
 		}
@@ -86,8 +87,7 @@ namespace DisquuunCore {
 			long bufferSize,
 			int minConnectionCount,
 			Action<string> ConnectionOpenedAct=null,
-			Action<string, Exception> ConnectionFailedAct=null,
-			Action ConnectionIncreasedAct=null
+			Action<string, Exception> ConnectionFailedAct=null
 		) {
 			this.connectionId = Guid.NewGuid().ToString();
 			
@@ -95,9 +95,9 @@ namespace DisquuunCore {
 			this.endPoint = new IPEndPoint(IPAddress.Parse(host), port);
 			
 			this.stackSocket = new StackSocket();
-
-			this.connectionState = ConnectionState.ALLCLOSED;
 			
+			this.connectionState = ConnectionState.OPENING;
+
 			/*
 				ConnectionOpened handler treats all connections are opened.
 			*/
@@ -112,10 +112,6 @@ namespace DisquuunCore {
 			if (ConnectionFailedAct != null) this.ConnectionFailed = ConnectionFailedAct;
 			else this.ConnectionFailed = (info, e) => {};
 			
-
-			if (ConnectionIncreasedAct != null) this.ConnectionIncreased = ConnectionIncreasedAct;
-			else this.ConnectionIncreased = () => {};
-
 			this.minConnectionCount = minConnectionCount;
 
 			socketPool = new DisquuunSocket[minConnectionCount];
@@ -154,14 +150,19 @@ namespace DisquuunCore {
 
 		private void OnSocketOpened (DisquuunSocket source, string socketId) {
 			lock (lockObject) {
+				if (connectionState != ConnectionState.OPENING) return;
+
 				var availableSocketCount = 0;
 				for (var i = 0; i < socketPool.Length; i++) {
 					var socket = socketPool[i];
-					if (socket == null) return;
+					if (socket == null) continue;
 					if (socket.State() == DisquuunSocket.SocketState.OPENED) availableSocketCount++;
 				}
-
-				if (availableSocketCount == minConnectionCount) ConnectionOpened(connectionId);
+				
+				if (availableSocketCount == minConnectionCount) {
+					connectionState = ConnectionState.OPENED;
+					ConnectionOpened(connectionId);
+				}
 			}
 		}
 		
@@ -170,31 +171,36 @@ namespace DisquuunCore {
 			if (ConnectionFailed != null) ConnectionFailed("OnSocketConnectionFailed:" + info, e); 
 		}
 		
-		public void UpdateState () {
+		public ConnectionState UpdateState () {
 			lock (lockObject) {
 				var availableSocketCount = 0;
 				for (var i = 0; i < socketPool.Length; i++) {
 					var socket = socketPool[i];
+					if (socket == null) continue;
 					if (socket.State() == DisquuunSocket.SocketState.OPENED) availableSocketCount++;
 				}
 				
-				switch (availableSocketCount) {
-					case 0: {
-						connectionState = ConnectionState.ALLCLOSED;
-						break;
+				switch (connectionState) {
+					case ConnectionState.OPENING: {
+						if (availableSocketCount == minConnectionCount) connectionState = ConnectionState.OPENED;
+						return connectionState;
 					}
-					default: {// 1 or more socket opened.
-						connectionState = ConnectionState.OPENED;
+					case ConnectionState.OPENED: {
+						if (availableSocketCount != minConnectionCount) connectionState = ConnectionState.OPENED_RECOVERING;
+						return connectionState;
+					}
+					default: {
+						if (availableSocketCount == minConnectionCount) connectionState = ConnectionState.OPENED; 
 						break;
 					}
 				}
+				return connectionState;
 			}
 		}
 		
 		
 		public ConnectionState State () {
-			UpdateState();
-			return connectionState;
+			return UpdateState();
 		}
 		
 		public void Disconnect () {

@@ -23,12 +23,13 @@ public partial class Tests {
 				connectedCount++;
 			},
 			(info, e) => {
-				TestLogger.Log("error, info:" + info + " e:" + e.Message);
+				TestLogger.Log("error, info:" + info + " e:" + e);
 			}
 		);
 		
 		
 		WaitUntil("_7_0_AddJob1000", () => (connectedCount == 1), 5);
+		
 		
 		var addedCount = 0;
 		
@@ -45,6 +46,7 @@ public partial class Tests {
 		}
 		w.Stop();
 		TestLogger.Log("_7_0_AddJob1000 w:" + w.ElapsedMilliseconds + " tick:" + w.ElapsedTicks);
+		
 		
 		WaitUntil("_7_0_AddJob1000", () => (addedCount == count), 100);
 		
@@ -84,6 +86,7 @@ public partial class Tests {
 				TestLogger.Log("error, info:" + info + " e:" + e.Message);
 			}
 		);
+
 		
 		
 		WaitUntil("_7_0_0_AddJob1000by100Connectoion", () => (connectedCount == 1), 5);

@@ -95,7 +95,7 @@ public partial class Tests {
 			}
 		);
 		
-		WaitUntil("", () => (fastAckedJobCount == 1), 5);
+		WaitUntil("_0_0_3_ReadmeSampleAsync", () => (fastAckedJobCount == 1), 5);
 		
 		disquuun.Disconnect();
 	}
