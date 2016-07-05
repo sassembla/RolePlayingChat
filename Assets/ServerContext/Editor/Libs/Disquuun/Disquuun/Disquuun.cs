@@ -124,12 +124,14 @@ namespace DisquuunCore {
 
 		public void OnReloaded (DisquuunSocket reloadedSocket) {
 			lock (lockObject) {
-				if (0 < stackSocket.stackedDataQueue.Count) {
+				if (stackSocket.IsQueued()) {
 					if (reloadedSocket.IsChoosable()) {
 						reloadedSocket.SetBusy();
 
-						var commandAndData = stackSocket.stackedDataQueue.Dequeue();
-						if (commandAndData.data == null) Disquuun.Log("OnReloaded data is null.", true);
+						var commandAndData = stackSocket.Dequeue();
+						if (commandAndData.data == null) {
+							Disquuun.Log("stacked byte data is null.", true);
+						}
 						if (commandAndData.data.Length == 0) Disquuun.Log("OnReloaded len = 0.", true); 
 						switch (commandAndData.executeType) {
 							case DisquuunExecuteType.ASYNC: {
@@ -147,7 +149,7 @@ namespace DisquuunCore {
 		}
 		
 		public int StackedCommandCount () {
-			lock (lockObject) return stackSocket.stackedDataQueue.Count;
+			lock (lockObject) return stackSocket.QueueCount();
 		}
 
 		private void OnSocketOpened (DisquuunSocket source, string socketId) {

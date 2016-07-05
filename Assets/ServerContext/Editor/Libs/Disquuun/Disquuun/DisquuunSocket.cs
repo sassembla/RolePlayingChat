@@ -542,7 +542,25 @@ namespace DisquuunCore {
 	public class StackSocket {
 		private object stackLockObject = new object();
 
-		public Queue<StackCommandData> stackedDataQueue;
+		private Queue<StackCommandData> stackedDataQueue;
+
+		public int QueueCount () {
+			lock (stackLockObject) {
+				return stackedDataQueue.Count;
+			}
+		}
+
+		public bool IsQueued () {
+			lock (stackLockObject) {
+				if (0 < stackedDataQueue.Count) return true;
+				return false;
+			}
+		}
+		public StackCommandData Dequeue () {
+			lock (stackLockObject) {
+				return stackedDataQueue.Dequeue();
+			}
+		}
 
 		public StackSocket () {
 			this.stackedDataQueue = new Queue<StackCommandData>();
@@ -554,7 +572,11 @@ namespace DisquuunCore {
 
 		public virtual void Async (DisqueCommand command, byte[] data, Func<DisqueCommand, DisquuunResult[], bool> Callback) {
 			lock (stackLockObject) {
-				this.stackedDataQueue.Enqueue(new StackCommandData(DisquuunExecuteType.ASYNC, command, data, Callback));
+				try {
+					this.stackedDataQueue.Enqueue(new StackCommandData(DisquuunExecuteType.ASYNC, command, data, Callback));
+				} catch (Exception e) {
+					Disquuun.Log("failed to start async:" + e);
+				}
 			}
 		}
 
