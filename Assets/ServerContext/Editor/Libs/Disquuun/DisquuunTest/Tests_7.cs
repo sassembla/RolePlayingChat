@@ -122,6 +122,8 @@ public partial class Tests {
 		disquuun.Disconnect(true);
 	}
 	
+	private object _7_1_GetJob1000Lock = new object();
+
 	public void _7_1_GetJob1000 (Disquuun disquuun) {
 		WaitUntil("_7_1_GetJob1000", () => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
 		
@@ -160,7 +162,7 @@ public partial class Tests {
 		if (!r1) return;
 		
 		TestLogger.Log("------------------------------ADDED", true);
-
+		
 
 		var gotJobDataIds = new List<string>();
 		
@@ -170,7 +172,7 @@ public partial class Tests {
 		for (var i = 0; i < addingJobCount; i++) {
 			disquuun.GetJob(new string[]{queueId}).Async(
 				(command, data) => {
-					lock (this) {
+					lock (_7_1_GetJob1000Lock) {
 						var jobDatas = DisquuunDeserializer.GetJob(data);
 						var jobIds = jobDatas.Select(j => j.jobId).ToList();
 						gotJobDataIds.AddRange(jobIds);
@@ -180,7 +182,10 @@ public partial class Tests {
 		}
 
 		var r2 = WaitUntil("r2 _7_1_GetJob1000", () => (gotJobDataIds.Count == addingJobCount), 10);
-		if (!r2) return;
+		if (!r2) {
+			TestLogger.Log("gotJobDataIds:" + gotJobDataIds.Count, true);
+			return;
+		}
 
 		w.Stop();
 		TestLogger.Log("_7_1_GetJob1000 w:" + w.ElapsedMilliseconds + " tick:" + w.ElapsedTicks);
@@ -251,9 +256,4 @@ public partial class Tests {
 		Assert("_7_1_0_GetJob1000by100Connection", addingJobCount, result, "result not match.");
 		disquuun.Disconnect(true);
 	}
-
-
-	// パイプライン版思いついた。Asyncとかに対して実施できそうな気がする。
-
-	// 予約みたいな概念か。
 }

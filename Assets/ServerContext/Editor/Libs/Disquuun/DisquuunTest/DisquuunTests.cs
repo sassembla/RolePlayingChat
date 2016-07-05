@@ -111,10 +111,10 @@ public partial class Tests {
 		tests.Add(_6_1_ExceededSocketNo100In2);
 		tests.Add(_6_2_ExceededSocketShouldStacked);
 		
-		// // benchmarks.
+		// benchmarks.
 		// tests.Add(_7_0_AddJob1000);
 		// tests.Add(_7_0_0_AddJob1000by100Connectoion);
-		// tests.Add(_7_1_GetJob1000);
+		tests.Add(_7_1_GetJob1000);
 		// tests.Add(_7_1_0_GetJob1000by100Connection);
 
 		// // data size bounding case.

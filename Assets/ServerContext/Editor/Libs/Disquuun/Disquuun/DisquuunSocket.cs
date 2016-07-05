@@ -208,6 +208,11 @@ namespace DisquuunCore {
 			default pooled socket + disposable socket shared 
 		*/
 		private void StartReceiveAndSendDataAsync (DisqueCommand command, byte[] data, Func<DisqueCommand, DisquuunResult[], bool> Callback) {
+			if (data == null) {
+				Disquuun.Log("data is null. fmmmm..", true);
+				throw new Exception("data is null.");
+			}
+
 			try {
 			// ready for receive.
 			socketToken.readableDataLength = 0;
@@ -222,7 +227,8 @@ namespace DisquuunCore {
 			try {
 				socketToken.sendArgs.SetBuffer(data, 0, data.Length);
 			} catch (Exception e) {
-				SocketClosed(this, "failed to set buffer. ", e);
+				// dataがnullなときがある。なるほどな〜〜っておい、、、
+				SocketClosed(this, "failed to set buffer. socketToken:" + socketToken + " socketToken.sendArgs:" + socketToken.sendArgs + " data:" + data, e);
 				Disquuun.Log("StartReceiveAndSendDataAsync before error,", true);
 				Disquuun.Log("sendArgs setBuffer error:" + e.Message);
 
@@ -318,10 +324,7 @@ namespace DisquuunCore {
 								}
 
 								token.socketState = SocketState.OPENED;
-
-								Disquuun.Log("sended1", true);
 								External.InvokeAsync(this);
-								Disquuun.Log("sended2", true);
 								return;
 							}
 						}
@@ -425,12 +428,7 @@ namespace DisquuunCore {
 						}
 						case SocketState.SENDED: {
 							token.socketState = SocketState.OPENED;
-
-							Disquuun.Log("received1", true);
-							
 							External.InvokeAsync(this);
-							
-							Disquuun.Log("received2", true);
 							break;
 						}
 						default: {
@@ -533,10 +531,10 @@ namespace DisquuunCore {
 		public readonly byte[] data;
 		public readonly Func<DisqueCommand, DisquuunResult[], bool> Callback;
 		
-		public StackCommandData (DisquuunExecuteType executeType, DisqueCommand command, byte[] data, Func<DisqueCommand, DisquuunResult[], bool> Callback) {
+		public StackCommandData (DisquuunExecuteType executeType, DisqueCommand command, byte[] dataSource, Func<DisqueCommand, DisquuunResult[], bool> Callback) {
 			this.executeType = executeType;
 			this.command = command;
-			this.data = data;
+			this.data = dataSource;
 			this.Callback = Callback;
 		}
 	}
@@ -555,7 +553,9 @@ namespace DisquuunCore {
 		}
 
 		public virtual void Async (DisqueCommand command, byte[] data, Func<DisqueCommand, DisquuunResult[], bool> Callback) {
-			lock (stackLockObject) this.stackedDataQueue.Enqueue(new StackCommandData(DisquuunExecuteType.ASYNC, command, data, Callback));
+			lock (stackLockObject) {
+				this.stackedDataQueue.Enqueue(new StackCommandData(DisquuunExecuteType.ASYNC, command, data, Callback));
+			}
 		}
 
 		public virtual void Loop (DisqueCommand command, byte[] data, Func<DisqueCommand, DisquuunResult[], bool> Callback) {

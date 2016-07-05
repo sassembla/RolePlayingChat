@@ -124,10 +124,13 @@ namespace DisquuunCore {
 
 		public void OnReloaded (DisquuunSocket reloadedSocket) {
 			lock (lockObject) {
-				if (reloadedSocket.IsChoosable()) {
-					reloadedSocket.SetBusy();
-					if (0 < stackSocket.stackedDataQueue.Count) {
+				if (0 < stackSocket.stackedDataQueue.Count) {
+					if (reloadedSocket.IsChoosable()) {
+						reloadedSocket.SetBusy();
+
 						var commandAndData = stackSocket.stackedDataQueue.Dequeue();
+						if (commandAndData.data == null) Disquuun.Log("OnReloaded data is null.", true);
+						if (commandAndData.data.Length == 0) Disquuun.Log("OnReloaded len = 0.", true); 
 						switch (commandAndData.executeType) {
 							case DisquuunExecuteType.ASYNC: {
 								reloadedSocket.Async(commandAndData.command, commandAndData.data, commandAndData.Callback);
@@ -208,7 +211,7 @@ namespace DisquuunCore {
 						return socket;
 					}
 				}
-
+				
 				return stackSocket;
 			}
 		}
