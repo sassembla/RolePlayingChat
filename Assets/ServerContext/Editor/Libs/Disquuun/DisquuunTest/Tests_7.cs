@@ -291,7 +291,10 @@ public partial class Tests {
 						var jobIds = jobDatas.Select(j => j.jobId).ToList();
 						gotJobDataIds.AddRange(jobIds);
 
-						if (gotJobDataIds.Count == addingJobCount) return false;
+						if (gotJobDataIds.Count == addingJobCount) {
+							w.Stop();
+							return false;
+						}
 						return true; 
 					}
 				}
@@ -299,7 +302,11 @@ public partial class Tests {
 		}
 		
 		WaitUntil("_7_2_GetJob1000byLoop", () => (gotJobDataIds.Count == addingJobCount), 10);
-		w.Stop();
+		WaitUntil("_7_2_GetJob1000byLoop", () => (0 < disquuun.AvailableSocketNum()), 10);
+
+		TestLogger.Log("_7_2_GetJob1000byLoop w:" + w.ElapsedMilliseconds + " tick:" + w.ElapsedTicks);
+		// この時点でsyncがつかえないの、おかしい。使えるスロット数を返すメソッドが必要か。
+		
 
 		var result = DisquuunDeserializer.FastAck(disquuun.FastAck(gotJobDataIds.ToArray()).DEPRICATED_Sync());
 		

@@ -116,7 +116,7 @@ public partial class Tests {
 		tests.Add(_7_0_0_AddJob1000by100Connectoion);
 		tests.Add(_7_1_GetJob1000);
 		tests.Add(_7_1_0_GetJob1000by100Connection);
-		// tests.Add(_7_2_GetJob1000byLoop);
+		tests.Add(_7_2_GetJob1000byLoop);
 
 		// data size bounding case.
 		tests.Add(_8_0_LargeSizeSendThenSmallSizeSendMakeEmitOnSendAfterOnReceived);
