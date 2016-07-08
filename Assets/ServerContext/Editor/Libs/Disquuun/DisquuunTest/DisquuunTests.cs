@@ -27,7 +27,7 @@ public class DisquuunTests {
 public partial class Tests {
 	public void RunTests () {
 		var tests = new List<Action<Disquuun>>();
-		
+		for (var i = 0; i < 10; i++) {
 		// // basement.
 		// tests.Add(_0_0_InitWith2Connection);
 		// tests.Add(_0_0_1_WaitOnOpen2Connection);
@@ -121,16 +121,17 @@ public partial class Tests {
 		// // data size bounding case.
 		// tests.Add(_8_0_LargeSizeSendThenSmallSizeSendMakeEmitOnSendAfterOnReceived);
 		// tests.Add(_8_1_LargeSizeSendThenSmallSizeSendLoopMakeEmitOnSendAfterOnReceived);
-
+		}
 
 		try {
 			TestLogger.Log("tests started.", true);
 			
 			var disquuunForResultInfo = new Disquuun(DisquuunTests.TestDisqueHostStr, DisquuunTests.TestDisquePortNum, 10240, 1);
 			WaitUntil("testRunner:", () => (disquuunForResultInfo.State() == Disquuun.ConnectionState.OPENED), 5);
-			
+			var i = 0;
 			foreach (var test in tests) {
-				var methodName = test.GetType();
+				var methodName = i.ToString() + test.GetType();
+				i++;
 
 				try {
 					var disquuun = new Disquuun(DisquuunTests.TestDisqueHostStr, DisquuunTests.TestDisquePortNum, 2020008, 2);// this buffer size is just for 100byte job x 10000 then receive 1 GetJob(count 1000).

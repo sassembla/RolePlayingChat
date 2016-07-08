@@ -137,6 +137,7 @@ namespace DisquuunCore {
 			DEPRECATED. only use for testing.
 		*/
 		public override DisquuunResult[] DEPRECATED_Sync (DisqueCommand command, byte[] data) {
+			try {
 			socketToken.socket.Send(data);
 			
 			var currentLength = 0;
@@ -174,6 +175,10 @@ namespace DisquuunCore {
 				socketToken.socketState = SocketState.OPENED;
 				return scanResult.data;
 			// }
+			}catch (Exception e) {
+				Disquuun.Log("e:" + e, true);
+				throw e;
+			}
 		}
 		
 		/**
@@ -278,6 +283,7 @@ namespace DisquuunCore {
 		}
 		
 		private void OnSend (object unused, SocketAsyncEventArgs args) {
+			try {
 			switch (args.SocketError) {
 				case SocketError.Success: {
 					var token = args.UserToken as SocketToken;
@@ -316,6 +322,9 @@ namespace DisquuunCore {
 					// }
 					return;
 				}
+			}
+			} catch (Exception e) {
+				Disquuun.Log("OnSend e:" + e, true);
 			}
 		}
 
@@ -379,8 +388,20 @@ namespace DisquuunCore {
 							token.receiveArgs.SetBuffer(token.receiveBuffer, 0, token.receiveBuffer.Length);
 							if (!token.socket.ReceiveAsync(token.receiveArgs)) OnReceived(token.socket, token.receiveArgs);
 							
-							token.sendArgs.SetBuffer(token.currentSendingBytes, 0, token.currentSendingBytes.Length);
+							try {
+								token.sendArgs.SetBuffer(token.currentSendingBytes, 0, token.currentSendingBytes.Length);
+							} catch (Exception e) {
+								// Disquuun.Log("OnReceived e:" + e, true);
+								var sendArgs = new SocketAsyncEventArgs();
+								sendArgs.RemoteEndPoint = token.receiveArgs.RemoteEndPoint;
+								sendArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnSend);
+								sendArgs.UserToken = token;
+								token.sendArgs = sendArgs;
+								token.sendArgs.SetBuffer(token.currentSendingBytes, 0, token.currentSendingBytes.Length);
+							}
+
 							if (!token.socket.SendAsync(token.sendArgs)) OnSend(token.socket, token.sendArgs);
+
 							break;
 						}
 						default: {
