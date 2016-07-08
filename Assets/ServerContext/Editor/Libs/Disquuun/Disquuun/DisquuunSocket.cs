@@ -382,8 +382,7 @@ namespace DisquuunCore {
 							
 							try {
 								token.sendArgs.SetBuffer(token.currentSendingBytes, 0, token.currentSendingBytes.Length);
-							} catch (Exception e) {
-								// Disquuun.Log("OnReceived e:" + e, true);
+							} catch {
 								var sendArgs = new SocketAsyncEventArgs();
 								sendArgs.RemoteEndPoint = token.receiveArgs.RemoteEndPoint;
 								sendArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnSend);
