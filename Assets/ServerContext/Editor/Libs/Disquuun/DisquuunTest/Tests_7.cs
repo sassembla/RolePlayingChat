@@ -283,31 +283,28 @@ public partial class Tests {
 
 		var w = new Stopwatch();
 		w.Start();
-		for (var i = 0; i < addingJobCount; i++) {
-			disquuun.GetJob(new string[]{queueId}).Loop(
-				(command, data) => {
-					lock (_7_2_GetJob1000byLoopLockObject) {
-						var jobDatas = DisquuunDeserializer.GetJob(data);
-						var jobIds = jobDatas.Select(j => j.jobId).ToList();
-						gotJobDataIds.AddRange(jobIds);
 
-						if (gotJobDataIds.Count == addingJobCount) {
-							w.Stop();
-							return false;
-						}
-						return true; 
+		disquuun.GetJob(new string[]{queueId}).Loop(
+			(command, data) => {
+				lock (_7_2_GetJob1000byLoopLockObject) {
+					var jobDatas = DisquuunDeserializer.GetJob(data);
+					var jobIds = jobDatas.Select(j => j.jobId).ToList();
+					gotJobDataIds.AddRange(jobIds);
+
+					if (gotJobDataIds.Count == addingJobCount) {
+						w.Stop();
+						return false;
 					}
+					return true; 
 				}
-			);
-		}
+			}
+		);
 		
-		WaitUntil("_7_2_GetJob1000byLoop", () => (gotJobDataIds.Count == addingJobCount), 10);
-		WaitUntil("_7_2_GetJob1000byLoop", () => (0 < disquuun.AvailableSocketNum()), 10);
+		WaitUntil("_7_2_GetJob1000byLoop 1", () => (gotJobDataIds.Count == addingJobCount), 10);
+		WaitUntil("_7_2_GetJob1000byLoop 2", () => (0 < disquuun.AvailableSocketNum()), 10);
 
 		TestLogger.Log("_7_2_GetJob1000byLoop w:" + w.ElapsedMilliseconds + " tick:" + w.ElapsedTicks);
-		// この時点でsyncがつかえないの、おかしい。使えるスロット数を返すメソッドが必要か。
 		
-
 		var result = DisquuunDeserializer.FastAck(disquuun.FastAck(gotJobDataIds.ToArray()).DEPRICATED_Sync());
 		
 		Assert("_7_2_GetJob1000byLoop", addingJobCount, result, "result not match.");

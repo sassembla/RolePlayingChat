@@ -16,15 +16,9 @@ namespace DisquuunCore {
 		
 		private SocketToken socketToken;
 		
-		public SocketState State () {
-			// lock (socketLockObject) {
-				if (socketToken == null) return SocketState.NONE;
-				return socketToken.socketState;
-			// }
-		}
-		
 		public bool IsChoosable () {
 			// lock (socketLockObject) {
+				if (socketToken == null) return false;
 				if (socketToken.socketState == SocketState.OPENED) return true;
 				return false;
 			// }
@@ -210,11 +204,6 @@ namespace DisquuunCore {
 			default pooled socket + disposable socket shared 
 		*/
 		private void StartReceiveAndSendDataAsync (DisqueCommand command, byte[] data, Func<DisqueCommand, DisquuunResult[], bool> Callback) {
-			if (data == null) {
-				Disquuun.Log("data is null. fmmmm..", true);
-				throw new Exception("data is null.");
-			}
-
 			try {
 			// ready for receive.
 			socketToken.readableDataLength = 0;
@@ -229,8 +218,6 @@ namespace DisquuunCore {
 			try {
 				socketToken.sendArgs.SetBuffer(data, 0, data.Length);
 			} catch (Exception e) {
-				// dataがnullなときがある。なるほどな〜〜っておい、、、
-				SocketClosed(this, "failed to set buffer. socketToken:" + socketToken + " socketToken.sendArgs:" + socketToken.sendArgs + " data:" + data, e);
 				Disquuun.Log("StartReceiveAndSendDataAsync before error,", true);
 				Disquuun.Log("sendArgs setBuffer error:" + e.Message);
 
@@ -252,7 +239,6 @@ namespace DisquuunCore {
 			handlers
 		*/
 		private void OnConnect (object unused, SocketAsyncEventArgs args) {
-			try {
 			var token = (SocketToken)args.UserToken;
 			switch (token.socketState) {
 				case SocketState.OPENING: {
@@ -273,9 +259,6 @@ namespace DisquuunCore {
 					throw new Exception("socket state does not correct:" + token.socketState);
 				}
 			}
-			} catch (Exception e) {
-				SocketClosed(this, "failed to connect.", e);
-			}
 		}
 
 		private void OnClosed (object unused, SocketAsyncEventArgs args) {
@@ -295,7 +278,6 @@ namespace DisquuunCore {
 		}
 		
 		private void OnSend (object unused, SocketAsyncEventArgs args) {
-			try {
 			switch (args.SocketError) {
 				case SocketError.Success: {
 					var token = args.UserToken as SocketToken;
@@ -335,16 +317,11 @@ namespace DisquuunCore {
 					return;
 				}
 			}
-			} catch (Exception e) {
-				Disquuun.Log("OnSend error, e:" + e.Message, true);
-				SocketClosed(this, "failed to send.", e);
-			}
 		}
 
 		
 		
 		private void OnReceived (object unused, SocketAsyncEventArgs args) {
-			try {
 			var token = (SocketToken)args.UserToken;
 			if (args.SocketError != SocketError.Success) { 
 				switch (token.socketState) {
@@ -472,9 +449,6 @@ namespace DisquuunCore {
 			token.receiveArgs.SetBuffer(token.receiveBuffer, token.readableDataLength, receivableCount);
 
 			if (!token.socket.ReceiveAsync(token.receiveArgs)) OnReceived(token.socket, token.receiveArgs);
-			} catch (Exception e) {
-				SocketClosed(this, "failed to receive2.", e);
-			}
 		}
 
 		public void Disconnect () {

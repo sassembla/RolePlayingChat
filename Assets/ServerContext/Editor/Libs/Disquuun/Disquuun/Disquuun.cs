@@ -125,9 +125,7 @@ namespace DisquuunCore {
 						reloadedSocket.SetBusy();
 
 						var commandAndData = stackSocket.Dequeue();
-						if (commandAndData.data == null) {
-							Disquuun.Log("stacked byte data is null.", true);
-						}
+						
 						if (commandAndData.data.Length == 0) Disquuun.Log("OnReloaded len = 0.", true); 
 						switch (commandAndData.executeType) {
 							case DisquuunExecuteType.ASYNC: {
@@ -156,7 +154,7 @@ namespace DisquuunCore {
 				for (var i = 0; i < socketPool.Length; i++) {
 					var socket = socketPool[i];
 					if (socket == null) continue;
-					if (socket.State() == DisquuunSocket.SocketState.OPENED) availableSocketCount++;
+					if (socket.IsChoosable()) availableSocketCount++;
 				}
 
 				if (availableSocketCount == minConnectionCount) {
@@ -211,7 +209,7 @@ namespace DisquuunCore {
 				for (var i = 0; i < socketPool.Length; i++) {
 					var socket = socketPool[i];
 					if (socket == null) continue;
-					if (socket.State() == DisquuunSocket.SocketState.OPENED) availableSocketCount++;
+					if (socket.IsChoosable()) availableSocketCount++;
 				}
 				return availableSocketCount;
 			}
