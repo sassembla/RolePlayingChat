@@ -27,7 +27,7 @@ public class DisquuunTests {
 public partial class Tests {
 	public void RunTests () {
 		var tests = new List<Action<Disquuun>>();
-		for (var i = 0; i < 10; i++) {
+		for (var i = 0; i < 1; i++) {
 		// basement.
 		tests.Add(_0_0_InitWith2Connection);
 		tests.Add(_0_0_1_WaitOnOpen2Connection);
