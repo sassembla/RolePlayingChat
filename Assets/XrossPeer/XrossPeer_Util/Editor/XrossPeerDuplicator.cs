@@ -1,5 +1,3 @@
-using XrossPeerUtility;
-
 using UnityEngine;
 using UnityEditor;
 using System.IO;
@@ -11,58 +9,10 @@ using System;
 
 
 namespace XrossPeerUtility {
-		
-	/*
-		このコードは、全体のコントローラに成る。
-		C#のイニシャライザも兼ねちゃうので、なるべくUnity独自の機構からは切り離したい。ハンドラのアイデアを考えよう。
-		この部分はあくまでもイニシャライザで、ハンドラとかを保持したほうが良いのかな。
-		どうセットするのが良いのかな？
-	*/
-	[InitializeOnLoad] public class XrossPeerInitializer {
-		private static XrossPeerInitializer initializer;
-		
-		static XrossPeerInitializer () {// called by Unity.
-			initializer = new XrossPeerInitializer();
-		}
-		
-		private XrossPeerInitializer () {
-			EditorApplication.playmodeStateChanged += DetectPlayStart;
-			EditorApplication.update += DetectCompileStart;
-
-			// handler for setup XrossPeer.
-			Setup();
-		}
-		
-		private void DetectPlayStart () {
-			if (!EditorApplication.isPlaying && EditorApplication.isPlayingOrWillChangePlaymode) {
-				EditorApplication.playmodeStateChanged -= DetectPlayStart;
-				initializer.Teardown();
-				// DisquuunTests.Stop();
-			}
-		}
-		
-		private void DetectCompileStart () {
-			if (EditorApplication.isCompiling) {
-				EditorApplication.update -= DetectCompileStart;
-				
-				initializer.Teardown();
-			}
-		}
-		
-		private Action Setup = () => {
-			// 特定のコードを書く感じかな〜〜外部から扱えると良いんだが。GUIでPeer間のコピーとかを実現できると良いと思うんだけどな。
-		};
-		
-		public void Teardown () {
-			
-		}
-	}
-
-
 	public class XrossPeerDuplicator {
 		public const string XROSSPEER_NOT_PATH_DELIM = "\\";
 		public const string XROSSPEER_PATH_DELIM = "/";
-
+		
 		[MenuItem ("XrossPeer/Compare", false, 1)] static void DoCompare () {
 			Compare();
 		} 

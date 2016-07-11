@@ -68,6 +68,21 @@ public class OnExecute : MonoBehaviour {
 				MainThreadDispatcher.Post(
 					(b) => {
 						Debug.LogError("connected.");
+						XrossPeerLogger.XrossPeer.SetupLogger("client");//あーー自分で呼び出すの微妙だな、、このコードがどっかに生まれてしまう。どっかに集合を書き出しといて参照したほうが良い気がする。というか
+						// 勝手に書きかわる前提のほうが良いのか。バインド自体はできたんで、そっから考えよう。
+						// あと実機に入っちゃった場合どうしよう。ifdef書いたら他の環境で詰むなぁ、、、
+
+						// ない方が良いケースでどう除外するか、っていうの考え、、たいな、、Editorに居るとかだと自然と守れるんだよな。
+
+						// 要件は、
+						/*
+							・XrossPeer内にSetupLoggerがあると、問題が出る(identityを含んだ値がコピーされてしまう)
+								なので、中にあったら警告とか出さないといけない。
+
+							・XrossPeer外にSetupがあるのを推奨したいが。そうとしかできない形を作れればいいんだよな、、、
+								うん、Unityなら何とかなるな。っていうかまあ、、いいか、、頑張れって言えば良いや。
+						*/
+						XrossPeerLogger.XrossPeer.Log("con!!");
 					},
 					this
 				);
@@ -416,6 +431,7 @@ public class OnExecute : MonoBehaviour {
 		
 		context.auto.Update(clientFrame, players);
 	}
+
 	
 	private string inputMessage;
 	

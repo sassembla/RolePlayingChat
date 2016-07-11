@@ -8,7 +8,7 @@ namespace XrossPeerLogger {
 		
 		private static XrossPeer xrossPeer;
 		
-		public static void SetupLog (string peerIdentity) { 
+		public static void SetupLogger (string peerIdentity) { 
 			xrossPeer = new XrossPeer(peerIdentity);
 		}
 
@@ -17,15 +17,17 @@ namespace XrossPeerLogger {
 		}
 		
 		public static void Log (string message) {
-			if (string.IsNullOrEmpty(xrossPeer.peerIdentity)) throw new Exception("should set peer identity with XrossPeer.Setup(PEER_IDENTITY)");
+			if (xrossPeer == null || string.IsNullOrEmpty(xrossPeer.peerIdentity)) throw new Exception("should set peer identity with XrossPeer.Setup(PEER_IDENTITY)");
 			xrossPeer.WriteLog(message);
 		}
 		
 		public static void LogWarning (string message) {
+			if (xrossPeer == null || string.IsNullOrEmpty(xrossPeer.peerIdentity)) throw new Exception("should set peer identity with XrossPeer.Setup(PEER_IDENTITY)");
 			xrossPeer.WriteLog("WARNING:" + message);
 		}
 		
 		public static void LogError (string message) {
+			if (xrossPeer == null || string.IsNullOrEmpty(xrossPeer.peerIdentity)) throw new Exception("should set peer identity with XrossPeer.Setup(PEER_IDENTITY)");
 			xrossPeer.WriteLog("ERROR:" + message);
 			xrossPeer.WriteLog("stacktrace:" + Environment.StackTrace);// これつかえないんじゃねーかな、、
 		}
