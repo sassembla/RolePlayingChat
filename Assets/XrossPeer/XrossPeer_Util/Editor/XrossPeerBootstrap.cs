@@ -1,14 +1,15 @@
 using UnityEditor;
 using System;
+using UnityEngine;
 
 /**
 	ブートストラップ設定できたんで、あとはここに対してどう干渉するか。
-	
+
 */
 namespace XrossPeerUtility {
 
     /*
-		this method will call when Unity compiled Editor code.
+		this method will be called by Unity when Unity compiled Editor code.
 	*/
     [InitializeOnLoad] public class XrossPeerBootstrap {
 		private static XrossPeerBootstrap bootstrap;
