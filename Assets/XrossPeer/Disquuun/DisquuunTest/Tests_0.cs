@@ -139,14 +139,14 @@ public partial class Tests {
 	}
 	
 	public void _0_2_SyncInfo (Disquuun disquuun) {
-		WaitUntil("", () => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		WaitUntil("_0_2_SyncInfo", () => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
 		var data = disquuun.Info().DEPRICATED_Sync();
 		var infoStr = DisquuunDeserializer.Info(data).rawString;
 		Assert("_0_2_SyncInfo", !string.IsNullOrEmpty(infoStr), "empty.");
 	}
 	
 	public void _0_3_SyncInfoTwice (Disquuun disquuun) {
-		WaitUntil("", () => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		WaitUntil("_0_3_SyncInfoTwice", () => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
 		
 		{
 			var datas = disquuun.Info().DEPRICATED_Sync();
@@ -173,7 +173,7 @@ public partial class Tests {
 		
 		WaitUntil("_0_4_AsyncInfo", () => !string.IsNullOrEmpty(infoStr), 5);
 	}
-	
+
 	public void _0_5_LoopInfo_Once (Disquuun disquuun) {
 		WaitUntil("_0_5_LoopInfo_Once", () => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
 		
@@ -188,6 +188,8 @@ public partial class Tests {
 		WaitUntil("_0_5_LoopInfo_Once", () => !string.IsNullOrEmpty(infoStr), 5);
 	}
 	
+	private object _0_6_LoopInfo_TwiceObject = new object();
+
 	public void _0_6_LoopInfo_Twice (Disquuun disquuun) {
 		WaitUntil("_0_6_LoopInfo_Twice", () => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
 		
@@ -195,7 +197,7 @@ public partial class Tests {
 		disquuun.Info().Loop(
 			(DisqueCommand command, DisquuunResult[] datas) => {
 				var infoStr = DisquuunDeserializer.Info(datas).rawString;
-				infos.Add(infoStr);
+				lock (_0_6_LoopInfo_TwiceObject) infos.Add(infoStr);
 				if (infos.Count < 2) return true;
 				return false;
 			} 
@@ -203,6 +205,8 @@ public partial class Tests {
 		
 		WaitUntil("_0_6_LoopInfo_Twice", () => (infos.Count == 2), 5);
 	}
+
+	private object _0_7_LoopInfo_100Object = new object();
 	
 	public void _0_7_LoopInfo_100 (Disquuun disquuun) {
 		WaitUntil("_0_7_LoopInfo_100", () => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
@@ -211,7 +215,7 @@ public partial class Tests {
 		disquuun.Info().Loop(
 			(DisqueCommand command, DisquuunResult[] datas) => {
 				var infoStr = DisquuunDeserializer.Info(datas).rawString;
-				infos.Add(infoStr);
+				lock (_0_7_LoopInfo_100Object) infos.Add(infoStr);
 				if (infos.Count < 100) return true;
 				return false;
 			} 
@@ -219,4 +223,57 @@ public partial class Tests {
 		
 		WaitUntil("_0_7_LoopInfo_100", () => (infos.Count == 100), 5);		
 	}
+
+	// public void _0_8_Pipeline (Disquuun disquuun) {
+	// 	WaitUntil("_0_8_Pipeline", () => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+
+	// 	var gotInfo = false;
+
+	// 	disquuun.Pipeline(disquuun.Info());
+	// 	disquuun.ExecutePipeline( 
+	// 		(command, data) => {
+	// 			gotInfo = true;
+	// 		}
+	// 	);
+
+	// 	WaitUntil("_0_8_Pipeline", () => gotInfo, 5);
+	// }
+
+	// private object _0_9_PipelineCommandsObject = new object();
+
+	// public void _0_9_PipelineCommands (Disquuun disquuun) {
+	// 	WaitUntil("_0_9_PipelineCommands", () => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+
+	// 	var infoCount = 0;
+
+	// 	disquuun.Pipeline(disquuun.Info(), disquuun.Info());
+
+	// 	disquuun.ExecutePipeline( 
+	// 		(command, data) => {
+	// 			lock (_0_9_PipelineCommandsObject) infoCount++;
+	// 		}
+	// 	);
+
+	// 	WaitUntil("_0_9_PipelineCommands", () => (infoCount == 2), 5);
+	// }
+
+	// private object _0_10_MultiplePipelinesObject = new object(); 
+	
+	// public void _0_10_MultiplePipelines (Disquuun disquuun) {
+	// 	WaitUntil("_0_10_MultiplePipelines", () => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+
+	// 	var infoCount = 0;
+
+	// 	disquuun.Pipeline(disquuun.Info());
+	// 	disquuun.Pipeline(disquuun.Info());
+	// 	disquuun.Pipeline(disquuun.Info());
+
+	// 	disquuun.ExecutePipeline( 
+	// 		(command, data) => {
+	// 			lock (_0_10_MultiplePipelinesObject) infoCount++;
+	// 		}
+	// 	);
+
+	// 	WaitUntil("_0_9_PipelineCommands", () => (infoCount == 3), 5);
+	// }
 }

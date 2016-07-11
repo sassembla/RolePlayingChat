@@ -282,8 +282,8 @@ namespace DisquuunCore {
 			
 			return new DisquuunInput(DisqueCommand.NACK, bytes, socket);
 		}
-		
-		public DisquuunInput Info () {
+
+        public DisquuunInput Info () {
 			var data = DisquuunAPI.Info();
 			
 			var socket = ChooseAvailableSocket();
@@ -378,7 +378,17 @@ namespace DisquuunCore {
 			
 			return new DisquuunInput(DisqueCommand.PAUSE, bytes, socket);
 		}
-		
+
+		/*
+			pipelines
+		*/
+		public void Pipeline(params DisquuunInput[] disquuunInput) {
+            Disquuun.Log("全socketをpipelineに置き換えたりしたい。もっと綺麗にやる、みたいな方法はあるのかな、、");
+        }
+
+		/*
+			utils
+		*/
 		public static void Log (string message, bool write=false) {
 			TestLogger.Log(message, write);
 		}
