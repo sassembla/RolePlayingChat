@@ -10,7 +10,7 @@ using DisquuunCore.Deserialize;
 
 public partial class Tests {
 	public void _0_0_InitWith2Connection (Disquuun disquuun) {
-		WaitUntil("", () => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		WaitUntil("_0_0_InitWith2Connection", () => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
 	}
 	
 	public void _0_0_1_WaitOnOpen2Connection (Disquuun disquuun) {
@@ -115,27 +115,21 @@ public partial class Tests {
 		disquuun.Disconnect();
 	}
 
+	private object _0_1_ConnectionFailedWithNoDisqueServerObject = new object();
     public void _0_1_ConnectionFailedWithNoDisqueServer (Disquuun disquuun) {
-		
+		WaitUntil("_0_1_ConnectionFailedWithNoDisqueServer", () => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
 		Exception e = null;
-		Action<Exception> Failed = (Exception e2) => {
-			// set error to param,
-			e = e2;
-			// TestLogger.Log("e:" + e);
-		};
 		
-		var disquuun2 = new Disquuun(DisquuunTests.TestDisqueHostStr, 8888, 1024, 1, 
+		var disquuun2 = new Disquuun(DisquuunTests.TestDisqueHostStr, DisquuunTests.TestDisqueDummyPortNum, 1024, 1, 
 			conId => {},
 			(info, e2) => {
 				// set error to param,
-				e = e2;
+				lock (_0_1_ConnectionFailedWithNoDisqueServerObject) e = e2;
 				// TestLogger.Log("e:" + e);
 			}
 		);
 		
 		WaitUntil("_0_1_ConnectionFailedWithNoDisqueServer", () => (e != null), 1);
-		
-		disquuun2.Disconnect();
 	}
 	
 	public void _0_2_SyncInfo (Disquuun disquuun) {
@@ -224,56 +218,18 @@ public partial class Tests {
 		WaitUntil("_0_7_LoopInfo_100", () => (infos.Count == 100), 5);		
 	}
 
-	// public void _0_8_Pipeline (Disquuun disquuun) {
-	// 	WaitUntil("_0_8_Pipeline", () => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+	public void _0_8_Pipeline (Disquuun disquuun) {
+		WaitUntil("_0_8_Pipeline", () => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
 
-	// 	var gotInfo = false;
+		var gotInfo = false;
 
-	// 	disquuun.Pipeline(disquuun.Info());
-	// 	disquuun.ExecutePipeline( 
-	// 		(command, data) => {
-	// 			gotInfo = true;
-	// 		}
-	// 	);
-
-	// 	WaitUntil("_0_8_Pipeline", () => gotInfo, 5);
-	// }
-
-	// private object _0_9_PipelineCommandsObject = new object();
-
-	// public void _0_9_PipelineCommands (Disquuun disquuun) {
-	// 	WaitUntil("_0_9_PipelineCommands", () => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
-
-	// 	var infoCount = 0;
-
-	// 	disquuun.Pipeline(disquuun.Info(), disquuun.Info());
-
-	// 	disquuun.ExecutePipeline( 
-	// 		(command, data) => {
-	// 			lock (_0_9_PipelineCommandsObject) infoCount++;
-	// 		}
-	// 	);
-
-	// 	WaitUntil("_0_9_PipelineCommands", () => (infoCount == 2), 5);
-	// }
-
-	// private object _0_10_MultiplePipelinesObject = new object(); 
+		disquuun.Pipeline(disquuun.Info()).Execute(
+			(command, data) => {
+				gotInfo = true;
+			}
+		);
 	
-	// public void _0_10_MultiplePipelines (Disquuun disquuun) {
-	// 	WaitUntil("_0_10_MultiplePipelines", () => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
 
-	// 	var infoCount = 0;
-
-	// 	disquuun.Pipeline(disquuun.Info());
-	// 	disquuun.Pipeline(disquuun.Info());
-	// 	disquuun.Pipeline(disquuun.Info());
-
-	// 	disquuun.ExecutePipeline( 
-	// 		(command, data) => {
-	// 			lock (_0_10_MultiplePipelinesObject) infoCount++;
-	// 		}
-	// 	);
-
-	// 	WaitUntil("_0_9_PipelineCommands", () => (infoCount == 3), 5);
-	// }
+		WaitUntil("_0_8_Pipeline", () => gotInfo, 5);
+	}
 }

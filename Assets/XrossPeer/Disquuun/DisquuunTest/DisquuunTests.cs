@@ -41,7 +41,7 @@ public partial class Tests {
 		tests.Add(_0_5_LoopInfo_Once);
 		tests.Add(_0_6_LoopInfo_Twice);
 		tests.Add(_0_7_LoopInfo_100);
-		// tests.Add(_0_8_Pipeline);
+		tests.Add(_0_8_Pipeline);
 		
 		// // sync apis. DEPRECATED.
 		// tests.Add(_1_0_AddJob_Sync);
@@ -123,7 +123,9 @@ public partial class Tests {
 		// tests.Add(_8_0_LargeSizeSendThenSmallSizeSendMakeEmitOnSendAfterOnReceived);
 		// tests.Add(_8_1_LargeSizeSendThenSmallSizeSendLoopMakeEmitOnSendAfterOnReceived);
 
-
+		tests.Add(_0_9_0_PipelineCommands);
+		tests.Add(_0_9_1_MultiplePipelines);
+		tests.Add(_0_9_2_MultipleCommandPipelines);
 		}
 
 		try {
@@ -151,7 +153,6 @@ public partial class Tests {
 					if (restJobCount != 0) TestLogger.Log("test:" + methodName + " rest job:" + restJobCount, true);
 					else TestLogger.Log("test:" + methodName + " passed. no job exists.", true);
 				} catch (Exception e) {
-					TestLogger.Log("before error...", true);
 					TestLogger.Log("test:" + methodName + " FAILED by exception:" + e, true);
 				}
 			}
@@ -159,7 +160,7 @@ public partial class Tests {
 			disquuunForResultInfo.Disconnect();
 			TestLogger.Log("tests end.", true);
 		} catch (Exception e) {
-			TestLogger.Log("tests failed:" + e.Message, true);
+			TestLogger.Log("tests failed:" + e, true);
 		}
 	}
 	
