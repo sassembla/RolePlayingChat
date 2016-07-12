@@ -350,11 +350,11 @@ namespace DisquuunCore {
 						var commandAndData = stackSocket.Dequeue(); 
 						switch (commandAndData.executeType) {
 							case DisquuunExecuteType.ASYNC: {
-								reloadedSocket.Async(commandAndData.commands[0], commandAndData.data, commandAndData.Callback);
+								reloadedSocket.Async(commandAndData.commands, commandAndData.data, commandAndData.Callback);
 								return;
 							}
 							case DisquuunExecuteType.LOOP: {
-								reloadedSocket.Loop(commandAndData.commands[0], commandAndData.data, commandAndData.Callback);
+								reloadedSocket.Loop(commandAndData.commands, commandAndData.data, commandAndData.Callback);
 								return;
 							}
 							case DisquuunExecuteType.PIPELINE: {

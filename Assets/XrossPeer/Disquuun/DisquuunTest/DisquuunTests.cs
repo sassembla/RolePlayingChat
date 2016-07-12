@@ -123,9 +123,9 @@ public partial class Tests {
 		// tests.Add(_8_0_LargeSizeSendThenSmallSizeSendMakeEmitOnSendAfterOnReceived);
 		// tests.Add(_8_1_LargeSizeSendThenSmallSizeSendLoopMakeEmitOnSendAfterOnReceived);
 
-		tests.Add(_0_9_0_PipelineCommands);
-		tests.Add(_0_9_1_MultiplePipelines);
-		tests.Add(_0_9_2_MultipleCommandPipelines);
+		// tests.Add(_0_9_0_PipelineCommands);
+		// tests.Add(_0_9_1_MultiplePipelines);
+		// tests.Add(_0_9_2_MultipleCommandPipelines);
 		}
 
 		try {

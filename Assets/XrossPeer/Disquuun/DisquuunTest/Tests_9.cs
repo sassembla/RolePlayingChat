@@ -61,17 +61,25 @@ public partial class Tests {
 			(command, data) => {
 				switch (command) {
 					case DisqueCommand.INFO: {
-						lock (_0_9_2_MultipleCommandPipelinesObject) infoCount++;
+						lock (_0_9_2_MultipleCommandPipelinesObject) {
+							TestLogger.Log("1", true);
+							infoCount++;
+						}
 						break;
 					}
 					case DisqueCommand.ADDJOB: {
-						lock (_0_9_2_MultipleCommandPipelinesObject) addedJobId = DisquuunDeserializer.AddJob(data); 
+						lock (_0_9_2_MultipleCommandPipelinesObject) {
+							TestLogger.Log("2", true);
+							addedJobId = DisquuunDeserializer.AddJob(data);
+						} 
 						break;
 					}
 					case DisqueCommand.GETJOB: {
 						lock (_0_9_2_MultipleCommandPipelinesObject) {
+							TestLogger.Log("3", true);
 							var gotJobDatas = DisquuunDeserializer.GetJob(data);
 							gotJobId = gotJobDatas[0].jobId;
+							disquuun.FastAck(new string[]{gotJobId}).DEPRICATED_Sync();
 						}
 						break;
 					}

@@ -53,7 +53,7 @@ namespace DisquuunCore {
 
 			public bool continuation;
 
-			public DisqueCommand[] currentCommands;
+			public Queue<DisqueCommand> currentCommands;
 			public byte[] currentSendingBytes;
 			
 			public Func<DisqueCommand, DisquuunCore.DisquuunResult[], bool> AsyncCallback;
@@ -159,7 +159,7 @@ namespace DisquuunCore {
 				currentLength = currentLength + available;
 				
 				scanResult = DisquuunAPI.ScanBuffer(command, socketToken.receiveBuffer, currentLength, socketId);
-				if (scanResult.cursor == currentLength) break;
+				if (scanResult.isDone) break;
 				
 				// continue reading data from socket.
 				// if need, prepare for next 1 byte.
@@ -180,10 +180,10 @@ namespace DisquuunCore {
 		/**
 			method for Async execution of specific Disque command.
 		*/
-		public override void Async (DisqueCommand command, byte[] data, Func<DisqueCommand, DisquuunResult[], bool> Callback) {
+		public override void Async (Queue<DisqueCommand> commands, byte[] data, Func<DisqueCommand, DisquuunResult[], bool> Callback) {
 			switch (socketToken.socketState) {
 				case SocketState.BUSY: {
-					StartReceiveAndSendDataAsync(new DisqueCommand[]{command}, data, Callback);
+					StartReceiveAndSendDataAsync(commands, data, Callback);
 					break;
 				}
 			}
@@ -192,10 +192,10 @@ namespace DisquuunCore {
 		/**
 			method for start Looping of specific Disque command.
 		*/
-		public override void Loop (DisqueCommand command, byte[] data, Func<DisqueCommand, DisquuunResult[], bool> Callback) {
+		public override void Loop (Queue<DisqueCommand> commands, byte[] data, Func<DisqueCommand, DisquuunResult[], bool> Callback) {
 			switch (socketToken.socketState) {
 				case SocketState.BUSY: {
-					StartReceiveAndSendDataAsync(new DisqueCommand[]{command}, data, Callback);
+					StartReceiveAndSendDataAsync(commands, data, Callback);
 					break;
 				}
 			}
@@ -204,7 +204,7 @@ namespace DisquuunCore {
 		/**
 			method for execute pipelined commands.
 		*/
-		public override void Execute (DisqueCommand[] commands, byte[] wholeData, Func<DisqueCommand, DisquuunResult[], bool> Callback) {
+		public override void Execute (Queue<DisqueCommand> commands, byte[] wholeData, Func<DisqueCommand, DisquuunResult[], bool> Callback) {
 			switch (socketToken.socketState) {
 				case SocketState.BUSY: {
 					StartReceiveAndSendDataAsync(commands, wholeData, Callback);
@@ -217,7 +217,7 @@ namespace DisquuunCore {
 		/*
 			default pooled socket + disposable socket shared 
 		*/
-		private void StartReceiveAndSendDataAsync (DisqueCommand[] commands, byte[] data, Func<DisqueCommand, DisquuunResult[], bool> Callback) {
+		private void StartReceiveAndSendDataAsync (Queue<DisqueCommand> commands, byte[] data, Func<DisqueCommand, DisquuunResult[], bool> Callback) {
 			try {
 			// ready for receive.
 			socketToken.readableDataLength = 0;
@@ -374,17 +374,26 @@ namespace DisquuunCore {
 			
 			// update as read completed.
 			token.readableDataLength = token.readableDataLength + bytesAmount;
-			さあ、最後の戦場だ。
-			var result = DisquuunAPI.ScanBuffer(token.currentCommand, token.receiveBuffer, token.readableDataLength, socketId);
+			
+			/*
+				パイプラインの処理の場合って、
+				・複数のコマンドがある
+				・一回のバッファで途中のコマンドまでが完了する可能性がある
+				っていう感じか。でもまずは種類で分けちゃおう。
+			 */
+			
+			Receive(token);
+		}
 
-			// data is totally read and executable.
-			if (result.cursor == token.readableDataLength) {
-				var continuation = token.AsyncCallback(token.currentCommand, result.data);
+		private void Receive (SocketToken token) {
+			var currentCommand = token.currentCommands.Peek();
+			var result = DisquuunAPI.ScanBuffer(currentCommand, token.receiveBuffer, token.readableDataLength, socketId);
 
+			if (result.isDone && result.cursor == token.readableDataLength) {
 				// update continuation status.
-				token.continuation = continuation;
+				token.continuation = token.AsyncCallback(currentCommand, result.data);
 
-				if (continuation) {
+				if (token.continuation) {
 					switch (token.socketState) {
 						case SocketState.BUSY: {
 							token.socketState = SocketState.RECEIVED;
@@ -438,8 +447,18 @@ namespace DisquuunCore {
 				return;
 			}
 
+			// 一個のTCP packに対して、一個のresponseがでかい、っていう場合の対処は下記になる。
+			// 予想できるサイズに対してArrayを大きくする部分はまあ、これで合ってるしほかでも使える。
+
 			// not yet received all data.
 			// continue receiving.
+
+			/*
+				get readable size of already got data for next read=OnReceived.
+				resize if need.
+			*/
+			var nextAdditionalBytesLength = token.socket.Available;
+			if (token.readableDataLength == token.receiveBuffer.Length) Array.Resize(ref token.receiveBuffer, token.receiveArgs.Buffer.Length + nextAdditionalBytesLength);
 
 			/*
 				note that,
@@ -467,11 +486,6 @@ namespace DisquuunCore {
 				
 				socket.SetBuffer([bufferAsPointer], additionalDataOffset, receiveSizeLimit)
 			*/
-			
-			var nextAdditionalBytesLength = token.socket.Available;
-			
-			if (token.readableDataLength == token.receiveBuffer.Length) Array.Resize(ref token.receiveBuffer, token.receiveArgs.Buffer.Length + nextAdditionalBytesLength);
-			
 			var receivableCount = token.receiveBuffer.Length - token.readableDataLength;
 			token.receiveArgs.SetBuffer(token.receiveBuffer, token.readableDataLength, receivableCount);
 
@@ -505,11 +519,11 @@ namespace DisquuunCore {
 
 	public struct StackCommandData {
 		public readonly DisquuunExecuteType executeType;
-		public readonly DisqueCommand[] commands;
+		public readonly Queue<DisqueCommand> commands;
 		public readonly byte[] data;
 		public readonly Func<DisqueCommand, DisquuunResult[], bool> Callback;
 		
-		public StackCommandData (DisquuunExecuteType executeType, DisqueCommand[] commands, byte[] dataSource, Func<DisqueCommand, DisquuunResult[], bool> Callback) {
+		public StackCommandData (DisquuunExecuteType executeType, Queue<DisqueCommand> commands, byte[] dataSource, Func<DisqueCommand, DisquuunResult[], bool> Callback) {
 			this.executeType = executeType;
 			this.commands = commands;
 			this.data = dataSource;
@@ -548,15 +562,15 @@ namespace DisquuunCore {
 			throw new Exception("deprecated & all sockets are using.");
 		}
 
-		public virtual void Async (DisqueCommand command, byte[] data, Func<DisqueCommand, DisquuunResult[], bool> Callback) {
-			lock (stackLockObject) this.stackedDataQueue.Enqueue(new StackCommandData(DisquuunExecuteType.ASYNC, new DisqueCommand[]{command}, data, Callback));
+		public virtual void Async (Queue<DisqueCommand> commands, byte[] data, Func<DisqueCommand, DisquuunResult[], bool> Callback) {
+			lock (stackLockObject) this.stackedDataQueue.Enqueue(new StackCommandData(DisquuunExecuteType.ASYNC, commands, data, Callback));
 		}
 
-		public virtual void Loop (DisqueCommand command, byte[] data, Func<DisqueCommand, DisquuunResult[], bool> Callback) {
-			lock (stackLockObject) this.stackedDataQueue.Enqueue(new StackCommandData(DisquuunExecuteType.LOOP, new DisqueCommand[]{command}, data, Callback));
+		public virtual void Loop (Queue<DisqueCommand> commands, byte[] data, Func<DisqueCommand, DisquuunResult[], bool> Callback) {
+			lock (stackLockObject) this.stackedDataQueue.Enqueue(new StackCommandData(DisquuunExecuteType.LOOP, commands, data, Callback));
 		}
 
-		public virtual void Execute (DisqueCommand[] commands, byte[] wholeData, Func<DisqueCommand, DisquuunResult[], bool> Callback) {
+		public virtual void Execute (Queue<DisqueCommand> commands, byte[] wholeData, Func<DisqueCommand, DisquuunResult[], bool> Callback) {
 			lock (stackLockObject) this.stackedDataQueue.Enqueue(new StackCommandData(DisquuunExecuteType.PIPELINE, commands, wholeData, Callback));
 		}
 	}
@@ -573,8 +587,11 @@ namespace DisquuunCore {
 		
 		public static void Async (this DisquuunInput input, Action<DisqueCommand, DisquuunResult[]> Callback) {
 			var socket = input.socketPool.ChooseAvailableSocket();
+			var commands = new Queue<DisqueCommand>();
+			commands.Enqueue(input.command);
+
 			socket.Async(
-				input.command, 
+				commands, 
 				input.data, 
 				(command, resultBytes) => {
 					Callback(command, resultBytes);
@@ -585,20 +602,23 @@ namespace DisquuunCore {
 		
 		public static void Loop (this DisquuunInput input, Func<DisqueCommand, DisquuunResult[], bool> Callback) {	
 			var socket = input.socketPool.ChooseAvailableSocket();
-			socket.Loop(input.command, input.data, Callback);
+			var commands = new Queue<DisqueCommand>();
+			commands.Enqueue(input.command);
+			
+			socket.Loop(commands, input.data, Callback);
 		}
 
 		public static void Execute (this List<DisquuunInput> inputs, Action<DisqueCommand, DisquuunResult[]> Callback) {
 			if (!inputs.Any()) return;
 			var socket = inputs[0].socketPool.ChooseAvailableSocket();
+			
+			var commands = new Queue<DisqueCommand>();
+			foreach (var input in inputs) commands.Enqueue(input.command);
 
-			var commands = inputs.Select(i => i.command).ToArray();
 			using (var memStream = new MemoryStream()) {
-				foreach (var input in inputs) {
-					memStream.Write(input.data, 0, input.data.Length);
-				}
-
+				foreach (var input in inputs) memStream.Write(input.data, 0, input.data.Length);
 				var wholeData = memStream.ToArray();
+
 				socket.Execute(
 					commands, 
 					wholeData,
@@ -608,6 +628,8 @@ namespace DisquuunCore {
 					}
 				);
 			}
+
+			inputs.Clear();
 		}
 	}
 
