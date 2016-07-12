@@ -27,21 +27,22 @@ public class DisquuunTests {
 public partial class Tests {
 	public void RunTests () {
 		var tests = new List<Action<Disquuun>>();
-		for (var i = 0; i < 1; i++) {
-		// basement.
-		tests.Add(_0_0_InitWith2Connection);
-		tests.Add(_0_0_1_WaitOnOpen2Connection);
-		tests.Add(_0_0_2_ReadmeSampleSync);
-		tests.Add(_0_0_3_ReadmeSampleAsync);
-		tests.Add(_0_0_4_ConnectedShouldCallOnce);
-		tests.Add(_0_1_ConnectionFailedWithNoDisqueServer);
-		tests.Add(_0_2_SyncInfo);
-		tests.Add(_0_3_SyncInfoTwice);
-		tests.Add(_0_4_AsyncInfo);
-		tests.Add(_0_5_LoopInfo_Once);
-		tests.Add(_0_6_LoopInfo_Twice);
-		tests.Add(_0_7_LoopInfo_100);
-		tests.Add(_0_8_Pipeline);
+		for (var i = 0; i < 10; i++) {
+		// // basement.
+		// tests.Add(_0_0_InitWith2Connection);
+		// tests.Add(_0_0_1_WaitOnOpen2Connection);
+		// tests.Add(_0_0_2_ReadmeSampleSync);
+		// tests.Add(_0_0_3_ReadmeSampleAsync);
+		// tests.Add(_0_0_4_ConnectedShouldCallOnce);
+		// tests.Add(_0_1_ConnectionFailedWithNoDisqueServer);
+		// tests.Add(_0_2_SyncInfo);
+		// tests.Add(_0_3_SyncInfoTwice);
+		// tests.Add(_0_4_AsyncInfo);
+		// tests.Add(_0_5_LoopInfo_Once);
+		// tests.Add(_0_6_LoopInfo_Twice);
+		// tests.Add(_0_7_LoopInfo_100);
+		// tests.Add(_0_8_Pipeline_Single);
+		// tests.Add(_0_9_Pipeline);
 		
 		// // sync apis. DEPRECATED.
 		// tests.Add(_1_0_AddJob_Sync);
@@ -123,9 +124,10 @@ public partial class Tests {
 		// tests.Add(_8_0_LargeSizeSendThenSmallSizeSendMakeEmitOnSendAfterOnReceived);
 		// tests.Add(_8_1_LargeSizeSendThenSmallSizeSendLoopMakeEmitOnSendAfterOnReceived);
 
-		// tests.Add(_0_9_0_PipelineCommands);
-		// tests.Add(_0_9_1_MultiplePipelines);
-		// tests.Add(_0_9_2_MultipleCommandPipelines);
+		// pipelime
+		tests.Add(_0_9_0_PipelineCommands);
+		tests.Add(_0_9_1_MultiplePipelines);
+		tests.Add(_0_9_2_MultipleCommandPipelines);
 		}
 
 		try {

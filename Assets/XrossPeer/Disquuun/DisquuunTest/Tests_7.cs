@@ -264,7 +264,7 @@ public partial class Tests {
 
 	private object _7_2_GetJob1000byLoopLockObject = new object(); 
 	public void _7_2_GetJob1000byLoop (Disquuun disquuun) {
-		WaitUntil("_7_2_GetJob1000byLoop", () => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		WaitUntil("_7_2_GetJob1000byLoop 0", () => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
 		
 		var addingJobCount = 1000 * loadLevel;
 		var queueId = Guid.NewGuid().ToString();
@@ -279,7 +279,7 @@ public partial class Tests {
 			);
 		}
 
-		WaitUntil("_7_2_GetJob1000byLoop", () => (addedCount == addingJobCount), 5);
+		WaitUntil("_7_2_GetJob1000byLoop 1", () => (addedCount == addingJobCount), 5);
 
 		var gotJobDataIds = new List<string>();
 
@@ -302,8 +302,8 @@ public partial class Tests {
 			}
 		);
 		
-		WaitUntil("_7_2_GetJob1000byLoop 1", () => (gotJobDataIds.Count == addingJobCount), 20);
-		WaitUntil("_7_2_GetJob1000byLoop 2", () => (0 < disquuun.AvailableSocketNum()), 1);
+		WaitUntil("_7_2_GetJob1000byLoop 2", () => (gotJobDataIds.Count == addingJobCount), 20);
+		WaitUntil("_7_2_GetJob1000byLoop 3", () => (0 < disquuun.AvailableSocketNum()), 1);
 		
 		TestLogger.Log("_7_2_GetJob1000byLoop w:" + w.ElapsedMilliseconds + " tick:" + w.ElapsedTicks);
 		
@@ -314,6 +314,6 @@ public partial class Tests {
 			}
 		);
 		
-		WaitUntil("_7_2_GetJob1000byLoop 3", () => (addingJobCount == fastackedCount), 10);
+		WaitUntil("_7_2_GetJob1000byLoop 4", () => (addingJobCount == fastackedCount), 10);
 	}
 }

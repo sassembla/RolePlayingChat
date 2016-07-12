@@ -217,9 +217,9 @@ public partial class Tests {
 		
 		WaitUntil("_0_7_LoopInfo_100", () => (infos.Count == 100), 5);		
 	}
-
-	public void _0_8_Pipeline (Disquuun disquuun) {
-		WaitUntil("_0_8_Pipeline", () => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+	
+	public void _0_8_Pipeline_Single (Disquuun disquuun) {
+		WaitUntil("_0_8_Pipeline_Single", () => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
 
 		var gotInfo = false;
 
@@ -228,8 +228,25 @@ public partial class Tests {
 				gotInfo = true;
 			}
 		);
-	
 
-		WaitUntil("_0_8_Pipeline", () => gotInfo, 5);
+		WaitUntil("_0_8_Pipeline_Single", () => gotInfo, 1);
 	}
+
+	private object _0_9_PipelineObject = new object();
+
+	public void _0_9_Pipeline (Disquuun disquuun) {
+		WaitUntil("_0_9_Pipeline", () => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+
+		var gotInfoCount = 0;
+
+		disquuun.Pipeline(disquuun.Info(), disquuun.Info()).Execute(
+			(command, data) => {
+				lock (_0_9_PipelineObject) gotInfoCount++;
+			}
+		);
+
+		WaitUntil("_0_9_Pipeline", () => (gotInfoCount == 2), 1);
+	}
+
+	
 }

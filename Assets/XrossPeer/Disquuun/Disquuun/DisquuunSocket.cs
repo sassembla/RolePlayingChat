@@ -51,6 +51,7 @@ namespace DisquuunCore {
 			public SocketAsyncEventArgs sendArgs;
 			public readonly SocketAsyncEventArgs receiveArgs;
 
+			public bool isPipeline;
 			public bool continuation;
 
 			public Queue<DisqueCommand> currentCommands;
@@ -225,6 +226,9 @@ namespace DisquuunCore {
 			socketToken.receiveArgs.SetBuffer(socketToken.receiveBuffer, 0, socketToken.receiveBuffer.Length);
 			if (!socketToken.socket.ReceiveAsync(socketToken.receiveArgs)) OnReceived(socketToken.socket, socketToken.receiveArgs);
 			
+			// if multiple commands exist, set as pipeline.
+			if (1 < commands.Count) socketToken.isPipeline = true; 
+
 			socketToken.currentCommands = commands;
 			socketToken.currentSendingBytes = data;
 			socketToken.AsyncCallback = Callback;
@@ -372,20 +376,71 @@ namespace DisquuunCore {
 
 			var bytesAmount = args.BytesTransferred;
 			
-			// update as read completed.
+			// update token-dataLength as read completed.
 			token.readableDataLength = token.readableDataLength + bytesAmount;
 			
-			/*
-				パイプラインの処理の場合って、
-				・複数のコマンドがある
-				・一回のバッファで途中のコマンドまでが完了する可能性がある
-				っていう感じか。でもまずは種類で分けちゃおう。
-			 */
-			
-			Receive(token);
+			if (token.isPipeline) PipelineReceive(token); 
+			else LoopOrAsyncReceive(token);
 		}
 
-		private void Receive (SocketToken token) {
+		private void PipelineReceive (SocketToken token) {
+			int beforeResultCursor = 0;
+			var currentReceiveBuffer = token.receiveBuffer;
+
+			while (true) {
+				var currentCommand = token.currentCommands.Peek();
+
+				var result = DisquuunAPI.ScanBuffer(currentCommand, currentReceiveBuffer, currentReceiveBuffer.Length, socketId);
+
+				// 部分とはいえ読み終わっている
+				if (result.isDone) {
+					beforeResultCursor = result.cursor;
+					token.AsyncCallback(currentCommand, result.data);
+
+					if (token.currentCommands.Count == 1) {
+						switch (token.socketState) {
+							case SocketState.BUSY: {
+								token.socketState = SocketState.RECEIVED;
+								break;
+							}
+							case SocketState.SENDED: {
+								token.socketState = SocketState.OPENED;
+								SocketReloaded(this);
+								break;
+							}
+							default: {
+								break;
+							}
+						}
+						return;
+					}
+
+					token.currentCommands.Dequeue();
+
+					// 受け取っているデータが途中まで入っている可能性があって、それを取り出すにはcursorが必要。
+					var currentCursor = result.cursor;// ここまでは読み終わっている。ので、バッファからデータを読む必要がある。
+
+					var newReceiveBuffer = new byte[currentReceiveBuffer.Length - currentCursor];// 長さは減っていくはず。
+					Buffer.BlockCopy(currentReceiveBuffer, currentCursor, newReceiveBuffer, 0, newReceiveBuffer.Length);
+					
+					currentReceiveBuffer = newReceiveBuffer;
+					continue;
+				}
+
+				// doneできなかった場合、この時点でのデータの取得が終わってない。
+				// currentReceiveBufferの内容に関して読むのに失敗したので、このデータを基礎にして続きを読む必要がある。
+				// こいつの長さは、当初のtoken.receiveBufferより短く、読めなかった部分の長さになる。
+				// StartContinueReceivingの中ではtoken.receiveBufferが使われるので、token.receiveBufferの中身をずらす必要がある。
+				// ずらす幅は、token.receiveBufferの長さに対して、読めなかったブロックの長さ = currentReceiveBuffer 
+				
+				// 、、というか、単に頭の位置がずれなければいいな。
+				Buffer.BlockCopy(currentReceiveBuffer, 0, token.receiveBuffer, 0, currentReceiveBuffer.Length);
+				StartContinueReceiving(token, currentReceiveBuffer.Length);
+				break;
+			}
+		}
+
+		private void LoopOrAsyncReceive (SocketToken token) {
 			var currentCommand = token.currentCommands.Peek();
 			var result = DisquuunAPI.ScanBuffer(currentCommand, token.receiveBuffer, token.readableDataLength, socketId);
 
@@ -447,18 +502,19 @@ namespace DisquuunCore {
 				return;
 			}
 
-			// 一個のTCP packに対して、一個のresponseがでかい、っていう場合の対処は下記になる。
-			// 予想できるサイズに対してArrayを大きくする部分はまあ、これで合ってるしほかでも使える。
-
 			// not yet received all data.
 			// continue receiving.
 
+			StartContinueReceiving(token, token.readableDataLength);
+		}
+
+		private void StartContinueReceiving (SocketToken token, int alreadyReadLength) {
 			/*
-				get readable size of already got data for next read=OnReceived.
+				get readable size of already received data for next read=OnReceived.
 				resize if need.
 			*/
 			var nextAdditionalBytesLength = token.socket.Available;
-			if (token.readableDataLength == token.receiveBuffer.Length) Array.Resize(ref token.receiveBuffer, token.receiveArgs.Buffer.Length + nextAdditionalBytesLength);
+			if (alreadyReadLength == token.receiveBuffer.Length) Array.Resize(ref token.receiveBuffer, token.receiveArgs.Buffer.Length + nextAdditionalBytesLength);
 
 			/*
 				note that,
@@ -486,8 +542,10 @@ namespace DisquuunCore {
 				
 				socket.SetBuffer([bufferAsPointer], additionalDataOffset, receiveSizeLimit)
 			*/
-			var receivableCount = token.receiveBuffer.Length - token.readableDataLength;
-			token.receiveArgs.SetBuffer(token.receiveBuffer, token.readableDataLength, receivableCount);
+			var receivableCount = token.receiveBuffer.Length - alreadyReadLength;
+
+			// should set token.receiveBuffer to receiveArgs. because it was resized or not.
+			token.receiveArgs.SetBuffer(token.receiveBuffer, alreadyReadLength, receivableCount);
 
 			if (!token.socket.ReceiveAsync(token.receiveArgs)) OnReceived(token.socket, token.receiveArgs);
 		}
