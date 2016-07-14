@@ -130,9 +130,6 @@ public partial class Tests {
 		tests.Add(_0_9_0_PipelineCommands);
 		tests.Add(_0_9_1_MultiplePipelines);
 		tests.Add(_0_9_2_MultipleCommandPipelines);
-		
-		// 保留。
-		// tests.Add(_0_9_2_0_MultipleCommandPipelines);
 		tests.Add(_0_9_3_SomeCommandPipelines);
 		tests.Add(_0_9_4_MassiveCommandPipelines);
 		}
