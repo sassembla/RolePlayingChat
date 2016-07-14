@@ -562,7 +562,8 @@ namespace DisquuunCore {
 		public void Disconnect () {
 			try {
 				socketToken.socketState = SocketState.CLOSING;
-				External.Disconnect(socketToken, null);
+				socketToken.socket.Shutdown(SocketShutdown.Both);
+				socketToken.socket.Dispose();
 				socketToken.socketState = SocketState.CLOSED;
 			} catch (Exception e) {
 				Disquuun.Log("Disconnect e:" + e.Message, true);

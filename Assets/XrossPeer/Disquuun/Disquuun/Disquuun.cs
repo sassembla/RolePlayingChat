@@ -302,7 +302,7 @@ namespace DisquuunCore {
 			// TestLogger.Log(message, write);
 		}
     }
-
+	
 
 	public class DisquuunSocketPool {
 		private DisquuunSocket[] sockets;

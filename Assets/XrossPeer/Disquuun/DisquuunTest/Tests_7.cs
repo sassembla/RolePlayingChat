@@ -429,7 +429,7 @@ public partial class Tests {
 			}
 		);
 		
-		WaitUntil("_7_2_GetJob1000byLoop 2", () => (gotJobDataIds.Count == addingJobCount), 20);
+		WaitUntil("_7_2_GetJob1000byLoop 2", () => (gotJobDataIds.Count == addingJobCount), 30);
 		WaitUntil("_7_2_GetJob1000byLoop 3", () => (0 < disquuun.AvailableSocketNum()), 1);
 		
 		TestLogger.Log("_7_2_GetJob1000byLoop w:" + w.ElapsedMilliseconds + " tick:" + w.ElapsedTicks);
