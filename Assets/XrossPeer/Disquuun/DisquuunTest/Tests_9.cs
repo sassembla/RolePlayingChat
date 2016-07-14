@@ -185,7 +185,7 @@ public partial class Tests {
 			}
 		);
 		
-		disquuun.GetJob(new string[]{queueId}, "count", 1000).Loop(
+		disquuun.GetJob(new string[]{queueId}, "count", jobCount).Loop(
 			(commnand, data) => {
 				lock (_0_9_4_MassiveCommandPipelinesObject) {
 					gotJobIds.AddRange(DisquuunDeserializer.GetJob(data).Select(j => j.jobId));
@@ -195,8 +195,8 @@ public partial class Tests {
 			}
 		);
 		
-		WaitUntil("_0_9_4_MassiveCommandPipelines", () => (infoCount == 1 && addedJobIds.Count == jobCount && gotJobIds.Count == jobCount), 5);
-
+		WaitUntil("_0_9_4_MassiveCommandPipelines 0", () => (infoCount == 1 && addedJobIds.Count == jobCount && gotJobIds.Count == jobCount), 20);
+		
 		var fastacked = false;
 		disquuun.FastAck(gotJobIds.ToArray()).Async(
 			(command, data) => {
@@ -204,6 +204,6 @@ public partial class Tests {
 			}
 		);
 
-		WaitUntil("_0_9_4_MassiveCommandPipelines", () => fastacked, 5);
+		WaitUntil("_0_9_4_MassiveCommandPipelines 1", () => fastacked, 5);
 	}
 }
