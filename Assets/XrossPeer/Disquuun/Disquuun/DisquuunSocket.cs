@@ -386,6 +386,9 @@ namespace DisquuunCore {
 		private void PipelineReceive (SocketToken token) {
 			var fromCursor = 0;
 			
+			/*
+				read data from receiveBuffer by moving fromCursor.
+			*/
 			while (true) {
 				var currentCommand = token.currentCommands.Peek();
 				var result = DisquuunAPI.ScanBuffer(currentCommand, token.receiveBuffer, fromCursor, token.readableDataLength, socketId);
@@ -395,8 +398,9 @@ namespace DisquuunCore {
 
 					// deque as read done.
 					token.currentCommands.Dequeue();
-
+					
 					if (token.currentCommands.Count == 0) {
+						// pipelining is over.
 						switch (token.socketState) {
 							case SocketState.BUSY: {
 								token.socketState = SocketState.RECEIVED;
@@ -413,21 +417,30 @@ namespace DisquuunCore {
 						}
 						return;
 					}
-					// just consumed.
+
+					// commands are still remained.
+
+					// got all data is just consumed. get rest from outside.
 					if (fromCursor == token.readableDataLength) {
 						StartContinueReceiving(token, 0);
 						return;
 					}
 					
+					// rest pipeline commands and received data is exists in buffer. 
 					fromCursor = result.cursor;
 					continue;
 				}
+
+				/*
+					reading is not completed. the fragment of command exists.
+				*/
 				
-				var postponeDataLength = token.readableDataLength - fromCursor;
-				// 手元にあるデータを次の受け取りのために保持する、これだけはコピー必須だと思う。実際にはmemmoveで良いのか。
-				Buffer.BlockCopy(token.receiveBuffer, fromCursor, token.receiveBuffer, 0, postponeDataLength);
+				var fragmentDataLength = token.readableDataLength - fromCursor;
 				
-				StartContinueReceiving(token, postponeDataLength);
+				// move fragment data to head of buffer.
+				Buffer.BlockCopy(token.receiveBuffer, fromCursor, token.receiveBuffer, 0, fragmentDataLength);
+				
+				StartContinueReceiving(token, fragmentDataLength);
 				break;
 			}
 		}
@@ -500,19 +513,16 @@ namespace DisquuunCore {
 			StartContinueReceiving(token, token.readableDataLength);
 		}
 
-		private void StartContinueReceiving (SocketToken token, int alreadyReadLength) {
+		private void StartContinueReceiving (SocketToken token, int receiveAfterFragmentIndex) {
 			// set already got data length to set param.
-			token.readableDataLength = alreadyReadLength;
+			token.readableDataLength = receiveAfterFragmentIndex;
 			
 			/*
 				get readable size of already received data for next read=OnReceived.
 				resize if need.
 			*/
 			var nextAdditionalBytesLength = token.socket.Available;
-			if (alreadyReadLength == token.receiveBuffer.Length) {
-				Disquuun.Log("resize", true);
-				Array.Resize(ref token.receiveBuffer, token.receiveArgs.Buffer.Length + nextAdditionalBytesLength);
-			}
+			if (receiveAfterFragmentIndex == token.receiveBuffer.Length) Array.Resize(ref token.receiveBuffer, token.receiveArgs.Buffer.Length + nextAdditionalBytesLength);
 
 			/*
 				note that,
@@ -540,11 +550,11 @@ namespace DisquuunCore {
 				
 				socket.SetBuffer([bufferAsPointer], additionalDataOffset, receiveSizeLimit)
 			*/
-			var receivableCount = token.receiveBuffer.Length - alreadyReadLength;
+			var receivableCount = token.receiveBuffer.Length - receiveAfterFragmentIndex;
 
 			// should set token.receiveBuffer to receiveArgs. because it was resized or not.
 			// and of cource this SetBuffer is for setting receivableCount.
-			token.receiveArgs.SetBuffer(token.receiveBuffer, alreadyReadLength, receivableCount);
+			token.receiveArgs.SetBuffer(token.receiveBuffer, receiveAfterFragmentIndex, receivableCount);
 
 			if (!token.socket.ReceiveAsync(token.receiveArgs)) OnReceived(token.socket, token.receiveArgs);
 		}
