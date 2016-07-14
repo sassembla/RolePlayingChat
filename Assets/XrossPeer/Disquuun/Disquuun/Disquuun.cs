@@ -291,7 +291,7 @@ namespace DisquuunCore {
 		*/
 		private List<DisquuunInput> pipelineStack = new List<DisquuunInput>();
 		public List<DisquuunInput> Pipeline(params DisquuunInput[] disquuunInput) {
-            pipelineStack.AddRange(disquuunInput);
+            if (0 < disquuunInput.Length) pipelineStack.AddRange(disquuunInput);
 			return pipelineStack;
         }
 

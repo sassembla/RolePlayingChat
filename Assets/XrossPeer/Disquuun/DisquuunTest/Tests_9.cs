@@ -1,5 +1,6 @@
 using System;
-
+using System.Collections.Generic;
+using System.Linq;
 using DisquuunCore;
 using DisquuunCore.Deserialize;
 
@@ -55,28 +56,28 @@ public partial class Tests {
 
 		var queueId = Guid.NewGuid().ToString();
 
+		var jobData = new byte[100];
+		for (var i = 0; i < jobData.Length; i++) jobData[i] = 1;
+
 		disquuun.Pipeline(disquuun.Info());
-		disquuun.Pipeline(disquuun.AddJob(queueId, new byte[100]));
+		disquuun.Pipeline(disquuun.AddJob(queueId, jobData));
 		disquuun.Pipeline(disquuun.GetJob(new string[]{queueId})).Execute( 
 			(command, data) => {
 				switch (command) {
 					case DisqueCommand.INFO: {
 						lock (_0_9_2_MultipleCommandPipelinesObject) {
-							TestLogger.Log("1", true);
 							infoCount++;
 						}
 						break;
 					}
 					case DisqueCommand.ADDJOB: {
 						lock (_0_9_2_MultipleCommandPipelinesObject) {
-							TestLogger.Log("2", true);
 							addedJobId = DisquuunDeserializer.AddJob(data);
 						} 
 						break;
 					}
 					case DisqueCommand.GETJOB: {
 						lock (_0_9_2_MultipleCommandPipelinesObject) {
-							TestLogger.Log("3", true);
 							var gotJobDatas = DisquuunDeserializer.GetJob(data);
 							gotJobId = gotJobDatas[0].jobId;
 							disquuun.FastAck(new string[]{gotJobId}).DEPRICATED_Sync();
@@ -88,5 +89,121 @@ public partial class Tests {
 		);
 
 		WaitUntil("_0_9_2_MultipleCommandPipelines", () => (infoCount == 1 && !string.IsNullOrEmpty(addedJobId) && gotJobId == addedJobId), 5);
+	}
+
+	private object _0_9_3_SomeCommandPipelinesObject = new object();
+
+	public void _0_9_3_SomeCommandPipelines (Disquuun disquuun) {
+		WaitUntil("_0_9_3_SomeCommandPipelines", () => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		
+		var jobCount = 1000;
+
+		var infoCount = 0;
+		var addedJobIds = new List<string>();
+		var gotJobIds = new List<string>();
+
+		var queueId = Guid.NewGuid().ToString();
+
+		var jobData = new byte[100];
+		for (var i = 0; i < jobData.Length; i++) jobData[i] = 1;
+
+		for (var i = 0; i < jobCount; i++) disquuun.Pipeline(disquuun.AddJob(queueId, jobData));
+		disquuun.Pipeline(disquuun.Info()).Execute( 
+			(command, data) => {
+				switch (command) {
+					case DisqueCommand.INFO: {
+						lock (_0_9_3_SomeCommandPipelinesObject) {
+							infoCount++;
+						}
+						break;
+					}
+					case DisqueCommand.ADDJOB: {
+						lock (_0_9_3_SomeCommandPipelinesObject) {
+							addedJobIds.Add(DisquuunDeserializer.AddJob(data));
+						} 
+						break;
+					}
+				}
+			}
+		);
+		
+		disquuun.GetJob(new string[]{queueId}, "count", 1000).Loop(
+			(commnand, data) => {
+				lock (_0_9_3_SomeCommandPipelinesObject) {
+					gotJobIds.AddRange(DisquuunDeserializer.GetJob(data).Select(j => j.jobId));
+					if (gotJobIds.Count != jobCount) return true;
+					return false;
+				}
+			}
+		);
+		
+		WaitUntil("_0_9_3_SomeCommandPipelines", () => (infoCount == 1 && addedJobIds.Count == jobCount && gotJobIds.Count == jobCount), 5);
+
+		var fastacked = false;
+		disquuun.FastAck(gotJobIds.ToArray()).Async(
+			(command, data) => {
+				lock (_0_9_3_SomeCommandPipelinesObject) fastacked = true;
+			}
+		);
+
+		WaitUntil("_0_9_3_SomeCommandPipelines", () => fastacked, 5);
+	}
+
+	private object _0_9_4_MassiveCommandPipelinesObject = new object();
+
+	public void _0_9_4_MassiveCommandPipelines (Disquuun disquuun) {
+		WaitUntil("_0_9_4_MassiveCommandPipelines", () => (disquuun.State() == Disquuun.ConnectionState.OPENED), 5);
+		
+		var jobCount = 100000;
+
+		var infoCount = 0;
+		var addedJobIds = new List<string>();
+		var gotJobIds = new List<string>();
+
+		var queueId = Guid.NewGuid().ToString();
+
+		var jobData = new byte[100];
+		for (var i = 0; i < jobData.Length; i++) jobData[i] = 1;
+
+		for (var i = 0; i < jobCount; i++) disquuun.Pipeline(disquuun.AddJob(queueId, jobData));
+		disquuun.Pipeline(disquuun.Info()).Execute( 
+			(command, data) => {
+				switch (command) {
+					case DisqueCommand.INFO: {
+						lock (_0_9_4_MassiveCommandPipelinesObject) {
+							infoCount++;
+						}
+						break;
+					}
+					case DisqueCommand.ADDJOB: {
+						lock (_0_9_4_MassiveCommandPipelinesObject) {
+							addedJobIds.Add(DisquuunDeserializer.AddJob(data));
+						} 
+						break;
+					}
+				}
+			}
+		);
+		
+		disquuun.GetJob(new string[]{queueId}, "count", 1000).Loop(
+			(commnand, data) => {
+				lock (_0_9_4_MassiveCommandPipelinesObject) {
+					gotJobIds.AddRange(DisquuunDeserializer.GetJob(data).Select(j => j.jobId));
+					if (gotJobIds.Count != jobCount) return true;
+					return false;
+				}
+			}
+		);
+		
+		WaitUntil("_0_9_4_MassiveCommandPipelines", () => (infoCount == 1 && addedJobIds.Count == jobCount && gotJobIds.Count == jobCount), 5);
+
+		var fastacked = false;
+		disquuun.FastAck(gotJobIds.ToArray()).Async(
+			(command, data) => {
+				lock (_0_9_4_MassiveCommandPipelinesObject) fastacked = true;
+			}
+		);
+
+		WaitUntil("_0_9_4_MassiveCommandPipelines", () => fastacked, 5);
 	}
 }

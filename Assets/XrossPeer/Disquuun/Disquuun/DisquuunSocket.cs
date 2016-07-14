@@ -384,17 +384,17 @@ namespace DisquuunCore {
 		}
 
 		private void PipelineReceive (SocketToken token) {
-			int beforeResultCursor = 0;
-			var currentReceiveBuffer = token.receiveBuffer;
-
+			var dataLength = token.readableDataLength;
+			var currentReceiveBuffer = new byte[dataLength];
+			Buffer.BlockCopy(token.receiveBuffer, 0, currentReceiveBuffer, 0, token.readableDataLength);
+			
 			while (true) {
 				var currentCommand = token.currentCommands.Peek();
-
-				var result = DisquuunAPI.ScanBuffer(currentCommand, currentReceiveBuffer, currentReceiveBuffer.Length, socketId);
+				
+				var result = DisquuunAPI.ScanBuffer(currentCommand, currentReceiveBuffer, dataLength, socketId);
 
 				// 部分とはいえ読み終わっている
 				if (result.isDone) {
-					beforeResultCursor = result.cursor;
 					token.AsyncCallback(currentCommand, result.data);
 
 					if (token.currentCommands.Count == 1) {
@@ -415,26 +415,37 @@ namespace DisquuunCore {
 						return;
 					}
 
-					token.currentCommands.Dequeue();
-
 					// 受け取っているデータが途中まで入っている可能性があって、それを取り出すにはcursorが必要。
 					var currentCursor = result.cursor;// ここまでは読み終わっている。ので、バッファからデータを読む必要がある。
+					dataLength -= currentCursor;
 
-					var newReceiveBuffer = new byte[currentReceiveBuffer.Length - currentCursor];// 長さは減っていくはず。
+					// just consumed.
+					if (dataLength == 0) {
+						token.readableDataLength = 0;
+						StartContinueReceiving(token, 0);// ここが間違ってるんじゃねーかなー
+						return;
+					}
+					
+					// まだサイズがあるので、次のコマンドを読む
+					token.currentCommands.Dequeue();
+
+					// ここでリサイズが発生している。そんで、ここではdataLengthを使うべきなんだ。
+					var newReceiveBuffer = new byte[dataLength];
 					Buffer.BlockCopy(currentReceiveBuffer, currentCursor, newReceiveBuffer, 0, newReceiveBuffer.Length);
 					
 					currentReceiveBuffer = newReceiveBuffer;
 					continue;
 				}
 
-				// doneできなかった場合、この時点でのデータの取得が終わってない。
-				// currentReceiveBufferの内容に関して読むのに失敗したので、このデータを基礎にして続きを読む必要がある。
-				// こいつの長さは、当初のtoken.receiveBufferより短く、読めなかった部分の長さになる。
-				// StartContinueReceivingの中ではtoken.receiveBufferが使われるので、token.receiveBufferの中身をずらす必要がある。
-				// ずらす幅は、token.receiveBufferの長さに対して、読めなかったブロックの長さ = currentReceiveBuffer 
+				Disquuun.Log("slashed, その他のケースあった。 dataLength:" + dataLength + " enc:" + System.Text.Encoding.UTF8.GetString(currentReceiveBuffer), true);
 				
-				// 、、というか、単に頭の位置がずれなければいいな。
 				Buffer.BlockCopy(currentReceiveBuffer, 0, token.receiveBuffer, 0, currentReceiveBuffer.Length);
+				// Disquuun.Log("token.receiveBuffer:" + System.Text.Encoding.UTF8.GetString(token.receiveBuffer) + " currentReceiveBuffer len:" + System.Text.Encoding.UTF8.GetString(currentReceiveBuffer));
+				// // あとはサイズパラメータの値が、このデータの長さにならないといけない気がする。
+				
+				token.readableDataLength = currentReceiveBuffer.Length;
+				// この部分をStartContinueReceivingに入れられなかったのが間違いの元だ。
+				
 				StartContinueReceiving(token, currentReceiveBuffer.Length);
 				break;
 			}
@@ -514,7 +525,10 @@ namespace DisquuunCore {
 				resize if need.
 			*/
 			var nextAdditionalBytesLength = token.socket.Available;
-			if (alreadyReadLength == token.receiveBuffer.Length) Array.Resize(ref token.receiveBuffer, token.receiveArgs.Buffer.Length + nextAdditionalBytesLength);
+			if (alreadyReadLength == token.receiveBuffer.Length) {
+				Disquuun.Log("resize", true);
+				Array.Resize(ref token.receiveBuffer, token.receiveArgs.Buffer.Length + nextAdditionalBytesLength);
+			}
 
 			/*
 				note that,
@@ -545,6 +559,7 @@ namespace DisquuunCore {
 			var receivableCount = token.receiveBuffer.Length - alreadyReadLength;
 
 			// should set token.receiveBuffer to receiveArgs. because it was resized or not.
+			// and of cource this SetBuffer is for setting receivableCount.
 			token.receiveArgs.SetBuffer(token.receiveBuffer, alreadyReadLength, receivableCount);
 
 			if (!token.socket.ReceiveAsync(token.receiveArgs)) OnReceived(token.socket, token.receiveArgs);

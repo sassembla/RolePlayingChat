@@ -27,7 +27,7 @@ public class DisquuunTests {
 public partial class Tests {
 	public void RunTests () {
 		var tests = new List<Action<Disquuun>>();
-		for (var i = 0; i < 10; i++) {
+		for (var i = 0; i < 1; i++) {
 		// // basement.
 		// tests.Add(_0_0_InitWith2Connection);
 		// tests.Add(_0_0_1_WaitOnOpen2Connection);
@@ -125,9 +125,14 @@ public partial class Tests {
 		// tests.Add(_8_1_LargeSizeSendThenSmallSizeSendLoopMakeEmitOnSendAfterOnReceived);
 
 		// pipelime
-		tests.Add(_0_9_0_PipelineCommands);
-		tests.Add(_0_9_1_MultiplePipelines);
-		tests.Add(_0_9_2_MultipleCommandPipelines);
+		// tests.Add(_0_9_0_PipelineCommands);
+		// tests.Add(_0_9_1_MultiplePipelines);
+		// tests.Add(_0_9_2_MultipleCommandPipelines);
+		
+		// 保留。
+		// tests.Add(_0_9_2_0_MultipleCommandPipelines);
+		// tests.Add(_0_9_3_SomeCommandPipelines);
+		tests.Add(_0_9_4_MassiveCommandPipelines);
 		}
 
 		try {
