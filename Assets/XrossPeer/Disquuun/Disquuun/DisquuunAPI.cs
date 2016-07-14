@@ -269,8 +269,8 @@ namespace DisquuunCore {
 			}
 		}
 		
-		public static ScanResult ScanBuffer (DisqueCommand command, byte[] sourceBuffer, long length, string socketId) {
-			var cursor = 0;
+		public static ScanResult ScanBuffer (DisqueCommand command, byte[] sourceBuffer, int fromCursor, long length, string socketId) {
+			var cursor = fromCursor;
 			
 			switch (command) {
 				case DisqueCommand.ADDJOB: {
