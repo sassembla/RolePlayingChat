@@ -33,7 +33,8 @@ public partial class Tests {
 		tests.Add(_0_0_1_WaitOnOpen2Connection);
 		tests.Add(_0_0_2_ReadmeSampleSync);
 		tests.Add(_0_0_3_ReadmeSampleAsync);
-		tests.Add(_0_0_4_ConnectedShouldCallOnce);
+		tests.Add(_0_0_4_ReadmeSamplePipeline);
+		tests.Add(_0_1_ConnectedShouldCallOnce);
 		tests.Add(_0_1_ConnectionFailedWithNoDisqueServer);
 		tests.Add(_0_2_SyncInfo);
 		tests.Add(_0_3_SyncInfoTwice);
