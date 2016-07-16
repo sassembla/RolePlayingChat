@@ -3,7 +3,10 @@
 namespace ConsoleApplication {
     public class Program {
         public static void Main(string[] args) {
-            DisquuunTests.Start();
+        	DisquuunTests.Start();
+
+            // Automatineのテスト走らせつついろいろやろう。
+            // AutomatineTests.Start();
         }
     }
 }

@@ -38,8 +38,8 @@ namespace DisquuunCore {
 		public const byte ByteBulk		= 36;
 		public const byte ByteMultiBulk	= 42;
 		public const byte ByteInt		= 58;
-		public static byte ByteCR = Convert.ToByte('\r');
-		public static byte ByteLF = Convert.ToByte('\n');
+		public static readonly byte ByteCR = Convert.ToByte('\r');
+		public static readonly byte ByteLF = Convert.ToByte('\n');
 		
 		private static byte[] BytesMultiBulk = new byte[]{ByteMultiBulk};
 		private static byte[] BytesCRLF = new byte[]{ByteCR, ByteLF};
