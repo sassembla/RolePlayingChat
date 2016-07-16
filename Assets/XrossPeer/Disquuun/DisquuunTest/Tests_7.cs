@@ -475,7 +475,6 @@ public partial class Tests {
 		var queueId = Guid.NewGuid().ToString();
 		
 		for (var i = 0; i < addingJobCount; i++) {
-			if (i == addingJobCount/2) disquuun.RevolvePipeline(); 
 			disquuun.Pipeline(disquuun.AddJob(queueId, new byte[10]));
 		}
 

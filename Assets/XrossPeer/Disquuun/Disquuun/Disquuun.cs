@@ -305,7 +305,7 @@ namespace DisquuunCore {
 		public void RevolvePipeline () {
 			if (currentPipelineIndex == -1) return; 
 			if (pipelineStack.Count == 0) return;
-			// if (pipelineStack.Count < currentPipelineIndex) ここちょっとわかんないな
+			
 			if (0 < pipelineStack[currentPipelineIndex].Count) currentPipelineIndex++;
 		}
     }

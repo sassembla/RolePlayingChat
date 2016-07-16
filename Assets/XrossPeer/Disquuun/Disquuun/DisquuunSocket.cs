@@ -663,7 +663,7 @@ namespace DisquuunCore {
 				
 				var commands = new Queue<DisqueCommand>();
 				foreach (var input in currentSlotInputs) commands.Enqueue(input.command);
-
+				
 				using (var memStream = new MemoryStream()) {
 					foreach (var input in currentSlotInputs) memStream.Write(input.data, 0, input.data.Length);
 					var wholeData = memStream.ToArray();
