@@ -602,7 +602,7 @@ namespace DisquuunCore {
 								var lineEndCursor = ReadLine(sourceBuffer, cursor, length);
 								if (lineEndCursor == -1) return new ScanResult(false);
 								cursor = cursor + 1;// add header byte size = 1.
-								
+
 								// var bulkCountStr = Encoding.UTF8.GetString(sourceBuffer, cursor, lineEndCursor - cursor);
 								// Disquuun.Log("bulkCountStr:" + bulkCountStr);
 								
